@@ -1,0 +1,39 @@
+.git
+.gitignore
+.dockerignore
+
+__pycache__
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Python packaging
+*.egg
+*.egg-info
+build
+dist
+
+# Environments
+.env
+.venv
+venv
+ENV
+
+# Django collectstatic output
+source/staticfiles
+
+# Tests and coverage
+.coverage
+htmlcov
+pytest.cache
+
+# IDE/editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS artifacts
+.DS_Store
+Thumbs.db

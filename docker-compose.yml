@@ -1,0 +1,61 @@
+services:
+  web:
+    build: .
+    command: watchmedo auto-restart --directory=/app --pattern=*.py --recursive -- gunicorn config.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - ./source:/app
+    ports:
+      - "8001:8000"
+    environment:
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: "*"
+      DB_NAME: app_db
+      DB_USER: app_user
+      DB_PASSWORD: app_password
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: rpc://
+    depends_on:
+      - mysql
+      - rabbitmq
+
+  celery:
+    build: .
+    command: watchmedo auto-restart --directory=/app --pattern=*.py --recursive -- celery -A config worker -l info
+    volumes:
+      - ./source:/app
+    environment:
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: "*"
+      DB_NAME: app_db
+      DB_USER: app_user
+      DB_PASSWORD: app_password
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: rpc://
+    depends_on:
+      - mysql
+      - rabbitmq
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: app_db
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: app_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+volumes:
+  mysql_data:
+  rabbitmq_data:

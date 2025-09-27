@@ -1,0 +1,6 @@
+Django>=4.2,<5.0
+celery>=5.3
+mysqlclient>=2.1
+gunicorn>=21.2
+watchdog>=4.0
+whitenoise>=6.7

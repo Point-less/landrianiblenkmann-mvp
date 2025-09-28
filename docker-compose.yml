@@ -1,7 +1,7 @@
 services:
   web:
     build: .
-    command: watchmedo auto-restart --directory=/app --pattern=*.py --recursive -- gunicorn config.wsgi:application --bind 0.0.0.0:8000
+    command: watchmedo auto-restart --directory=/app --pattern=*.py --recursive -- uvicorn config.asgi:application --host 0.0.0.0 --port 8000
     volumes:
       - ./source:/app
     ports:

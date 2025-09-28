@@ -4,3 +4,4 @@ mysqlclient>=2.1
 gunicorn>=21.2
 watchdog>=4.0
 whitenoise>=6.7
+uvicorn[standard]>=0.32

@@ -12,12 +12,12 @@ services:
       DB_NAME: app_db
       DB_USER: app_user
       DB_PASSWORD: app_password
-      DB_HOST: mysql
-      DB_PORT: "3306"
+      DB_HOST: postgres
+      DB_PORT: "5432"
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       CELERY_RESULT_BACKEND: rpc://
     depends_on:
-      - mysql
+      - postgres
       - rabbitmq
 
   celery:
@@ -31,24 +31,23 @@ services:
       DB_NAME: app_db
       DB_USER: app_user
       DB_PASSWORD: app_password
-      DB_HOST: mysql
-      DB_PORT: "3306"
+      DB_HOST: postgres
+      DB_PORT: "5432"
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       CELERY_RESULT_BACKEND: rpc://
     depends_on:
-      - mysql
+      - postgres
       - rabbitmq
 
-  mysql:
-    image: mysql:8.0
+  postgres:
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: app_db
-      MYSQL_USER: app_user
-      MYSQL_PASSWORD: app_password
-      MYSQL_ROOT_PASSWORD: root_password
+      POSTGRES_DB: app_db
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -57,5 +56,5 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
 
 volumes:
-  mysql_data:
+  postgres_data:
   rabbitmq_data:

@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apk add --no-cache build-base mariadb-dev mariadb-connector-c-dev pkgconf linux-headers
+RUN apk add --no-cache build-base postgresql-dev pkgconf linux-headers
 
 COPY source/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt

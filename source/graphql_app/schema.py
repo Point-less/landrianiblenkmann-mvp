@@ -7,13 +7,12 @@ from django.contrib.auth import get_user_model
 UserModel = get_user_model()
 
 
-@strawberry_django.type(UserModel)
+@strawberry_django.type(
+    UserModel,
+    fields=("id", "username", "email", "first_name", "last_name"),
+)
 class UserType:
-    id: strawberry.auto
-    username: strawberry.auto
-    email: strawberry.auto
-    first_name: strawberry.auto
-    last_name: strawberry.auto
+    pass
 
 
 @strawberry.type

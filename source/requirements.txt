@@ -5,3 +5,4 @@ gunicorn>=21.2
 watchdog>=4.0
 uvicorn[standard]>=0.32
 servestatic>=3.1
+strawberry-graphql[debug-server]>=0.227

@@ -1,13 +1,11 @@
-FROM python:3.12-slim
+FROM python:3.12-alpine
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential default-libmysqlclient-dev pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache build-base mariadb-dev mariadb-connector-c-dev pkgconf linux-headers
 
 COPY source/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt

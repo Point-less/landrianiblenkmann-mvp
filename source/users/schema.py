@@ -17,7 +17,6 @@ class UserType(relay.Node):
 @strawberry.type
 class Query:
     users: relay.ListConnection[UserType] = strawberry_django.connection(  # type: ignore[misc]
-        relay.ListConnection[UserType],
         filters=UserFilter,
     )
 

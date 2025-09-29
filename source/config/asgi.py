@@ -11,7 +11,7 @@ from django.core.asgi import get_asgi_application
 from servestatic import ServeStaticASGI
 from strawberry.asgi import GraphQL
 
-from graphql_app.schema import schema
+from users.schema import schema
 
 django_asgi_app = get_asgi_application()
 

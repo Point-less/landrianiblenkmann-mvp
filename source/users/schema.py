@@ -3,7 +3,7 @@ import strawberry_django
 from strawberry import relay
 
 from .filters import UserFilter
-from .graphql.types import UserType
+from .types import UserType
 
 
 @strawberry.type

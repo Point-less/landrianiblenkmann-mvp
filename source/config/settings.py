@@ -14,6 +14,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_dramatiq',
     'users.apps.UsersConfig',
     'core.apps.CoreConfig',
 ]
@@ -86,6 +87,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.User'
 
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://guest:guest@rabbitmq:5672//')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'rpc://')
-CELERY_TIMEZONE = TIME_ZONE
+DRAMATIQ_BROKER = {
+    'BROKER': 'dramatiq.brokers.rabbitmq.RabbitmqBroker',
+    'OPTIONS': {
+        'url': os.environ.get('DRAMATIQ_BROKER_URL', 'amqp://guest:guest@rabbitmq:5672/%2F'),
+    },
+    'MIDDLEWARE': [
+        'django_dramatiq.middleware.DbConnectionsMiddleware',
+        'django_dramatiq.middleware.AdminMiddleware',
+    ],
+}
+
+DRAMATIQ_TASKS_DATABASE = 'default'

@@ -7,8 +7,11 @@ WORKDIR /app
 
 RUN apk add --no-cache build-base postgresql-dev pkgconf linux-headers
 
-COPY source/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+# Use the precompiled lockfile from the repo instead of compiling at runtime.
+# This ensures the image uses the exact set of dependencies that were
+# installed and verified during development or testing.
+COPY source/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY source/ /app/
 

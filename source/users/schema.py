@@ -15,10 +15,13 @@ class UserType(relay.Node):
 
 
 @strawberry.type
-class Query:
+class UsersQuery:
     users: relay.ListConnection[UserType] = strawberry_django.connection(  # type: ignore[misc]
+        relay.ListConnection[UserType],
         filters=UserFilter,
     )
 
 
-schema = strawberry.Schema(query=Query)
+schema = strawberry.Schema(query=UsersQuery)
+
+__all__ = ["UserType", "UsersQuery", "schema"]

@@ -96,13 +96,11 @@ class Property(TimeStampedMixin):
 
 
 class Opportunity(TimeStampedMixin):
-    class Stage(models.TextChoices):
-        PROSPECTING = "prospecting", "Prospecting"
-        APPRAISAL = "appraisal", "Appraisal"
-        DOCUMENTATION = "documentation", "Documentation"
-        LISTING = "listing", "Listing"
+    class State(models.TextChoices):
+        CAPTURING = "capturing", "Capturing"
+        VALIDATING = "validating", "Validating"
+        MARKETING = "marketing", "Marketing"
         CLOSED = "closed", "Closed"
-        LOST = "lost", "Lost"
 
     title = models.CharField(max_length=255)
     property = models.ForeignKey(
@@ -120,10 +118,10 @@ class Opportunity(TimeStampedMixin):
         on_delete=models.PROTECT,
         related_name="owned_opportunities",
     )
-    stage = models.CharField(
+    state = models.CharField(
         max_length=20,
-        choices=Stage.choices,
-        default=Stage.PROSPECTING,
+        choices=State.choices,
+        default=State.CAPTURING,
     )
     probability = models.PositiveSmallIntegerField(
         default=0,
@@ -148,48 +146,47 @@ class Opportunity(TimeStampedMixin):
         return self.title
 
 
-class Prospecting(TimeStampedMixin):
-    class Status(models.TextChoices):
-        PLANNED = "planned", "Planned"
-        IN_PROGRESS = "in_progress", "In progress"
-        COMPLETED = "completed", "Completed"
-        CANCELLED = "cancelled", "Cancelled"
+class AcquisitionAttempt(TimeStampedMixin):
+    class State(models.TextChoices):
+        VALUATING = "valuating", "Valuating"
+        NEGOTIATING = "negotiating", "Negotiating"
+        CLOSED = "closed", "Closed"
 
     opportunity = models.ForeignKey(
         Opportunity,
         on_delete=models.CASCADE,
-        related_name="prospecting_entries",
+        related_name="acquisition_attempts",
     )
-    status = models.CharField(
+    state = models.CharField(
         max_length=20,
-        choices=Status.choices,
-        default=Status.PLANNED,
+        choices=State.choices,
+        default=State.VALUATING,
     )
-    scheduled_for = models.DateField(null=True, blank=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
     assigned_to = models.ForeignKey(
         Agent,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="prospecting_assignments",
+        related_name="acquisition_assignments",
     )
-    summary = models.TextField(blank=True)
+    scheduled_at = models.DateField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
-        return f"Prospecting for {self.opportunity}"
+        return f"Acquisition attempt for {self.opportunity}"
 
 
 class Appraisal(TimeStampedMixin):
-    prospecting = models.OneToOneField(
-        Prospecting,
+    attempt = models.OneToOneField(
+        AcquisitionAttempt,
         on_delete=models.CASCADE,
         related_name="appraisal",
     )
-    valuation_amount = models.DecimalField(
+    amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
@@ -203,7 +200,7 @@ class Appraisal(TimeStampedMixin):
         blank=True,
         related_name='appraisals',
     )
-    valuation_date = models.DateField(null=True, blank=True)
+    evaluated_at = models.DateField(null=True, blank=True)
     summary = models.TextField(blank=True)
     external_report_url = models.URLField(blank=True)
 
@@ -211,41 +208,41 @@ class Appraisal(TimeStampedMixin):
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
-        return f"Appraisal for {self.prospecting.opportunity}"
+        return f"Appraisal for {self.attempt.opportunity}"
 
 
-class DocumentationValidation(TimeStampedMixin):
-    class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
-        APPROVED = "approved", "Approved"
-        REJECTED = "rejected", "Rejected"
+class Validation(TimeStampedMixin):
+    class State(models.TextChoices):
+        PREPARING = "preparing", "Preparing"
+        PRESENTED = "presented", "Presented"
+        ACCEPTED = "accepted", "Accepted"
 
     opportunity = models.ForeignKey(
         Opportunity,
         on_delete=models.CASCADE,
-        related_name="documentation_attempts",
+        related_name="validations",
     )
-    status = models.CharField(
+    state = models.CharField(
         max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
+        choices=State.choices,
+        default=State.PREPARING,
     )
-    requested_at = models.DateTimeField(auto_now_add=True)
-    reviewed_at = models.DateTimeField(null=True, blank=True)
+    presented_at = models.DateTimeField(null=True, blank=True)
+    validated_at = models.DateTimeField(null=True, blank=True)
     reviewer = models.ForeignKey(
         Agent,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="documentation_reviews",
+        related_name="validation_reviews",
     )
     notes = models.TextField(blank=True)
 
     class Meta:
-        ordering = ("-requested_at",)
+        ordering = ("-created_at",)
 
     def __str__(self) -> str:
-        return f"Documentation validation for {self.opportunity}"
+        return f"Validation for {self.opportunity}"
 
 
 
@@ -266,6 +263,11 @@ class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
         PRINT = "print", "Print"
         OTHER = "other", "Other"
 
+    class State(models.TextChoices):
+        PREPARING = "preparing", "Preparing"
+        AVAILABLE = "available", "Available"
+        PAUSED = "paused", "Paused"
+
     REVISION_SCOPE = ("opportunity",)
     IMMUTABLE_ALLOW_UPDATES = frozenset({"is_active", "updated_at"})
 
@@ -276,6 +278,11 @@ class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
     )
     version = models.PositiveIntegerField(default=1, editable=False)
     is_active = models.BooleanField(default=True)
+    state = models.CharField(
+        max_length=20,
+        choices=State.choices,
+        default=State.PREPARING,
+    )
     headline = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     price = models.DecimalField(
@@ -315,19 +322,18 @@ class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
         return f"{base}{suffix}"
 
 
-class OpportunityOperation(TimeStampedMixin):
-    class Event(models.TextChoices):
-        OFFER_RECEIVED = "offer_received", "Offer received"
-        OFFER_REINFORCEMENT = "offer_reinforcement", "Offer reinforcement"
-        DEAL_CLOSED = "deal_closed", "Deal closed"
-        NEGOTIATION_FAILED = "negotiation_failed", "Negotiation failed"
+class Operation(TimeStampedMixin):
+    class State(models.TextChoices):
+        OFFERED = "offered", "Offered"
+        REINFORCED = "reinforced", "Reinforced"
+        CLOSED = "closed", "Closed"
 
     opportunity = models.ForeignKey(
         Opportunity,
         on_delete=models.CASCADE,
         related_name="operations",
     )
-    event = models.CharField(max_length=40, choices=Event.choices)
+    state = models.CharField(max_length=20, choices=State.choices, default=State.OFFERED)
     offered_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -357,7 +363,7 @@ class OpportunityOperation(TimeStampedMixin):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name='opportunity_operations',
+        related_name='operations',
     )
     occurred_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
@@ -366,4 +372,4 @@ class OpportunityOperation(TimeStampedMixin):
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
-        return f"{self.get_event_display()} for {self.opportunity}"
+        return f"Operation {self.get_state_display()} for {self.opportunity}"

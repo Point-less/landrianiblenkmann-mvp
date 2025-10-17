@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -28,13 +27,6 @@ class Contact(TimeStampedModel):
 
 
 class Agent(TimeStampedModel):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="agent_profiles",
-    )
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     email = models.EmailField(blank=True)
@@ -52,7 +44,7 @@ class Agent(TimeStampedModel):
 
     def __str__(self) -> str:
         name = f"{self.first_name} {self.last_name}".strip()
-        return name or (self.user.get_username() if self.user else "Agent")
+        return name or self.email or "Agent"
 
 
 class ContactAgentRelationship(TimeStampedModel):

@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError
 
-from opportunities.models import MarketingPackage
+from opportunities.models import MarketingPackage, Validation
 
 from .base import BaseService
 
@@ -18,9 +18,7 @@ class MarketingPackageActivateService(MarketingPackageBaseService):
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
         self.ensure_state(package, MarketingPackage.State.PREPARING)
-        package.state = MarketingPackage.State.AVAILABLE
-        package.save(update_fields=["state", "updated_at"])
-        return package
+        return package.clone(state=MarketingPackage.State.AVAILABLE)
 
 
 class MarketingPackageReserveService(MarketingPackageBaseService):
@@ -28,9 +26,10 @@ class MarketingPackageReserveService(MarketingPackageBaseService):
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
         self.ensure_state(package, MarketingPackage.State.AVAILABLE)
-        package.state = MarketingPackage.State.PAUSED
-        package.save(update_fields=["state", "updated_at"])
-        return package
+        opportunity = package.opportunity
+        if not opportunity.validations.filter(state=Validation.State.ACCEPTED).exists():
+            raise ValidationError("Cannot reserve marketing package before validation is accepted.")
+        return package.clone(state=MarketingPackage.State.PAUSED)
 
 
 class MarketingPackageReleaseService(MarketingPackageBaseService):
@@ -38,6 +37,4 @@ class MarketingPackageReleaseService(MarketingPackageBaseService):
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
         self.ensure_state(package, MarketingPackage.State.PAUSED)
-        package.state = MarketingPackage.State.AVAILABLE
-        package.save(update_fields=["state", "updated_at"])
-        return package
+        return package.clone(state=MarketingPackage.State.AVAILABLE)

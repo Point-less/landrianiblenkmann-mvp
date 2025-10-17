@@ -64,9 +64,6 @@ class OpportunityPublishService(OpportunityTransitionService):
     state_target = Opportunity.State.MARKETING
 
     def run(self, *, opportunity: Opportunity, actor: Optional[Any] = None) -> Opportunity:
-        if not opportunity.validations.filter(state=Validation.State.ACCEPTED).exists():
-            raise ValidationError("Opportunity cannot be published without an accepted validation.")
-
         opportunity = self.transition(opportunity, actor=actor)
         latest_package = opportunity.marketing_packages.order_by("-created_at").first()
         if latest_package and latest_package.state == MarketingPackage.State.PREPARING:

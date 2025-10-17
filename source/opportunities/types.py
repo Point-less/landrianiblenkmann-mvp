@@ -8,13 +8,13 @@ from opportunities.models import (
     Appraisal,
     Contact,
     ContactAgentRelationship,
-    Currency,
     MarketingPackage,
     Operation,
     Opportunity,
     Property,
     Validation,
 )
+from core.models import Currency
 
 
 @strawberry_django.type(Contact, fields="__all__")

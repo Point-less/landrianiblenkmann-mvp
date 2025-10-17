@@ -1,6 +1,7 @@
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from core.models import Currency
 from utils.mixins import ImmutableRevisionMixin, TimeStampedMixin
 
 
@@ -13,6 +14,8 @@ class Contact(TimeStampedMixin):
 
     class Meta:
         ordering = ("last_name", "first_name")
+        verbose_name = "contact"
+        verbose_name_plural = "contacts"
 
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
@@ -33,6 +36,8 @@ class Agent(TimeStampedMixin):
 
     class Meta:
         ordering = ("last_name", "first_name")
+        verbose_name = "agent"
+        verbose_name_plural = "agents"
 
     def __str__(self) -> str:
         name = f"{self.first_name} {self.last_name}".strip()
@@ -67,21 +72,11 @@ class ContactAgentRelationship(TimeStampedMixin):
     class Meta:
         ordering = ("-created_at",)
         unique_together = (("agent", "contact"),)
+        verbose_name = "contact agent relationship"
+        verbose_name_plural = "contact agent relationships"
 
     def __str__(self) -> str:
         return f"{self.contact} <> {self.agent}"
-
-
-class Currency(TimeStampedMixin):
-    code = models.CharField(max_length=3, unique=True)
-    name = models.CharField(max_length=100)
-    symbol = models.CharField(max_length=10, blank=True)
-
-    class Meta:
-        ordering = ("code",)
-
-    def __str__(self) -> str:
-        return self.code
 
 
 class Property(TimeStampedMixin):
@@ -90,6 +85,8 @@ class Property(TimeStampedMixin):
 
     class Meta:
         ordering = ("name",)
+        verbose_name = "property"
+        verbose_name_plural = "properties"
 
     def __str__(self) -> str:
         return self.name
@@ -141,6 +138,8 @@ class Opportunity(TimeStampedMixin):
 
     class Meta:
         ordering = ("-created_at",)
+        verbose_name = "opportunity"
+        verbose_name_plural = "opportunities"
 
     def __str__(self) -> str:
         return self.title
@@ -175,6 +174,8 @@ class AcquisitionAttempt(TimeStampedMixin):
 
     class Meta:
         ordering = ("-created_at",)
+        verbose_name = "acquisition attempt"
+        verbose_name_plural = "acquisition attempts"
 
     def __str__(self) -> str:
         return f"Acquisition attempt for {self.opportunity}"
@@ -194,7 +195,7 @@ class Appraisal(TimeStampedMixin):
         validators=[MinValueValidator(0)],
     )
     currency = models.ForeignKey(
-        'Currency',
+        Currency,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -206,6 +207,8 @@ class Appraisal(TimeStampedMixin):
 
     class Meta:
         ordering = ("-created_at",)
+        verbose_name = "appraisal"
+        verbose_name_plural = "appraisals"
 
     def __str__(self) -> str:
         return f"Appraisal for {self.attempt.opportunity}"
@@ -240,6 +243,8 @@ class Validation(TimeStampedMixin):
 
     class Meta:
         ordering = ("-created_at",)
+        verbose_name = "validation"
+        verbose_name_plural = "validations"
 
     def __str__(self) -> str:
         return f"Validation for {self.opportunity}"
@@ -293,7 +298,7 @@ class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
         validators=[MinValueValidator(0)],
     )
     currency = models.ForeignKey(
-        'Currency',
+        Currency,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -315,6 +320,8 @@ class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
     class Meta:
         ordering = ("-created_at",)
         unique_together = ("opportunity", "version")
+        verbose_name = "marketing package"
+        verbose_name_plural = "marketing packages"
 
     def __str__(self) -> str:
         suffix = f" v{self.version}" if self.version else ""
@@ -359,7 +366,7 @@ class Operation(TimeStampedMixin):
         help_text="Additional funds available for reinforcement, if applicable.",
     )
     currency = models.ForeignKey(
-        'Currency',
+        Currency,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -370,6 +377,8 @@ class Operation(TimeStampedMixin):
 
     class Meta:
         ordering = ("-created_at",)
+        verbose_name = "operation"
+        verbose_name_plural = "operations"
 
     def __str__(self) -> str:
         return f"Operation {self.get_state_display()} for {self.opportunity}"

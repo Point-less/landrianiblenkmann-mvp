@@ -317,6 +317,16 @@ class Listing(TimeStampedModel):
         base = self.headline or f"Marketing package for {self.opportunity}"
         return f"{base}{suffix}"
 
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        if self.pk:
+            if update_fields is None:
+                raise ValueError('Listings are immutable; use Listing.create_revision to replace them.')
+            allowed_updates = {'is_active', 'updated_at'}
+            if not set(update_fields).issubset(allowed_updates):
+                raise ValueError('Listings are immutable; use Listing.create_revision to replace them.')
+        super().save(*args, **kwargs)
+
     @classmethod
     def editable_field_names(cls):
         excluded = {"id", "opportunity", "version", "is_active", "created_at", "updated_at"}

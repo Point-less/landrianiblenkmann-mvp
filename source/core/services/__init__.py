@@ -1,12 +1,52 @@
 """Core service utilities and concrete services."""
 
 from .base import BaseService, service_atomic  # noqa: F401
-from .opportunities import CreateOpportunityService  # noqa: F401
+from .opportunities import (  # noqa: F401
+    CreateOpportunityService,
+    OpportunityCloseService,
+    OpportunityPublishService,
+    OpportunityValidateService,
+)
+from .acquisition import (  # noqa: F401
+    AcquisitionAttemptAppraiseService,
+    AcquisitionAttemptCaptureService,
+    AcquisitionAttemptRejectService,
+)
+from .validation import (  # noqa: F401
+    ValidationAcceptService,
+    ValidationPresentService,
+    ValidationRejectService,
+)
+from .marketing import (  # noqa: F401
+    MarketingPackageActivateService,
+    MarketingPackageReleaseService,
+    MarketingPackageReserveService,
+)
+from .operations import (  # noqa: F401
+    OperationCloseService,
+    OperationLoseService,
+    OperationReinforceService,
+)
 
 __all__ = [
     "BaseService",
     "service_atomic",
     "CreateOpportunityService",
+    "OpportunityValidateService",
+    "OpportunityPublishService",
+    "OpportunityCloseService",
+    "AcquisitionAttemptAppraiseService",
+    "AcquisitionAttemptCaptureService",
+    "AcquisitionAttemptRejectService",
+    "ValidationPresentService",
+    "ValidationRejectService",
+    "ValidationAcceptService",
+    "MarketingPackageActivateService",
+    "MarketingPackageReserveService",
+    "MarketingPackageReleaseService",
+    "OperationReinforceService",
+    "OperationCloseService",
+    "OperationLoseService",
     "discover_services",
     "get_services",
     "iter_services",

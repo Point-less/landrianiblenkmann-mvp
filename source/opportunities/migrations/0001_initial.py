@@ -87,8 +87,8 @@ class Migration(migrations.Migration):
                 ('budget_amount', models.DecimalField(blank=True, decimal_places=2, max_digits=12, null=True, validators=[django.core.validators.MinValueValidator(0)])),
                 ('source', models.CharField(blank=True, max_length=150)),
                 ('notes', models.TextField(blank=True)),
-                ('agent', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='opportunities', to='core.agent')),
-                ('owner', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='owned_opportunities', to='core.contact')),
+                ('agent', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='opportunities', to='opportunities.agent')),
+                ('owner', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='owned_opportunities', to='opportunities.contact')),
             ],
             options={
                 'ordering': ('-created_at',),
@@ -117,8 +117,8 @@ class Migration(migrations.Migration):
                 ('presented_at', models.DateTimeField(blank=True, null=True)),
                 ('validated_at', models.DateTimeField(blank=True, null=True)),
                 ('notes', models.TextField(blank=True)),
-                ('opportunity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='validations', to='core.opportunity')),
-                ('reviewer', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='validation_reviews', to='core.agent')),
+                ('opportunity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='validations', to='opportunities.opportunity')),
+                ('reviewer', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='validation_reviews', to='opportunities.agent')),
             ],
             options={
                 'ordering': ('-created_at',),
@@ -127,7 +127,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='opportunity',
             name='property',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='opportunities', to='core.property'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='opportunities', to='opportunities.property'),
         ),
         migrations.CreateModel(
             name='Operation',
@@ -141,8 +141,8 @@ class Migration(migrations.Migration):
                 ('reinforcement_amount', models.DecimalField(blank=True, decimal_places=2, help_text='Additional funds available for reinforcement, if applicable.', max_digits=12, null=True, validators=[django.core.validators.MinValueValidator(0)])),
                 ('occurred_at', models.DateTimeField(blank=True, null=True)),
                 ('notes', models.TextField(blank=True)),
-                ('currency', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='operations', to='core.currency')),
-                ('opportunity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='operations', to='core.opportunity')),
+                ('currency', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='operations', to='opportunities.currency')),
+                ('opportunity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='operations', to='opportunities.opportunity')),
             ],
             options={
                 'ordering': ('-created_at',),
@@ -158,8 +158,8 @@ class Migration(migrations.Migration):
                 ('relationship_notes', models.TextField(blank=True)),
                 ('started_on', models.DateField(blank=True, null=True)),
                 ('ended_on', models.DateField(blank=True, null=True)),
-                ('agent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='contact_links', to='core.agent')),
-                ('contact', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='agent_links', to='core.contact')),
+                ('agent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='contact_links', to='opportunities.agent')),
+                ('contact', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='agent_links', to='opportunities.contact')),
             ],
             options={
                 'ordering': ('-created_at',),
@@ -176,8 +176,8 @@ class Migration(migrations.Migration):
                 ('evaluated_at', models.DateField(blank=True, null=True)),
                 ('summary', models.TextField(blank=True)),
                 ('external_report_url', models.URLField(blank=True)),
-                ('attempt', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='appraisal', to='core.acquisitionattempt')),
-                ('currency', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='appraisals', to='core.currency')),
+                ('attempt', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='appraisal', to='opportunities.acquisitionattempt')),
+                ('currency', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='appraisals', to='opportunities.currency')),
             ],
             options={
                 'ordering': ('-created_at',),
@@ -186,17 +186,17 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='agent',
             name='contacts',
-            field=models.ManyToManyField(blank=True, related_name='agents', through='core.ContactAgentRelationship', to='core.contact'),
+            field=models.ManyToManyField(blank=True, related_name='agents', through='opportunities.ContactAgentRelationship', to='opportunities.contact'),
         ),
         migrations.AddField(
             model_name='acquisitionattempt',
             name='assigned_to',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='acquisition_assignments', to='core.agent'),
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='acquisition_assignments', to='opportunities.agent'),
         ),
         migrations.AddField(
             model_name='acquisitionattempt',
             name='opportunity',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='acquisition_attempts', to='core.opportunity'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='acquisition_attempts', to='opportunities.opportunity'),
         ),
         migrations.CreateModel(
             name='MarketingPackage',
@@ -216,8 +216,8 @@ class Migration(migrations.Migration):
                 ('campaign_start', models.DateField(blank=True, null=True)),
                 ('campaign_end', models.DateField(blank=True, null=True)),
                 ('marketing_notes', models.TextField(blank=True)),
-                ('currency', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='marketing_packages', to='core.currency')),
-                ('opportunity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='marketing_packages', to='core.opportunity')),
+                ('currency', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='marketing_packages', to='opportunities.currency')),
+                ('opportunity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='marketing_packages', to='opportunities.opportunity')),
             ],
             options={
                 'ordering': ('-created_at',),

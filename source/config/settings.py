@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     'django_dramatiq',
     'users.apps.UsersConfig',
     'utils.apps.UtilsConfig',
+    'opportunities.apps.OpportunitiesConfig',
     'core.apps.CoreConfig',
 ]
 

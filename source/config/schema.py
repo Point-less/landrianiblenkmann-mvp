@@ -1,10 +1,11 @@
 import strawberry
 
 from users.schema import UsersQuery
+from opportunities.schema import OpportunitiesQuery
 
 
 @strawberry.type
-class Query(UsersQuery):
+class Query(UsersQuery, OpportunitiesQuery):
     pass
 
 

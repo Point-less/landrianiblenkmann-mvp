@@ -1,14 +1,12 @@
-from __future__ import annotations
-
-from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from core.models import AcquisitionAttempt, Appraisal, Opportunity, Validation
-from core.services.base import BaseService
-from core.services.opportunities import OpportunityValidateService
+from opportunities.models import AcquisitionAttempt, Appraisal, Opportunity, Validation
+
+from .base import BaseService
+from .opportunities import OpportunityValidateService
 
 
 class AcquisitionAttemptService(BaseService):

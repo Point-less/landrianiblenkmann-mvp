@@ -1,4 +1,4 @@
-"""Core service utilities and concrete services."""
+"""Opportunity service utilities and concrete services."""
 
 from .base import BaseService, service_atomic  # noqa: F401
 from .opportunities import (  # noqa: F401
@@ -64,4 +64,4 @@ def __getattr__(name):
         from utils import services as service_registry
 
         return getattr(service_registry, name)
-    raise AttributeError(f"module 'core.services' has no attribute {name!r}")
+    raise AttributeError(f"module 'opportunities.services' has no attribute {name!r}")

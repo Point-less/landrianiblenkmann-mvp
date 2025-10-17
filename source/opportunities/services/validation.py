@@ -3,9 +3,10 @@ from typing import Optional
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from core.models import Opportunity, Validation
-from core.services.base import BaseService
-from core.services.opportunities import OpportunityPublishService
+from opportunities.models import Opportunity, Validation
+
+from .base import BaseService
+from .opportunities import OpportunityPublishService
 
 
 class ValidationBaseService(BaseService):

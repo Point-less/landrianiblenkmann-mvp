@@ -7,7 +7,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type
 from django.apps import AppConfig, apps
 from django.utils.module_loading import module_has_submodule
 
-from core.services.base import BaseService
+from opportunities.services.base import BaseService
 
 ServiceClass = Type[BaseService]
 _service_registry: Optional[Dict[str, Tuple[ServiceClass, ...]]] = None

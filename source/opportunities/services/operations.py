@@ -3,8 +3,9 @@ from typing import Optional
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from core.models import Operation, Opportunity
-from core.services.base import BaseService
+from opportunities.models import Operation, Opportunity
+
+from .base import BaseService
 
 
 class OperationBaseService(BaseService):

@@ -1,7 +1,8 @@
 from django.core.exceptions import ValidationError
 
-from core.models import MarketingPackage
-from core.services.base import BaseService
+from opportunities.models import MarketingPackage
+
+from .base import BaseService
 
 
 class MarketingPackageBaseService(BaseService):

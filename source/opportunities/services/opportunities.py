@@ -1,11 +1,11 @@
 from typing import Any, Mapping, Optional
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
 
-from core.models import MarketingPackage, Opportunity, Operation, Validation
-from core.services.marketing import MarketingPackageActivateService
-from core.services.base import BaseService
+from opportunities.models import MarketingPackage, Opportunity, Operation, Validation
+
+from .base import BaseService
+from .marketing import MarketingPackageActivateService
 
 
 class CreateOpportunityService(BaseService):

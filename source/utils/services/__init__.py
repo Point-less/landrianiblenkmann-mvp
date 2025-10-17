@@ -1,9 +1,9 @@
 """Project-wide service discovery utilities."""
 
-from .registry import get_services, iter_services, refresh_service_cache
+from .registry import discover_services, get_services, iter_services
 
 __all__ = [
+    'discover_services',
     'get_services',
     'iter_services',
-    'refresh_service_cache',
 ]

@@ -7,6 +7,6 @@ class UtilsConfig(AppConfig):
     verbose_name = 'Project Utilities'
 
     def ready(self):  # pragma: no cover
-        from utils.services import refresh_service_cache
+        from utils.services import discover_services
 
-        refresh_service_cache()
+        discover_services(force=True)

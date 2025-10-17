@@ -7,12 +7,16 @@ __all__ = [
     "BaseService",
     "service_atomic",
     "CreateOpportunityService",
+    "discover_services",
     "get_services",
     "iter_services",
-    "refresh_service_cache",
 ]
 
-_SERVICE_ATTRS = {"get_services", "iter_services", "refresh_service_cache"}
+_SERVICE_ATTRS = {
+    "discover_services",
+    "get_services",
+    "iter_services",
+}
 
 
 def __getattr__(name):

@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -259,6 +257,13 @@ class DocumentationValidation(TimeStampedModel):
 
 
 
+
+
+class ListingQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(is_active=True)
+
+
 class Listing(TimeStampedModel):
     class EffortType(models.TextChoices):
         GENERAL = "general", "General"
@@ -267,24 +272,13 @@ class Listing(TimeStampedModel):
         PRINT = "print", "Print"
         OTHER = "other", "Other"
 
-    TRACKED_FIELDS = (
-        "headline",
-        "description",
-        "price",
-        "currency_id",
-        "features",
-        "media_assets",
-        "effort_type",
-        "campaign_start",
-        "campaign_end",
-        "marketing_notes",
-    )
-
     opportunity = models.ForeignKey(
         Opportunity,
         on_delete=models.CASCADE,
         related_name="listings",
     )
+    version = models.PositiveIntegerField(default=1, editable=False)
+    is_active = models.BooleanField(default=True)
     headline = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     price = models.DecimalField(
@@ -312,118 +306,55 @@ class Listing(TimeStampedModel):
     campaign_end = models.DateField(null=True, blank=True)
     marketing_notes = models.TextField(blank=True)
 
-    class Meta:
-        ordering = ("-created_at",)
-
-    def __str__(self) -> str:
-        return self.headline or f"Marketing package for {self.opportunity}"
-
-    def save(self, *args, **kwargs):  # pragma: no cover - side effect heavy
-        create_snapshot = kwargs.pop("create_snapshot", True)
-        performance_metrics = kwargs.pop("performance_metrics", None)
-        captured_by = kwargs.pop("captured_by", None)
-
-        previous_state = None
-        if create_snapshot and self.pk:
-            previous = type(self).objects.get(pk=self.pk)
-            previous_state = {field: getattr(previous, field) for field in self.TRACKED_FIELDS}
-
-        super().save(*args, **kwargs)
-
-        if not create_snapshot:
-            return
-
-        current_state = {field: getattr(self, field) for field in self.TRACKED_FIELDS}
-        latest_snapshot = self.snapshots.order_by('-created_at').first()
-        latest_state = None
-        if latest_snapshot:
-            latest_state = {
-                "headline": latest_snapshot.headline,
-                "description": latest_snapshot.description,
-                "price": latest_snapshot.price,
-                "currency_id": latest_snapshot.currency_id,
-                "features": latest_snapshot.features,
-                "media_assets": latest_snapshot.media_assets,
-                "effort_type": latest_snapshot.effort_type,
-                "campaign_start": latest_snapshot.campaign_start,
-                "campaign_end": latest_snapshot.campaign_end,
-                "marketing_notes": latest_snapshot.marketing_notes,
-            }
-        if previous_state is None and latest_state:
-            previous_state = latest_state
-
-        if previous_state == current_state:
-            return
-
-        self.create_snapshot(
-            captured_by=captured_by,
-            performance_metrics=performance_metrics or {},
-        )
-
-    def create_snapshot(self, *, captured_by=None, performance_metrics=None):
-        self.snapshots.create(
-            headline=self.headline,
-            description=self.description,
-            price=self.price,
-            currency=self.currency,
-            features=deepcopy(self.features),
-            media_assets=deepcopy(self.media_assets),
-            effort_type=self.effort_type,
-            campaign_start=self.campaign_start,
-            campaign_end=self.campaign_end,
-            marketing_notes=self.marketing_notes,
-            performance_metrics=performance_metrics or {},
-            captured_by=captured_by,
-        )
-
-
-class ListingSnapshot(TimeStampedModel):
-    listing = models.ForeignKey(
-        Listing,
-        on_delete=models.CASCADE,
-        related_name="snapshots",
-    )
-    headline = models.CharField(max_length=255, blank=True)
-    description = models.TextField(blank=True)
-    price = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0)],
-    )
-    currency = models.ForeignKey(
-        'Currency',
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name='listing_snapshots',
-    )
-    features = models.JSONField(blank=True, default=list)
-    media_assets = models.JSONField(blank=True, default=list)
-    effort_type = models.CharField(
-        max_length=20,
-        choices=Listing.EffortType.choices,
-        default=Listing.EffortType.GENERAL,
-    )
-    campaign_start = models.DateField(null=True, blank=True)
-    campaign_end = models.DateField(null=True, blank=True)
-    marketing_notes = models.TextField(blank=True)
-    performance_metrics = models.JSONField(blank=True, default=dict, help_text="Arbitrary metrics captured for this marketing iteration.")
-    captured_by = models.ForeignKey(
-        'Agent',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='recorded_snapshots',
-    )
+    objects = ListingQuerySet.as_manager()
 
     class Meta:
         ordering = ("-created_at",)
+        unique_together = ("opportunity", "version")
 
     def __str__(self) -> str:
-        timestamp = self.created_at.strftime("%Y-%m-%d %H:%M") if self.created_at else "snapshot"
-        return f"Snapshot {timestamp} for {self.listing}"
+        suffix = f" v{self.version}" if self.version else ""
+        base = self.headline or f"Marketing package for {self.opportunity}"
+        return f"{base}{suffix}"
+
+    @classmethod
+    def editable_field_names(cls):
+        excluded = {"id", "opportunity", "version", "is_active", "created_at", "updated_at"}
+        return [
+            field.name
+            for field in cls._meta.get_fields()
+            if isinstance(field, models.Field)
+            and not field.auto_created
+            and field.name not in excluded
+        ]
+
+    @classmethod
+    def create_revision(cls, listing, **changes):
+        from django.db import transaction
+        from django.db.models import Max
+
+        editable = cls.editable_field_names()
+        base_payload = {name: getattr(listing, name) for name in editable}
+        base_payload.update(changes)
+        with transaction.atomic():
+            listing.is_active = False
+            listing.save(update_fields=["is_active", "updated_at"])
+            max_version = (
+                cls.objects.filter(opportunity=listing.opportunity)
+                .aggregate(max_v=Max("version"))
+                .get("max_v")
+                or 0
+            )
+            new_listing = cls.objects.create(
+                opportunity=listing.opportunity,
+                version=max_version + 1,
+                is_active=True,
+                **base_payload,
+            )
+        return new_listing
+
+    def clone(self, **overrides):
+        return type(self).create_revision(self, **overrides)
 
 
 class OpportunityOperation(TimeStampedModel):

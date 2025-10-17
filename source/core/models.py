@@ -1,0 +1,329 @@
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
+
+
+class TimeStampedModel(models.Model):
+    """Abstract base model adding created/updated auditing fields."""
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class Contact(TimeStampedModel):
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
+    email = models.EmailField(blank=True)
+    phone_number = models.CharField(max_length=50, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ("last_name", "first_name")
+
+    def __str__(self) -> str:
+        return f"{self.first_name} {self.last_name}".strip()
+
+
+class Agent(TimeStampedModel):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agent_profiles",
+    )
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
+    email = models.EmailField(blank=True)
+    phone_number = models.CharField(max_length=50, blank=True)
+    license_id = models.CharField(max_length=100, blank=True)
+    contacts = models.ManyToManyField(
+        Contact,
+        through='ContactAgentRelationship',
+        related_name='agents',
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ("last_name", "first_name")
+
+    def __str__(self) -> str:
+        name = f"{self.first_name} {self.last_name}".strip()
+        return name or (self.user.get_username() if self.user else "Agent")
+
+
+class ContactAgentRelationship(TimeStampedModel):
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        INACTIVE = "inactive", "Inactive"
+        FORMER = "former", "Former"
+
+    agent = models.ForeignKey(
+        'Agent',
+        on_delete=models.CASCADE,
+        related_name='contact_links',
+    )
+    contact = models.ForeignKey(
+        'Contact',
+        on_delete=models.CASCADE,
+        related_name='agent_links',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+    )
+    relationship_notes = models.TextField(blank=True)
+    started_on = models.DateField(null=True, blank=True)
+    ended_on = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        unique_together = (("agent", "contact"),)
+
+    def __str__(self) -> str:
+        return f"{self.contact} <> {self.agent}"
+
+
+class Property(TimeStampedModel):
+    name = models.CharField(max_length=255)
+    reference_code = models.CharField(max_length=50, blank=True, unique=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Opportunity(TimeStampedModel):
+    class Stage(models.TextChoices):
+        PROSPECTING = "prospecting", "Prospecting"
+        APPRAISAL = "appraisal", "Appraisal"
+        DOCUMENTATION = "documentation", "Documentation"
+        LISTING = "listing", "Listing"
+        CLOSED = "closed", "Closed"
+        LOST = "lost", "Lost"
+
+    title = models.CharField(max_length=255)
+    property = models.ForeignKey(
+        Property,
+        on_delete=models.PROTECT,
+        related_name="opportunities",
+    )
+    agent = models.ForeignKey(
+        Agent,
+        on_delete=models.PROTECT,
+        related_name="opportunities",
+    )
+    owner = models.ForeignKey(
+        Contact,
+        on_delete=models.PROTECT,
+        related_name="owned_opportunities",
+    )
+    stage = models.CharField(
+        max_length=20,
+        choices=Stage.choices,
+        default=Stage.PROSPECTING,
+    )
+    probability = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Likelihood (0-100) of closing the opportunity.",
+    )
+    expected_close_date = models.DateField(null=True, blank=True)
+    budget_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+    )
+    source = models.CharField(max_length=150, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class Prospecting(TimeStampedModel):
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        IN_PROGRESS = "in_progress", "In progress"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    opportunity = models.ForeignKey(
+        Opportunity,
+        on_delete=models.CASCADE,
+        related_name="prospecting_entries",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PLANNED,
+    )
+    scheduled_for = models.DateField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    assigned_to = models.ForeignKey(
+        Agent,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="prospecting_assignments",
+    )
+    summary = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"Prospecting for {self.opportunity}"
+
+
+class Appraisal(TimeStampedModel):
+    prospecting = models.OneToOneField(
+        Prospecting,
+        on_delete=models.CASCADE,
+        related_name="appraisal",
+    )
+    valuation_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+    )
+    valuation_currency = models.CharField(max_length=3, default="USD")
+    valuation_date = models.DateField(null=True, blank=True)
+    summary = models.TextField(blank=True)
+    external_report_url = models.URLField(blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"Appraisal for {self.prospecting.opportunity}"
+
+
+class DocumentationValidation(TimeStampedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    opportunity = models.ForeignKey(
+        Opportunity,
+        on_delete=models.CASCADE,
+        related_name="documentation_attempts",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    requested_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewer = models.ForeignKey(
+        Agent,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documentation_reviews",
+    )
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ("-requested_at",)
+
+    def __str__(self) -> str:
+        return f"Documentation validation for {self.opportunity}"
+
+
+class Listing(TimeStampedModel):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        PAUSED = "paused", "Paused"
+        ARCHIVED = "archived", "Archived"
+
+    opportunity = models.ForeignKey(
+        Opportunity,
+        on_delete=models.CASCADE,
+        related_name="listings",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+    )
+    channel = models.CharField(
+        max_length=150,
+        help_text="Marketplace or publication channel name",
+    )
+    asking_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+    )
+    currency = models.CharField(max_length=3, default="USD")
+    listed_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        unique_together = ("opportunity", "channel", "listed_at")
+
+    def __str__(self) -> str:
+        property_obj = getattr(self.opportunity, "property", None)
+        label = property_obj or self.opportunity
+        return f"{label} via {self.channel}"
+
+
+class OpportunityOperation(TimeStampedModel):
+    class Event(models.TextChoices):
+        OFFER_RECEIVED = "offer_received", "Offer received"
+        OFFER_REINFORCEMENT = "offer_reinforcement", "Offer reinforcement"
+        DEAL_CLOSED = "deal_closed", "Deal closed"
+        NEGOTIATION_FAILED = "negotiation_failed", "Negotiation failed"
+
+    opportunity = models.ForeignKey(
+        Opportunity,
+        on_delete=models.CASCADE,
+        related_name="operations",
+    )
+    event = models.CharField(max_length=40, choices=Event.choices)
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Monetary value attached to the negotiation step, if any.",
+    )
+    currency = models.CharField(max_length=3, default="USD")
+    related_operation = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="follow_ups",
+        help_text="Link reinforcement or closing events to the originating offer.",
+    )
+    occurred_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"{self.get_event_display()} for {self.opportunity}"

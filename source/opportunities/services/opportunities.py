@@ -1,8 +1,9 @@
 from typing import Any, Mapping, Optional
 
 from django.core.exceptions import ValidationError
+from django_fsm import TransitionNotAllowed
 
-from opportunities.models import MarketingPackage, Opportunity, Operation, Validation
+from opportunities.models import MarketingPackage, Opportunity, Validation
 
 from .base import BaseService
 from .marketing import MarketingPackageActivateService
@@ -32,50 +33,38 @@ class CreateOpportunityService(BaseService):
         return opportunity
 
 
-class OpportunityTransitionService(BaseService):
-    state_required: Opportunity.State
-    state_target: Opportunity.State
-
-    def ensure_state(self, opportunity: Opportunity) -> None:
-        if opportunity.state != self.state_required:
-            raise ValidationError(
-                f"Opportunity must be in '{self.state_required}' state; current state is '{opportunity.state}'."
-            )
-
-    def transition(self, opportunity: Opportunity, *, actor: Optional[Any] = None) -> Opportunity:
-        self.ensure_state(opportunity)
-        opportunity.state = self.state_target
-        opportunity.save(update_fields=["state", "updated_at"])
-        return opportunity
-
-
-class OpportunityValidateService(OpportunityTransitionService):
-    state_required = Opportunity.State.CAPTURING
-    state_target = Opportunity.State.VALIDATING
-
+class OpportunityValidateService(BaseService):
     def run(self, *, opportunity: Opportunity, actor: Optional[Any] = None) -> Opportunity:
-        opportunity = self.transition(opportunity, actor=actor)
+        try:
+            opportunity.start_validation()
+        except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
+            raise ValidationError(str(exc)) from exc
+
+        opportunity.save(update_fields=["state", "updated_at"])
         Validation.objects.get_or_create(opportunity=opportunity)
         return opportunity
 
 
-class OpportunityPublishService(OpportunityTransitionService):
-    state_required = Opportunity.State.VALIDATING
-    state_target = Opportunity.State.MARKETING
-
+class OpportunityPublishService(BaseService):
     def run(self, *, opportunity: Opportunity, actor: Optional[Any] = None) -> Opportunity:
-        opportunity = self.transition(opportunity, actor=actor)
+        try:
+            opportunity.start_marketing()
+        except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
+            raise ValidationError(str(exc)) from exc
+
+        opportunity.save(update_fields=["state", "updated_at"])
         latest_package = opportunity.marketing_packages.order_by("-created_at").first()
         if latest_package and latest_package.state == MarketingPackage.State.PREPARING:
             MarketingPackageActivateService.call(package=latest_package)
         return opportunity
 
 
-class OpportunityCloseService(OpportunityTransitionService):
-    state_required = Opportunity.State.MARKETING
-    state_target = Opportunity.State.CLOSED
-
+class OpportunityCloseService(BaseService):
     def run(self, *, opportunity: Opportunity, actor: Optional[Any] = None) -> Opportunity:
-        if not opportunity.operations.filter(state=Operation.State.CLOSED).exists():
-            raise ValidationError("Opportunity cannot be closed without a closed operation.")
-        return self.transition(opportunity, actor=actor)
+        try:
+            opportunity.close_opportunity()
+        except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
+            raise ValidationError(str(exc)) from exc
+
+        opportunity.save(update_fields=["state", "updated_at"])
+        return opportunity

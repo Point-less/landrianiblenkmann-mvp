@@ -1,7 +1,9 @@
 from decimal import Decimal
 
+from unittest import mock
+
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import DEFAULT_DB_ALIAS, transaction
 from django.test import TestCase
 
 from core.models import Currency
@@ -20,13 +22,17 @@ from opportunities.services import (
     AcquisitionAttemptAppraiseService,
     AcquisitionAttemptCaptureService,
     AcquisitionAttemptRejectService,
+    BaseService,
+    service_atomic,
     CreateOpportunityService,
     MarketingPackageReleaseService,
     MarketingPackageReserveService,
     OperationCloseService,
     OperationLoseService,
     OperationReinforceService,
+    OpportunityCloseService,
     OpportunityPublishService,
+    OpportunityValidateService,
     ValidationAcceptService,
     ValidationPresentService,
     ValidationRejectService,
@@ -301,3 +307,194 @@ class OpportunityWorkflowTests(TestCase):
             opportunity.marketing_packages.filter(state=MarketingPackage.State.AVAILABLE).count(),
             1,
         )
+
+    def test_opportunity_validate_requires_capturing_state(self) -> None:
+        opportunity = self.create_opportunity()
+        attempt = AcquisitionAttempt.objects.create(opportunity=opportunity)
+        AcquisitionAttemptAppraiseService.call(attempt=attempt)
+        AcquisitionAttemptCaptureService.call(attempt=attempt)
+
+        validation = opportunity.validations.first()
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        ValidationAcceptService.call(validation=validation)
+
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.state, Opportunity.State.MARKETING)
+
+        with self.assertRaises(ValidationError) as exc:
+            OpportunityValidateService.call(opportunity=opportunity)
+        self.assertIn("Can't switch from state 'marketing'", str(exc.exception))
+
+    def test_opportunity_close_requires_closed_operation(self) -> None:
+        opportunity = self.create_opportunity()
+        attempt = AcquisitionAttempt.objects.create(opportunity=opportunity)
+        AcquisitionAttemptAppraiseService.call(attempt=attempt)
+        AcquisitionAttemptCaptureService.call(attempt=attempt)
+
+        validation = opportunity.validations.first()
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        ValidationAcceptService.call(validation=validation)
+
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.state, Opportunity.State.MARKETING)
+
+        with self.assertRaises(ValidationError) as exc:
+            OpportunityCloseService.call(opportunity=opportunity)
+        self.assertIn("Opportunity cannot be closed without a closed operation.", str(exc.exception))
+
+    def test_acquisition_appraise_requires_current_state(self) -> None:
+        opportunity = self.create_opportunity()
+        attempt = AcquisitionAttempt.objects.create(opportunity=opportunity)
+        AcquisitionAttemptAppraiseService.call(attempt=attempt)
+
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.state, AcquisitionAttempt.State.NEGOTIATING)
+
+        with self.assertRaises(ValidationError) as exc:
+            AcquisitionAttemptAppraiseService.call(attempt=attempt)
+        self.assertIn("Can't switch from state", str(exc.exception))
+
+    def test_acquisition_reject_requires_negotiating_state(self) -> None:
+        opportunity = self.create_opportunity()
+        attempt = AcquisitionAttempt.objects.create(opportunity=opportunity)
+
+        with self.assertRaises(ValidationError) as exc:
+            AcquisitionAttemptRejectService.call(attempt=attempt)
+        self.assertIn("Can't switch from state", str(exc.exception))
+
+    def test_validation_present_requires_preparing_state(self) -> None:
+        opportunity = self.create_opportunity()
+        validation = opportunity.validations.first()
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+
+        with self.assertRaises(ValidationError) as exc:
+            ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        self.assertIn("Can't switch from state", str(exc.exception))
+
+    def test_marketing_release_requires_paused_state(self) -> None:
+        opportunity = self.create_opportunity()
+        attempt = AcquisitionAttempt.objects.create(opportunity=opportunity)
+        AcquisitionAttemptAppraiseService.call(attempt=attempt)
+        AcquisitionAttemptCaptureService.call(attempt=attempt)
+
+        validation = opportunity.validations.first()
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        ValidationAcceptService.call(validation=validation)
+
+        opportunity.refresh_from_db()
+        available_pkg = opportunity.marketing_packages.order_by("-version").first()
+
+        with self.assertRaises(ValidationError) as exc:
+            MarketingPackageReleaseService.call(package=available_pkg)
+        self.assertIn("Can't switch from state", str(exc.exception))
+
+        # Reset the connection because the failed transition marks the
+        # surrounding TestCase transaction for rollback.
+        transaction.set_rollback(False)
+
+        reserved_pkg = MarketingPackageReserveService.call(package=available_pkg)
+        released_pkg = MarketingPackageReleaseService.call(package=reserved_pkg)
+        self.assertEqual(released_pkg.state, MarketingPackage.State.AVAILABLE)
+
+    def test_operation_reinforce_requires_offered_state(self) -> None:
+        opportunity = self.create_opportunity()
+        attempt = AcquisitionAttempt.objects.create(opportunity=opportunity)
+        AcquisitionAttemptAppraiseService.call(attempt=attempt)
+        AcquisitionAttemptCaptureService.call(attempt=attempt)
+        validation = opportunity.validations.first()
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        ValidationAcceptService.call(validation=validation)
+
+        operation = Operation.objects.create(
+            opportunity=opportunity,
+            state=Operation.State.REINFORCED,
+            currency=self.currency,
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            OperationReinforceService.call(operation=operation)
+        self.assertIn("Can't switch from state", str(exc.exception))
+
+    def test_operation_close_handles_opportunity_transition_failures(self) -> None:
+        opportunity = self.create_opportunity()
+        attempt = AcquisitionAttempt.objects.create(opportunity=opportunity)
+        AcquisitionAttemptAppraiseService.call(attempt=attempt)
+        AcquisitionAttemptCaptureService.call(attempt=attempt)
+        validation = opportunity.validations.first()
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        ValidationAcceptService.call(validation=validation)
+
+        operation = Operation.objects.create(
+            opportunity=opportunity,
+            state=Operation.State.REINFORCED,
+            currency=self.currency,
+        )
+
+        OperationCloseService.call(operation=operation, opportunity=opportunity)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.state, Opportunity.State.CLOSED)
+
+    def test_service_atomic_respects_existing_transactions(self) -> None:
+        with transaction.atomic():
+            OpportunityValidateService.call(opportunity=self.create_opportunity())
+
+
+class BaseServiceTests(TestCase):
+    class SampleService(BaseService):
+        run_calls = 0
+
+        def run(self, *, value: int) -> int:
+            type(self).run_calls += 1
+            return value * 2
+
+    def setUp(self) -> None:
+        BaseServiceTests.SampleService.run_calls = 0
+
+    def test_base_service_wraps_in_atomic_by_default(self) -> None:
+        with mock.patch("opportunities.services.base.service_atomic") as mock_atomic:
+            mock_cm = mock.MagicMock()
+            mock_atomic.return_value = mock_cm
+            mock_cm.__enter__.return_value = None
+            mock_cm.__exit__.return_value = False
+
+            result = self.SampleService.call(value=5)
+
+        self.assertEqual(result, 10)
+        mock_atomic.assert_called_once_with(DEFAULT_DB_ALIAS)
+        self.assertEqual(self.SampleService.run_calls, 1)
+
+    def test_base_service_respects_use_atomic_override(self) -> None:
+        with mock.patch("opportunities.services.base.service_atomic") as mock_atomic:
+            self.SampleService.call(value=3, use_atomic=False)
+
+        mock_atomic.assert_not_called()
+        self.assertEqual(self.SampleService.run_calls, 1)
+
+    def test_service_atomic_savepoint_behavior(self) -> None:
+        fake_connection = mock.Mock(in_atomic_block=True)
+
+        with mock.patch("opportunities.services.base.transaction") as mock_tx:
+            mock_tx.get_connection.return_value = fake_connection
+            mock_cm = mock.MagicMock()
+            mock_tx.atomic.return_value = mock_cm
+            mock_cm.__enter__.return_value = None
+            mock_cm.__exit__.return_value = False
+
+            with service_atomic():
+                pass
+
+            mock_tx.atomic.assert_called_once_with(using=DEFAULT_DB_ALIAS, savepoint=False)
+
+        fake_connection.in_atomic_block = False
+
+        with mock.patch("opportunities.services.base.transaction") as mock_tx:
+            mock_tx.get_connection.return_value = fake_connection
+            mock_cm = mock.MagicMock()
+            mock_tx.atomic.return_value = mock_cm
+            mock_cm.__enter__.return_value = None
+            mock_cm.__exit__.return_value = False
+
+            with service_atomic("alternative"):
+                pass
+
+            mock_tx.atomic.assert_called_once_with(using="alternative")

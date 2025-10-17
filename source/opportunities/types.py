@@ -2,6 +2,11 @@ import strawberry
 import strawberry_django
 from strawberry import relay
 
+from django_fsm import FSMField
+from strawberry_django.fields import types as strawberry_types
+
+strawberry_types.field_type_map.setdefault(FSMField, str)
+
 from opportunities.models import (
     AcquisitionAttempt,
     Agent,
@@ -44,7 +49,7 @@ class PropertyType(relay.Node):
 
 @strawberry_django.type(AcquisitionAttempt, fields="__all__")
 class AcquisitionAttemptType(relay.Node):
-    pass
+    state: str = strawberry_django.field()
 
 
 @strawberry_django.type(Appraisal, fields="__all__")
@@ -54,22 +59,22 @@ class AppraisalType(relay.Node):
 
 @strawberry_django.type(Validation, fields="__all__")
 class ValidationType(relay.Node):
-    pass
+    state: str = strawberry_django.field()
 
 
 @strawberry_django.type(MarketingPackage, fields="__all__")
 class MarketingPackageType(relay.Node):
-    pass
+    state: str = strawberry_django.field()
 
 
 @strawberry_django.type(Operation, fields="__all__")
 class OperationType(relay.Node):
-    pass
+    state: str = strawberry_django.field()
 
 
 @strawberry_django.type(Opportunity, fields="__all__")
 class OpportunityType(relay.Node):
-    pass
+    state: str = strawberry_django.field()
 
 
 __all__ = [

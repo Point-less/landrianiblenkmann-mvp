@@ -1,7 +1,7 @@
 from typing import Any, Mapping, Optional
 
 from django.core.exceptions import ValidationError
-from django.utils import timezone
+from django_fsm import TransitionNotAllowed
 
 from opportunities.models import AcquisitionAttempt, Appraisal, Opportunity, Validation
 
@@ -9,17 +9,7 @@ from .base import BaseService
 from .opportunities import OpportunityValidateService
 
 
-class AcquisitionAttemptService(BaseService):
-    """Base helper with shared validation utilities."""
-
-    def ensure_state(self, attempt: AcquisitionAttempt, expected: AcquisitionAttempt.State) -> None:
-        if attempt.state != expected:
-            raise ValidationError(
-                f"Acquisition attempt must be in '{expected}' state; current state is '{attempt.state}'."
-            )
-
-
-class AcquisitionAttemptAppraiseService(AcquisitionAttemptService):
+class AcquisitionAttemptAppraiseService(BaseService):
     """Transition a valuating attempt into negotiating, optionally capturing appraisal data."""
 
     def run(
@@ -28,9 +18,11 @@ class AcquisitionAttemptAppraiseService(AcquisitionAttemptService):
         attempt: AcquisitionAttempt,
         appraisal_data: Optional[Mapping[str, Any]] = None,
     ) -> AcquisitionAttempt:
-        self.ensure_state(attempt, AcquisitionAttempt.State.VALUATING)
+        try:
+            attempt.start_negotiation()
+        except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
+            raise ValidationError(str(exc)) from exc
 
-        attempt.state = AcquisitionAttempt.State.NEGOTIATING
         attempt.save(update_fields=["state", "updated_at"])
 
         if appraisal_data:
@@ -42,14 +34,15 @@ class AcquisitionAttemptAppraiseService(AcquisitionAttemptService):
         return attempt
 
 
-class AcquisitionAttemptCaptureService(AcquisitionAttemptService):
+class AcquisitionAttemptCaptureService(BaseService):
     """Mark the attempt as captured/closed and advance the opportunity."""
 
     def run(self, *, attempt: AcquisitionAttempt, actor: Optional[Any] = None) -> AcquisitionAttempt:
-        self.ensure_state(attempt, AcquisitionAttempt.State.NEGOTIATING)
+        try:
+            attempt.close_attempt()
+        except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
+            raise ValidationError(str(exc)) from exc
 
-        attempt.state = AcquisitionAttempt.State.CLOSED
-        attempt.closed_at = timezone.now()
         attempt.save(update_fields=["state", "closed_at", "updated_at"])
 
         opportunity = attempt.opportunity
@@ -64,17 +57,17 @@ class AcquisitionAttemptCaptureService(AcquisitionAttemptService):
         return attempt
 
 
-class AcquisitionAttemptRejectService(AcquisitionAttemptService):
+class AcquisitionAttemptRejectService(BaseService):
     """Reject the attempt without moving the opportunity forward."""
 
     def run(self, *, attempt: AcquisitionAttempt, notes: str | None = None) -> AcquisitionAttempt:
-        self.ensure_state(attempt, AcquisitionAttempt.State.NEGOTIATING)
+        try:
+            attempt.close_attempt(notes=notes)
+        except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
+            raise ValidationError(str(exc)) from exc
 
         update_fields = ["state", "closed_at", "updated_at"]
-        attempt.state = AcquisitionAttempt.State.CLOSED
-        attempt.closed_at = timezone.now()
         if notes:
-            attempt.notes = notes
             update_fields.append("notes")
         attempt.save(update_fields=update_fields)
 

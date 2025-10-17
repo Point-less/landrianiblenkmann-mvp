@@ -1,40 +1,41 @@
 from django.core.exceptions import ValidationError
+from django_fsm import TransitionNotAllowed
 
-from opportunities.models import MarketingPackage, Validation
+from opportunities.models import MarketingPackage
 
 from .base import BaseService
 
 
-class MarketingPackageBaseService(BaseService):
-    def ensure_state(self, package: MarketingPackage, expected: MarketingPackage.State) -> None:
-        if package.state != expected:
-            raise ValidationError(
-                f"Marketing package must be in '{expected}' state; current state is '{package.state}'."
-            )
-
-
-class MarketingPackageActivateService(MarketingPackageBaseService):
+class MarketingPackageActivateService(BaseService):
     """Move a package from preparing to available."""
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
-        self.ensure_state(package, MarketingPackage.State.PREPARING)
-        return package.clone(state=MarketingPackage.State.AVAILABLE)
+        try:
+            new_package = package.activate()
+        except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
+            raise ValidationError(str(exc)) from exc
+        return new_package
 
 
-class MarketingPackageReserveService(MarketingPackageBaseService):
+class MarketingPackageReserveService(BaseService):
     """Reserve an available package (available -> paused)."""
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
-        self.ensure_state(package, MarketingPackage.State.AVAILABLE)
-        opportunity = package.opportunity
-        if not opportunity.validations.filter(state=Validation.State.ACCEPTED).exists():
-            raise ValidationError("Cannot reserve marketing package before validation is accepted.")
-        return package.clone(state=MarketingPackage.State.PAUSED)
+        try:
+            new_package = package.reserve()
+        except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
+            raise ValidationError(str(exc)) from exc
+        except ValidationError:
+            raise
+        return new_package
 
 
-class MarketingPackageReleaseService(MarketingPackageBaseService):
+class MarketingPackageReleaseService(BaseService):
     """Release a paused package back to available."""
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
-        self.ensure_state(package, MarketingPackage.State.PAUSED)
-        return package.clone(state=MarketingPackage.State.AVAILABLE)
+        try:
+            new_package = package.release()
+        except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
+            raise ValidationError(str(exc)) from exc
+        return new_package

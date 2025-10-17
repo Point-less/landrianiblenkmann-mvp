@@ -1,0 +1,17 @@
+[run]
+source = source
+branch = True
+omit =
+    source/manage.py
+    source/config/*
+    source/*/migrations/*
+    source/**/tests.py
+
+[report]
+show_missing = True
+skip_covered = True
+precision = 2
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.
+    raise NotImplementedError

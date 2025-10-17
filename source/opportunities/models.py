@@ -1,5 +1,8 @@
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
+from django_fsm import FSMField, transition
 
 from core.models import Currency
 from utils.mixins import ImmutableRevisionMixin, TimeStampedMixin
@@ -115,10 +118,11 @@ class Opportunity(TimeStampedMixin):
         on_delete=models.PROTECT,
         related_name="owned_opportunities",
     )
-    state = models.CharField(
+    state = FSMField(
         max_length=20,
         choices=State.choices,
         default=State.CAPTURING,
+        protected=False,
     )
     probability = models.PositiveSmallIntegerField(
         default=0,
@@ -144,6 +148,21 @@ class Opportunity(TimeStampedMixin):
     def __str__(self) -> str:
         return self.title
 
+    @transition(field="state", source=State.CAPTURING, target=State.VALIDATING)
+    def start_validation(self) -> None:
+        """Move the opportunity into the validating stage."""
+
+    @transition(field="state", source=State.VALIDATING, target=State.MARKETING)
+    def start_marketing(self) -> None:
+        """Begin marketing the opportunity."""
+
+    @transition(field="state", source=State.MARKETING, target=State.CLOSED)
+    def close_opportunity(self) -> None:
+        """Close the opportunity once an operation is completed."""
+
+        if not self.operations.filter(state=Operation.State.CLOSED).exists():
+            raise ValidationError("Opportunity cannot be closed without a closed operation.")
+
 
 class AcquisitionAttempt(TimeStampedMixin):
     class State(models.TextChoices):
@@ -156,10 +175,11 @@ class AcquisitionAttempt(TimeStampedMixin):
         on_delete=models.CASCADE,
         related_name="acquisition_attempts",
     )
-    state = models.CharField(
+    state = FSMField(
         max_length=20,
         choices=State.choices,
         default=State.VALUATING,
+        protected=False,
     )
     assigned_to = models.ForeignKey(
         Agent,
@@ -179,6 +199,18 @@ class AcquisitionAttempt(TimeStampedMixin):
 
     def __str__(self) -> str:
         return f"Acquisition attempt for {self.opportunity}"
+
+    @transition(field="state", source=State.VALUATING, target=State.NEGOTIATING)
+    def start_negotiation(self) -> None:
+        """Enter the negotiating phase for the attempt."""
+
+    @transition(field="state", source=State.NEGOTIATING, target=State.CLOSED)
+    def close_attempt(self, notes: str | None = None) -> None:
+        """Close the acquisition attempt."""
+
+        self.closed_at = timezone.now()
+        if notes:
+            self.notes = notes
 
 
 class Appraisal(TimeStampedMixin):
@@ -225,10 +257,11 @@ class Validation(TimeStampedMixin):
         on_delete=models.CASCADE,
         related_name="validations",
     )
-    state = models.CharField(
+    state = FSMField(
         max_length=20,
         choices=State.choices,
         default=State.PREPARING,
+        protected=False,
     )
     presented_at = models.DateTimeField(null=True, blank=True)
     validated_at = models.DateTimeField(null=True, blank=True)
@@ -248,6 +281,27 @@ class Validation(TimeStampedMixin):
 
     def __str__(self) -> str:
         return f"Validation for {self.opportunity}"
+
+    @transition(field="state", source=State.PREPARING, target=State.PRESENTED)
+    def present(self, reviewer: Agent) -> None:
+        """Present documentation for review."""
+
+        self.presented_at = timezone.now()
+        self.reviewer = reviewer
+
+    @transition(field="state", source=State.PRESENTED, target=State.PREPARING)
+    def reset(self, notes: str | None = None) -> None:
+        """Return validation to preparation with optional reviewer notes."""
+
+        self.validated_at = None
+        if notes is not None:
+            self.notes = notes
+
+    @transition(field="state", source=State.PRESENTED, target=State.ACCEPTED)
+    def accept(self) -> None:
+        """Accept validation and mark as completed."""
+
+        self.validated_at = timezone.now()
 
 
 
@@ -283,10 +337,11 @@ class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
     )
     version = models.PositiveIntegerField(default=1, editable=False)
     is_active = models.BooleanField(default=True)
-    state = models.CharField(
+    state = FSMField(
         max_length=20,
         choices=State.choices,
         default=State.PREPARING,
+        protected=False,
     )
     headline = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
@@ -328,6 +383,30 @@ class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
         base = self.headline or f"Marketing package for {self.opportunity}"
         return f"{base}{suffix}"
 
+    @transition(field="state", source=State.PREPARING, target=State.AVAILABLE)
+    def activate(self) -> "MarketingPackage":
+        """Activate package, producing a new revision ready for marketing."""
+
+        new_package = self.clone(state=MarketingPackage.State.AVAILABLE)
+        return new_package
+
+    @transition(field="state", source=State.AVAILABLE, target=State.PAUSED)
+    def reserve(self) -> "MarketingPackage":
+        """Reserve the active package if validation is accepted."""
+
+        if not self.opportunity.validations.filter(state=Validation.State.ACCEPTED).exists():
+            raise ValidationError("Cannot reserve marketing package before validation is accepted.")
+
+        new_package = self.clone(state=MarketingPackage.State.PAUSED)
+        return new_package
+
+    @transition(field="state", source=State.PAUSED, target=State.AVAILABLE)
+    def release(self) -> "MarketingPackage":
+        """Reactivate a paused package."""
+
+        new_package = self.clone(state=MarketingPackage.State.AVAILABLE)
+        return new_package
+
 
 class Operation(TimeStampedMixin):
     class State(models.TextChoices):
@@ -340,7 +419,12 @@ class Operation(TimeStampedMixin):
         on_delete=models.CASCADE,
         related_name="operations",
     )
-    state = models.CharField(max_length=20, choices=State.choices, default=State.OFFERED)
+    state = FSMField(
+        max_length=20,
+        choices=State.choices,
+        default=State.OFFERED,
+        protected=False,
+    )
     offered_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -382,3 +466,15 @@ class Operation(TimeStampedMixin):
 
     def __str__(self) -> str:
         return f"Operation {self.get_state_display()} for {self.opportunity}"
+
+    @transition(field="state", source=State.OFFERED, target=State.REINFORCED)
+    def reinforce(self) -> None:
+        """Register an offer reinforcement."""
+
+        self.occurred_at = timezone.now()
+
+    @transition(field="state", source=State.REINFORCED, target=State.CLOSED)
+    def close(self) -> None:
+        """Record a closed negotiation stage."""
+
+        self.occurred_at = timezone.now()

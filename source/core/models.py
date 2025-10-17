@@ -80,6 +80,18 @@ class ContactAgentRelationship(TimeStampedModel):
         return f"{self.contact} <> {self.agent}"
 
 
+class Currency(TimeStampedModel):
+    code = models.CharField(max_length=3, unique=True)
+    name = models.CharField(max_length=100)
+    symbol = models.CharField(max_length=10, blank=True)
+
+    class Meta:
+        ordering = ("code",)
+
+    def __str__(self) -> str:
+        return self.code
+
+
 class Property(TimeStampedModel):
     name = models.CharField(max_length=255)
     reference_code = models.CharField(max_length=50, blank=True, unique=True)
@@ -192,7 +204,13 @@ class Appraisal(TimeStampedModel):
         blank=True,
         validators=[MinValueValidator(0)],
     )
-    valuation_currency = models.CharField(max_length=3, default="USD")
+    currency = models.ForeignKey(
+        'Currency',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='appraisals',
+    )
     valuation_date = models.DateField(null=True, blank=True)
     summary = models.TextField(blank=True)
     external_report_url = models.URLField(blank=True)
@@ -266,7 +284,13 @@ class Listing(TimeStampedModel):
         blank=True,
         validators=[MinValueValidator(0)],
     )
-    currency = models.CharField(max_length=3, default="USD")
+    currency = models.ForeignKey(
+        'Currency',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='listings',
+    )
     listed_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
@@ -302,7 +326,13 @@ class OpportunityOperation(TimeStampedModel):
         validators=[MinValueValidator(0)],
         help_text="Monetary value attached to the negotiation step, if any.",
     )
-    currency = models.CharField(max_length=3, default="USD")
+    currency = models.ForeignKey(
+        'Currency',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='opportunity_operations',
+    )
     related_operation = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,

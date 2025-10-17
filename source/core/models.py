@@ -259,12 +259,13 @@ class DocumentationValidation(TimeStampedModel):
 
 
 
-class ListingQuerySet(models.QuerySet):
+
+class MarketingPackageQuerySet(models.QuerySet):
     def active(self):
         return self.filter(is_active=True)
 
 
-class Listing(TimeStampedModel):
+class MarketingPackage(TimeStampedModel):
     class EffortType(models.TextChoices):
         GENERAL = "general", "General"
         DIGITAL = "digital", "Digital"
@@ -275,7 +276,7 @@ class Listing(TimeStampedModel):
     opportunity = models.ForeignKey(
         Opportunity,
         on_delete=models.CASCADE,
-        related_name="listings",
+        related_name="marketing_packages",
     )
     version = models.PositiveIntegerField(default=1, editable=False)
     is_active = models.BooleanField(default=True)
@@ -293,7 +294,7 @@ class Listing(TimeStampedModel):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name='listings',
+        related_name='marketing_packages',
     )
     features = models.JSONField(blank=True, default=list, help_text="Key property highlights or amenities.")
     media_assets = models.JSONField(blank=True, default=list, help_text="List of image or video asset URLs.")
@@ -306,7 +307,7 @@ class Listing(TimeStampedModel):
     campaign_end = models.DateField(null=True, blank=True)
     marketing_notes = models.TextField(blank=True)
 
-    objects = ListingQuerySet.as_manager()
+    objects = MarketingPackageQuerySet.as_manager()
 
     class Meta:
         ordering = ("-created_at",)
@@ -321,10 +322,10 @@ class Listing(TimeStampedModel):
         update_fields = kwargs.get('update_fields')
         if self.pk:
             if update_fields is None:
-                raise ValueError('Listings are immutable; use Listing.create_revision to replace them.')
+                raise ValueError('Marketing packages are immutable; use MarketingPackage.create_revision to replace them.')
             allowed_updates = {'is_active', 'updated_at'}
             if not set(update_fields).issubset(allowed_updates):
-                raise ValueError('Listings are immutable; use Listing.create_revision to replace them.')
+                raise ValueError('Marketing packages are immutable; use MarketingPackage.create_revision to replace them.')
         super().save(*args, **kwargs)
 
     @classmethod
@@ -339,29 +340,29 @@ class Listing(TimeStampedModel):
         ]
 
     @classmethod
-    def create_revision(cls, listing, **changes):
+    def create_revision(cls, package, **changes):
         from django.db import transaction
         from django.db.models import Max
 
         editable = cls.editable_field_names()
-        base_payload = {name: getattr(listing, name) for name in editable}
+        base_payload = {name: getattr(package, name) for name in editable}
         base_payload.update(changes)
         with transaction.atomic():
-            listing.is_active = False
-            listing.save(update_fields=["is_active", "updated_at"])
+            package.is_active = False
+            package.save(update_fields=["is_active", "updated_at"])
             max_version = (
-                cls.objects.filter(opportunity=listing.opportunity)
+                cls.objects.filter(opportunity=package.opportunity)
                 .aggregate(max_v=Max("version"))
                 .get("max_v")
                 or 0
             )
-            new_listing = cls.objects.create(
-                opportunity=listing.opportunity,
+            new_package = cls.objects.create(
+                opportunity=package.opportunity,
                 version=max_version + 1,
                 is_active=True,
                 **base_payload,
             )
-        return new_listing
+        return new_package
 
     def clone(self, **overrides):
         return type(self).create_revision(self, **overrides)

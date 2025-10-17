@@ -1,5 +1,6 @@
 """Project-wide service discovery utilities."""
 
+from .base import BaseService, service_atomic
 from .registry import (
     ServiceInvoker,
     discover_services,
@@ -10,6 +11,8 @@ from .registry import (
 )
 
 __all__ = [
+    'BaseService',
+    'service_atomic',
     'discover_services',
     'get_services',
     'iter_services',

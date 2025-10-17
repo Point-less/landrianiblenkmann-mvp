@@ -457,7 +457,7 @@ class BaseServiceTests(TestCase):
         BaseServiceTests.SampleService.run_calls = 0
 
     def test_base_service_wraps_in_atomic_by_default(self) -> None:
-        with mock.patch("opportunities.services.base.service_atomic") as mock_atomic:
+        with mock.patch("utils.services.base.service_atomic") as mock_atomic:
             mock_cm = mock.MagicMock()
             mock_atomic.return_value = mock_cm
             mock_cm.__enter__.return_value = None
@@ -470,7 +470,7 @@ class BaseServiceTests(TestCase):
         self.assertEqual(self.SampleService.run_calls, 1)
 
     def test_base_service_respects_use_atomic_override(self) -> None:
-        with mock.patch("opportunities.services.base.service_atomic") as mock_atomic:
+        with mock.patch("utils.services.base.service_atomic") as mock_atomic:
             self.SampleService.call(value=3, use_atomic=False)
 
         mock_atomic.assert_not_called()
@@ -479,7 +479,7 @@ class BaseServiceTests(TestCase):
     def test_service_atomic_savepoint_behavior(self) -> None:
         fake_connection = mock.Mock(in_atomic_block=True)
 
-        with mock.patch("opportunities.services.base.transaction") as mock_tx:
+        with mock.patch("utils.services.base.transaction") as mock_tx:
             mock_tx.get_connection.return_value = fake_connection
             mock_cm = mock.MagicMock()
             mock_tx.atomic.return_value = mock_cm
@@ -493,7 +493,7 @@ class BaseServiceTests(TestCase):
 
         fake_connection.in_atomic_block = False
 
-        with mock.patch("opportunities.services.base.transaction") as mock_tx:
+        with mock.patch("utils.services.base.transaction") as mock_tx:
             mock_tx.get_connection.return_value = fake_connection
             mock_cm = mock.MagicMock()
             mock_tx.atomic.return_value = mock_cm

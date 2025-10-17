@@ -37,6 +37,12 @@ from opportunities.services import (
     ValidationPresentService,
     ValidationRejectService,
 )
+from utils.services import ServiceInvoker, for_actor
+
+
+class ActorEchoService(BaseService):
+    def run(self, *, actor):
+        return actor
 
 
 class OpportunityWorkflowTests(TestCase):
@@ -498,3 +504,32 @@ class BaseServiceTests(TestCase):
                 pass
 
             mock_tx.atomic.assert_called_once_with(using="alternative")
+
+    def test_actor_is_injected_into_run(self) -> None:
+        self.assertEqual(ActorEchoService(actor="alice")(), "alice")
+        self.assertEqual(ActorEchoService.call(actor="bob"), "bob")
+        service = ActorEchoService()
+        self.assertEqual(service(actor="carol"), "carol")
+
+
+class ServiceInvokerTests(TestCase):
+    def test_invoker_binds_actor_to_service_instances(self) -> None:
+        invoker = ServiceInvoker(actor="otto")
+        instance = invoker.get(CreateOpportunityService)
+        self.assertEqual(instance.actor, "otto")
+
+    def test_invoker_call_passes_actor(self) -> None:
+        invoker = for_actor("echo-user")
+        captured = {}
+
+        def fake_run(self, *, actor):
+            captured["actor"] = actor
+            return actor
+
+        with mock.patch.object(ActorEchoService, "run", fake_run):
+            result = invoker.call(
+                f"{ActorEchoService.__module__}.ActorEchoService",
+            )
+
+        self.assertEqual(captured["actor"], "echo-user")
+        self.assertEqual(result, "echo-user")

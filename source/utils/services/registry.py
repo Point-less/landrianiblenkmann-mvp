@@ -2,7 +2,7 @@ import inspect
 import pkgutil
 import sys
 from importlib import import_module
-from typing import Dict, Iterable, List, Optional, Tuple, Type
+from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 from django.apps import AppConfig, apps
 from django.utils.module_loading import module_has_submodule
@@ -89,3 +89,69 @@ def get_services(
 
 def iter_services(force: bool = False) -> Iterable[ServiceClass]:
     yield from get_services(force=force)
+
+
+def resolve_service(
+    identifier: Union[str, ServiceClass],
+    *,
+    app_label: Optional[str] = None,
+    force: bool = False,
+) -> ServiceClass:
+    """Resolve a service class from a dotted path or class name."""
+
+    if inspect.isclass(identifier) and issubclass(identifier, BaseService):
+        return identifier
+
+    if not isinstance(identifier, str):
+        raise LookupError(f"Unsupported service identifier: {identifier!r}")
+
+    if "." in identifier:
+        module_path, _, class_name = identifier.rpartition(".")
+        if not module_path:
+            raise LookupError(f"Invalid service path '{identifier}'")
+        module = import_module(module_path)
+        service_cls = getattr(module, class_name, None)
+        if not service_cls or not inspect.isclass(service_cls) or not issubclass(service_cls, BaseService):
+            raise LookupError(f"Service '{identifier}' could not be resolved")
+        return service_cls
+
+    registry = discover_services(force=force)
+
+    candidates: List[ServiceClass] = []
+    if app_label is not None:
+        candidates = [svc for svc in registry.get(app_label, ()) if svc.__name__ == identifier]
+    else:
+        for svc_list in registry.values():
+            candidates.extend([svc for svc in svc_list if svc.__name__ == identifier])
+
+    if not candidates:
+        raise LookupError(f"Service '{identifier}' not found")
+    if len(candidates) > 1:
+        raise LookupError(
+            f"Service name '{identifier}' is ambiguous; provide a dotted path or app_label"
+        )
+
+    return candidates[0]
+
+
+class ServiceInvoker:
+    """Helper to fetch and invoke services with a bound actor/context."""
+
+    def __init__(self, *, actor=None, app_label: Optional[str] = None):
+        self.actor = actor
+        self.app_label = app_label
+
+    def get(self, service_identifier: Union[str, ServiceClass]) -> ServiceClass:
+        service_cls = resolve_service(
+            service_identifier,
+            app_label=self.app_label,
+        )
+        return service_cls(actor=self.actor)
+
+    def call(self, service_identifier: Union[str, ServiceClass], *args, **kwargs):
+        instance = self.get(service_identifier)
+        return instance(*args, **kwargs)
+
+
+def for_actor(actor, *, app_label: Optional[str] = None) -> ServiceInvoker:
+    return ServiceInvoker(actor=actor, app_label=app_label)

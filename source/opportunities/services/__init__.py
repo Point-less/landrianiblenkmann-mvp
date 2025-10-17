@@ -50,12 +50,18 @@ __all__ = [
     "discover_services",
     "get_services",
     "iter_services",
+    "resolve_service",
+    "ServiceInvoker",
+    "for_actor",
 ]
 
 _SERVICE_ATTRS = {
     "discover_services",
     "get_services",
     "iter_services",
+    "resolve_service",
+    "ServiceInvoker",
+    "for_actor",
 }
 
 

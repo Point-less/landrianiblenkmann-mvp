@@ -1,6 +1,6 @@
 """Opportunity service utilities and concrete services."""
 
-from .base import BaseService, service_atomic  # noqa: F401
+from utils.services import BaseService, service_atomic  # noqa: F401
 from .opportunities import (  # noqa: F401
     CreateOpportunityService,
     OpportunityCloseService,

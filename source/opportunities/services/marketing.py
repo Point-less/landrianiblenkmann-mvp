@@ -3,7 +3,7 @@ from django_fsm import TransitionNotAllowed
 
 from opportunities.models import MarketingPackage
 
-from .base import BaseService
+from utils.services import BaseService
 
 
 class MarketingPackageActivateService(BaseService):

@@ -5,7 +5,7 @@ from django_fsm import TransitionNotAllowed
 
 from opportunities.models import MarketingPackage, Opportunity, Validation
 
-from .base import BaseService
+from utils.services import BaseService
 from .marketing import MarketingPackageActivateService
 
 

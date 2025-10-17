@@ -5,7 +5,7 @@ from django_fsm import TransitionNotAllowed
 
 from opportunities.models import Operation, Opportunity
 
-from .base import BaseService
+from utils.services import BaseService
 
 
 class OperationReinforceService(BaseService):

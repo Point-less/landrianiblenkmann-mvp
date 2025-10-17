@@ -1,7 +1,7 @@
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from utils import ImmutableRevisionMixin, TimeStampedMixin
+from utils.mixins import ImmutableRevisionMixin, TimeStampedMixin
 
 
 class Contact(TimeStampedMixin):

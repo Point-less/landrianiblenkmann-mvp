@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_dramatiq',
     'users.apps.UsersConfig',
+    'utils.apps.UtilsConfig',
     'core.apps.CoreConfig',
 ]
 

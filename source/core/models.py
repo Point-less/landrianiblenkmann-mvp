@@ -5,13 +5,18 @@ from django.db import models, transaction
 from django.db.models import Max
 
 
-class TimeStampedModel(models.Model):
-    """Abstract base model adding created/updated auditing fields."""
+class TimeStampedMixin(models.Model):
+    """Abstract mixin adding created/updated auditing fields."""
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        abstract = True
+
+
+class TimeStampedModel(TimeStampedMixin):
+    class Meta(TimeStampedMixin.Meta):
         abstract = True
 
 
@@ -95,7 +100,7 @@ class ImmutableRevisionMixin(models.Model):
         return type(self).create_revision(self, **overrides)
 
 
-class Contact(TimeStampedModel):
+class Contact(TimeStampedMixin):
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     email = models.EmailField(blank=True)
@@ -109,7 +114,7 @@ class Contact(TimeStampedModel):
         return f"{self.first_name} {self.last_name}".strip()
 
 
-class Agent(TimeStampedModel):
+class Agent(TimeStampedMixin):
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     email = models.EmailField(blank=True)
@@ -130,7 +135,7 @@ class Agent(TimeStampedModel):
         return name or self.email or "Agent"
 
 
-class ContactAgentRelationship(TimeStampedModel):
+class ContactAgentRelationship(TimeStampedMixin):
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"
         INACTIVE = "inactive", "Inactive"
@@ -163,7 +168,7 @@ class ContactAgentRelationship(TimeStampedModel):
         return f"{self.contact} <> {self.agent}"
 
 
-class Currency(TimeStampedModel):
+class Currency(TimeStampedMixin):
     code = models.CharField(max_length=3, unique=True)
     name = models.CharField(max_length=100)
     symbol = models.CharField(max_length=10, blank=True)
@@ -175,7 +180,7 @@ class Currency(TimeStampedModel):
         return self.code
 
 
-class Property(TimeStampedModel):
+class Property(TimeStampedMixin):
     name = models.CharField(max_length=255)
     reference_code = models.CharField(max_length=50, blank=True, unique=True)
 
@@ -186,7 +191,7 @@ class Property(TimeStampedModel):
         return self.name
 
 
-class Opportunity(TimeStampedModel):
+class Opportunity(TimeStampedMixin):
     class Stage(models.TextChoices):
         PROSPECTING = "prospecting", "Prospecting"
         APPRAISAL = "appraisal", "Appraisal"
@@ -239,7 +244,7 @@ class Opportunity(TimeStampedModel):
         return self.title
 
 
-class Prospecting(TimeStampedModel):
+class Prospecting(TimeStampedMixin):
     class Status(models.TextChoices):
         PLANNED = "planned", "Planned"
         IN_PROGRESS = "in_progress", "In progress"
@@ -274,7 +279,7 @@ class Prospecting(TimeStampedModel):
         return f"Prospecting for {self.opportunity}"
 
 
-class Appraisal(TimeStampedModel):
+class Appraisal(TimeStampedMixin):
     prospecting = models.OneToOneField(
         Prospecting,
         on_delete=models.CASCADE,
@@ -305,7 +310,7 @@ class Appraisal(TimeStampedModel):
         return f"Appraisal for {self.prospecting.opportunity}"
 
 
-class DocumentationValidation(TimeStampedModel):
+class DocumentationValidation(TimeStampedMixin):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         APPROVED = "approved", "Approved"
@@ -349,7 +354,7 @@ class MarketingPackageQuerySet(models.QuerySet):
         return self.filter(is_active=True)
 
 
-class MarketingPackage(ImmutableRevisionMixin, TimeStampedModel):
+class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
     class EffortType(models.TextChoices):
         GENERAL = "general", "General"
         DIGITAL = "digital", "Digital"
@@ -406,7 +411,7 @@ class MarketingPackage(ImmutableRevisionMixin, TimeStampedModel):
         return f"{base}{suffix}"
 
 
-class OpportunityOperation(TimeStampedModel):
+class OpportunityOperation(TimeStampedMixin):
     class Event(models.TextChoices):
         OFFER_RECEIVED = "offer_received", "Offer received"
         OFFER_REINFORCEMENT = "offer_reinforcement", "Offer reinforcement"

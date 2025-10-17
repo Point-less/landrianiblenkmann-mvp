@@ -318,13 +318,29 @@ class OpportunityOperation(TimeStampedModel):
         related_name="operations",
     )
     event = models.CharField(max_length=40, choices=Event.choices)
-    amount = models.DecimalField(
+    offered_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        help_text="Monetary value attached to the negotiation step, if any.",
+        help_text="Amount proposed in this negotiation step.",
+    )
+    reserve_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Remaining reserved funds after this step.",
+    )
+    reinforcement_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Additional funds available for reinforcement, if applicable.",
     )
     currency = models.ForeignKey(
         'Currency',
@@ -332,14 +348,6 @@ class OpportunityOperation(TimeStampedModel):
         null=True,
         blank=True,
         related_name='opportunity_operations',
-    )
-    related_operation = models.ForeignKey(
-        "self",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="follow_ups",
-        help_text="Link reinforcement or closing events to the originating offer.",
     )
     occurred_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)

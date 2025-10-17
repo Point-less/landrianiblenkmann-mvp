@@ -257,27 +257,21 @@ class DocumentationValidation(TimeStampedModel):
 
 
 class Listing(TimeStampedModel):
-    class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        ACTIVE = "active", "Active"
-        PAUSED = "paused", "Paused"
-        ARCHIVED = "archived", "Archived"
+    class EffortType(models.TextChoices):
+        GENERAL = "general", "General"
+        DIGITAL = "digital", "Digital"
+        EVENTS = "events", "Events"
+        PRINT = "print", "Print"
+        OTHER = "other", "Other"
 
     opportunity = models.ForeignKey(
         Opportunity,
         on_delete=models.CASCADE,
         related_name="listings",
     )
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.DRAFT,
-    )
-    channel = models.CharField(
-        max_length=150,
-        help_text="Marketplace or publication channel name",
-    )
-    asking_price = models.DecimalField(
+    headline = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
@@ -291,18 +285,22 @@ class Listing(TimeStampedModel):
         blank=True,
         related_name='listings',
     )
-    listed_at = models.DateTimeField(null=True, blank=True)
-    expires_at = models.DateTimeField(null=True, blank=True)
-    notes = models.TextField(blank=True)
+    features = models.JSONField(blank=True, default=list, help_text="Key property highlights or amenities.")
+    media_assets = models.JSONField(blank=True, default=list, help_text="List of image or video asset URLs.")
+    effort_type = models.CharField(
+        max_length=20,
+        choices=EffortType.choices,
+        default=EffortType.GENERAL,
+    )
+    campaign_start = models.DateField(null=True, blank=True)
+    campaign_end = models.DateField(null=True, blank=True)
+    marketing_notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ("-created_at",)
-        unique_together = ("opportunity", "channel", "listed_at")
 
     def __str__(self) -> str:
-        property_obj = getattr(self.opportunity, "property", None)
-        label = property_obj or self.opportunity
-        return f"{label} via {self.channel}"
+        return self.headline or f"Marketing package for {self.opportunity}"
 
 
 class OpportunityOperation(TimeStampedModel):

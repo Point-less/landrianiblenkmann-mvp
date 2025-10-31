@@ -5,7 +5,7 @@ services:
     volumes:
       - ./source:/app
     ports:
-      - "8001:8000"
+      - "8005:8000"
     environment:
       DJANGO_DEBUG: "True"
       DJANGO_ALLOWED_HOSTS: "*"

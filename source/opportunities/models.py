@@ -29,7 +29,6 @@ class Agent(TimeStampedMixin):
     last_name = models.CharField(max_length=150)
     email = models.EmailField(blank=True)
     phone_number = models.CharField(max_length=50, blank=True)
-    license_id = models.CharField(max_length=100, blank=True)
     contacts = models.ManyToManyField(
         Contact,
         through='ContactAgentRelationship',
@@ -124,20 +123,6 @@ class Opportunity(TimeStampedMixin):
         default=State.CAPTURING,
         protected=False,
     )
-    probability = models.PositiveSmallIntegerField(
-        default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        help_text="Likelihood (0-100) of closing the opportunity.",
-    )
-    expected_close_date = models.DateField(null=True, blank=True)
-    budget_amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0)],
-    )
-    source = models.CharField(max_length=150, blank=True)
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -181,14 +166,6 @@ class AcquisitionAttempt(TimeStampedMixin):
         default=State.VALUATING,
         protected=False,
     )
-    assigned_to = models.ForeignKey(
-        Agent,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="acquisition_assignments",
-    )
-    scheduled_at = models.DateField(null=True, blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
 
@@ -265,13 +242,6 @@ class Validation(TimeStampedMixin):
     )
     presented_at = models.DateTimeField(null=True, blank=True)
     validated_at = models.DateTimeField(null=True, blank=True)
-    reviewer = models.ForeignKey(
-        Agent,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="validation_reviews",
-    )
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -304,39 +274,25 @@ class Validation(TimeStampedMixin):
         self.validated_at = timezone.now()
 
 
-
-
-
-
-
 class MarketingPackageQuerySet(models.QuerySet):
     def active(self):
         return self.filter(is_active=True)
 
 
 class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
-    class EffortType(models.TextChoices):
-        GENERAL = "general", "General"
-        DIGITAL = "digital", "Digital"
-        EVENTS = "events", "Events"
-        PRINT = "print", "Print"
-        OTHER = "other", "Other"
-
     class State(models.TextChoices):
         PREPARING = "preparing", "Preparing"
         AVAILABLE = "available", "Available"
         PAUSED = "paused", "Paused"
 
     REVISION_SCOPE = ("opportunity",)
-    IMMUTABLE_ALLOW_UPDATES = frozenset({"is_active", "updated_at"})
+    IMMUTABLE_ALLOW_UPDATES = frozenset({"updated_at"})
 
     opportunity = models.ForeignKey(
         Opportunity,
         on_delete=models.CASCADE,
         related_name="marketing_packages",
     )
-    version = models.PositiveIntegerField(default=1, editable=False)
-    is_active = models.BooleanField(default=True)
     state = FSMField(
         max_length=20,
         choices=State.choices,
@@ -361,20 +317,11 @@ class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
     )
     features = models.JSONField(blank=True, default=list, help_text="Key property highlights or amenities.")
     media_assets = models.JSONField(blank=True, default=list, help_text="List of image or video asset URLs.")
-    effort_type = models.CharField(
-        max_length=20,
-        choices=EffortType.choices,
-        default=EffortType.GENERAL,
-    )
-    campaign_start = models.DateField(null=True, blank=True)
-    campaign_end = models.DateField(null=True, blank=True)
-    marketing_notes = models.TextField(blank=True)
 
     objects = MarketingPackageQuerySet.as_manager()
 
     class Meta:
         ordering = ("-created_at",)
-        unique_together = ("opportunity", "version")
         verbose_name = "marketing package"
         verbose_name_plural = "marketing packages"
 

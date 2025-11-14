@@ -5,6 +5,7 @@ from typing import Any, Mapping
 from django.core.exceptions import ValidationError
 
 from core.models import Agent, Contact, Currency, Property
+from integrations.models import TokkobrokerProperty
 from intentions.models import SaleProviderIntention, SaleValuation
 from opportunities.services import CreateOpportunityService
 from utils.services import BaseService
@@ -86,6 +87,7 @@ class PromoteSaleProviderIntentionService(BaseService):
         intention: SaleProviderIntention,
         opportunity_notes: str | None = None,
         marketing_package_data: Mapping[str, Any] | None = None,
+        tokkobroker_property: TokkobrokerProperty | None = None,
     ):
         if not intention.is_promotable():
             raise ValidationError(
@@ -96,6 +98,7 @@ class PromoteSaleProviderIntentionService(BaseService):
             intention=intention,
             notes=opportunity_notes,
             marketing_package_data=marketing_package_data,
+            tokkobroker_property=tokkobroker_property,
         )
 
         intention.mark_converted(opportunity=opportunity)

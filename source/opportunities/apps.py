@@ -14,3 +14,8 @@ class OpportunitiesConfig(AppConfig):
             field_types.field_type_map[FSMField] = str
         except Exception:  # pragma: no cover - best-effort registration
             pass
+
+        try:
+            from . import signals  # noqa: F401
+        except Exception:  # pragma: no cover - best-effort registration
+            pass

@@ -13,6 +13,11 @@
                 <td>
                     <div class="table-title">{{ opportunity.source_intention.property }}</div>
                     <div class="table-subtext">Owner: {{ opportunity.source_intention.owner }}</div>
+                    {% if opportunity.tokkobroker_property %}
+                        <div class="table-subtext">
+                            Tokkobroker: {{ opportunity.tokkobroker_property.ref_code }} (ID {{ opportunity.tokkobroker_property.tokko_id }})
+                        </div>
+                    {% endif %}
                 </td>
                 <td>
                     <span class="pill">{{ opportunity.get_state_display }}</span>

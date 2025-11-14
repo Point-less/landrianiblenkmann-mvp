@@ -10,6 +10,7 @@ from django.utils import timezone
 from django_fsm import FSMField, transition
 
 from core.models import Agent, Currency
+from integrations.models import TokkobrokerProperty
 from utils.mixins import FSMLoggableMixin, TimeStampedMixin
 
 
@@ -27,6 +28,13 @@ class ProviderOpportunity(TimeStampedMixin, FSMLoggableMixin):
     source_intention = models.OneToOneField(
         "intentions.SaleProviderIntention",
         on_delete=models.PROTECT,
+        related_name="provider_opportunity",
+    )
+    tokkobroker_property = models.OneToOneField(
+        TokkobrokerProperty,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="provider_opportunity",
     )
     listing_kind = models.CharField(

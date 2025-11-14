@@ -3,6 +3,7 @@ from typing import Any, Mapping, Optional
 from django.core.exceptions import ValidationError
 from django_fsm import TransitionNotAllowed
 
+from integrations.models import TokkobrokerProperty
 from opportunities.models import (
     MarketingPackage,
     ProviderOpportunity,
@@ -24,11 +25,20 @@ class CreateOpportunityService(BaseService):
         intention: SaleProviderIntention,
         notes: str | None = None,
         marketing_package_data: Mapping[str, Any] | None = None,
+        tokkobroker_property: TokkobrokerProperty | None = None,
     ) -> ProviderOpportunity:
         marketing_payload = dict(marketing_package_data or {})
+
+        if (
+            tokkobroker_property
+            and ProviderOpportunity.objects.filter(tokkobroker_property=tokkobroker_property).exists()
+        ):
+            raise ValidationError("Tokkobroker property is already linked to another opportunity.")
+
         opportunity = ProviderOpportunity.objects.create(
             source_intention=intention,
             notes=notes or intention.documentation_notes,
+            tokkobroker_property=tokkobroker_property,
         )
 
         marketing_payload.setdefault("headline", f"Listing for {intention.property}")

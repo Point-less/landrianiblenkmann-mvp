@@ -50,26 +50,82 @@ class TokkoClient:
         match = re.search(r"name='csrfmiddlewaretoken' value='([^']+)'", html)
         return match.group(1) if match else None
 
+    def _prepare_request_url(self, url: str, params: Mapping[str, Any] | None) -> str:
+        prepared = requests.Request("GET", url, params=params).prepare()
+        return prepared.url
+
     def _api_get(self, endpoint: str, params: Mapping[str, Any] | None = None) -> requests.Response:
         url = f"{self.base_url}{endpoint}"
         headers = {"X-Requested-With": "XMLHttpRequest"}
+        request_url = self._prepare_request_url(url, params)
+        logger.debug("Tokkobroker GET %s headers=%s", request_url, headers)
         try:
-            return self.session.get(url, headers=headers, params=params, timeout=self.timeout)
+            response = self.session.get(url, headers=headers, params=params, timeout=self.timeout)
         except requests.RequestException as exc:
+            logger.exception("Tokkobroker GET %s failed", request_url)
             raise TokkoIntegrationError(f"Tokkobroker GET {endpoint} failed") from exc
+        logger.debug(
+            "Tokkobroker GET %s completed status=%s content_length=%s",
+            response.request.url if response.request else request_url,
+            response.status_code,
+            response.headers.get("Content-Length"),
+        )
+        return response
+
+    def call_property_endpoint(
+        self,
+        property_id: int,
+        params: Mapping[str, Any],
+        *,
+        action: str,
+    ) -> requests.Response:
+        """Perform a property endpoint request with detailed logging."""
+
+        url = f"{self.base_url}/property/{property_id}/"
+        logger.debug(
+            "Tokkobroker property request action=%s property=%s params=%s url=%s",
+            action,
+            property_id,
+            params,
+            self._prepare_request_url(url, params),
+        )
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+        except requests.RequestException as exc:
+            logger.exception(
+                "Tokkobroker property request action=%s property=%s failed",
+                action,
+                property_id,
+            )
+            raise TokkoIntegrationError(
+                f"Tokkobroker property request failed ({action})"
+            ) from exc
+
+        logger.debug(
+            "Tokkobroker property request action=%s property=%s status=%s content_length=%s url=%s",
+            action,
+            property_id,
+            response.status_code,
+            response.headers.get("Content-Length"),
+            response.request.url if response.request else url,
+        )
+        return response
 
     def authenticate(self, username: str, password: str, token: str | None = None) -> None:
         login_page_url = f"{self.base_url}/go/"
         try:
+            logger.debug("Requesting Tokkobroker login page %s", login_page_url)
             response = self.session.get(login_page_url, timeout=self.timeout)
         except requests.RequestException as exc:
             raise TokkoAuthenticationError("unable to reach login page") from exc
+        logger.debug("Tokkobroker login page status=%s", response.status_code)
         if response.status_code != 200:
             raise TokkoAuthenticationError(f"login page returned {response.status_code}")
 
         csrf_token = self._get_csrf_token(response.text)
         if not csrf_token:
             raise TokkoAuthenticationError("CSRF token missing from login page")
+        logger.debug("Tokkobroker login CSRF token extracted for user %s", username)
 
         login_url = f"{self.base_url}/login/?next=/home"
         form_data = {
@@ -83,6 +139,7 @@ class TokkoClient:
             "Origin": self.base_url,
         }
         try:
+            logger.debug("Submitting Tokkobroker credentials for user %s", username)
             response = self.session.post(
                 login_url,
                 data=form_data,
@@ -92,12 +149,18 @@ class TokkoClient:
             )
         except requests.RequestException as exc:
             raise TokkoAuthenticationError("credential submission failed") from exc
+        logger.debug(
+            "Tokkobroker login submission response status=%s redirect_url=%s",
+            response.status_code,
+            response.url,
+        )
 
         if "jopi/user_token_validation" in response.url:
             logger.info("Tokkobroker admin user detected; performing OTP validation")
             csrf_token_otp = self._get_csrf_token(response.text)
             if not csrf_token_otp:
                 raise TokkoAuthenticationError("OTP CSRF token missing")
+            logger.debug("Tokkobroker OTP CSRF token extracted for user %s", username)
 
             otp_url = f"{self.base_url}/jopi/user_token_validation/1?next=/home"
             otp_data = {
@@ -105,6 +168,7 @@ class TokkoClient:
                 "csrfmiddlewaretoken": csrf_token_otp,
             }
             try:
+                logger.debug("Submitting Tokkobroker OTP for user %s", username)
                 response = self.session.post(
                     otp_url,
                     data=otp_data,
@@ -114,6 +178,11 @@ class TokkoClient:
                 )
             except requests.RequestException as exc:
                 raise TokkoAuthenticationError("OTP submission failed") from exc
+            logger.debug(
+                "Tokkobroker OTP submission response status=%s redirect_url=%s",
+                response.status_code,
+                response.url,
+            )
             if "/jopi" not in response.url:
                 raise TokkoAuthenticationError("OTP validation failed")
         elif "/home" not in response.url:

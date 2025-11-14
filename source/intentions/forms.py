@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django import forms
 
+from integrations.models import TokkobrokerProperty
 from intentions.models import SaleProviderIntention, SaleSeekerIntention
 
 
@@ -54,11 +55,20 @@ class ProviderPromotionForm(HTML5WidgetMixin, forms.Form):
     description = forms.CharField(required=False, widget=forms.Textarea)
     price = forms.DecimalField(required=False, max_digits=12, decimal_places=2)
     currency = forms.ModelChoiceField(required=False, queryset=None)
+    tokkobroker_property = forms.ModelChoiceField(
+        required=False,
+        queryset=TokkobrokerProperty.objects.none(),
+        label="Tokkobroker property",
+    )
 
-    def __init__(self, *args, currency_queryset=None, **kwargs):
+    def __init__(self, *args, currency_queryset=None, tokkobroker_property_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
         queryset = currency_queryset if currency_queryset is not None else []
         self.fields["currency"].queryset = queryset
+        property_queryset = (
+            tokkobroker_property_queryset if tokkobroker_property_queryset is not None else TokkobrokerProperty.objects.none()
+        )
+        self.fields["tokkobroker_property"].queryset = property_queryset
 
 
 class ProviderWithdrawForm(HTML5WidgetMixin, forms.Form):

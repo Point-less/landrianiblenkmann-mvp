@@ -16,6 +16,7 @@ from core.services import (
     CreatePropertyService,
     LinkContactAgentService,
 )
+from integrations.models import TokkobrokerProperty
 from intentions.services import (
     AbandonSaleSeekerIntentionService,
     ActivateSaleSeekerIntentionService,
@@ -69,7 +70,7 @@ class SaleFlowServiceTests(TestCase):
         LinkContactAgentService.call(contact=self.owner, agent=self.agent)
         LinkContactAgentService.call(contact=self.seeker_contact, agent=self.agent)
 
-    def _create_provider_opportunity(self):
+    def _create_provider_opportunity(self, *, tokkobroker_property=None):
         provider_intention = CreateSaleProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
@@ -86,6 +87,7 @@ class SaleFlowServiceTests(TestCase):
         provider_opportunity = PromoteSaleProviderIntentionService.call(
             intention=provider_intention,
             marketing_package_data={"currency": self.currency, "price": Decimal("975000")},
+            tokkobroker_property=tokkobroker_property,
         )
         validation = Validation.objects.get(opportunity=provider_opportunity)
         OpportunityValidateService.call(opportunity=provider_opportunity)
@@ -121,11 +123,6 @@ class SaleFlowServiceTests(TestCase):
 
         self._upload_required_documents(validation)
 
-        ValidationPresentService.call(validation=validation, reviewer=self.agent)
-        validation.refresh_from_db()
-        self.assertEqual(validation.state, Validation.State.PRESENTED)
-        self._review_required_documents(validation)
-
         extra_document = CreateValidationDocumentService.call(
             validation=validation,
             document_type=ValidationDocument.DocumentType.OTHER,
@@ -133,6 +130,11 @@ class SaleFlowServiceTests(TestCase):
             document=SimpleUploadedFile("mandate.pdf", b"pdf"),
             uploaded_by=self.reviewer,
         )
+
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        validation.refresh_from_db()
+        self.assertEqual(validation.state, Validation.State.PRESENTED)
+        self._review_required_documents(validation)
         ReviewValidationDocumentService.call(
             document=extra_document,
             action="accept",
@@ -274,6 +276,48 @@ class SaleFlowServiceTests(TestCase):
             reviewer=self.reviewer,
             comment="Now allowed",
         )
+
+    def test_document_upload_only_in_preparing(self):
+        provider_opportunity, validation, _ = self._create_provider_opportunity()
+        self._upload_required_documents(validation)
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        with self.assertRaises(ValidationError):
+            CreateValidationDocumentService.call(
+                validation=validation,
+                document_type=Validation.required_document_choices(include_optional=False)[0][0],
+                document=SimpleUploadedFile("late.pdf", b"data"),
+                uploaded_by=self.reviewer,
+            )
+
+    def test_promote_with_tokkobroker_property_and_uniqueness(self):
+        tokko_property = TokkobrokerProperty.objects.create(tokko_id=12345, ref_code="REF-12345")
+        provider_opportunity, _, _ = self._create_provider_opportunity(tokkobroker_property=tokko_property)
+
+        provider_opportunity.refresh_from_db()
+        tokko_property.refresh_from_db()
+        self.assertEqual(provider_opportunity.tokkobroker_property, tokko_property)
+        self.assertEqual(tokko_property.provider_opportunity, provider_opportunity)
+
+        secondary_property = CreatePropertyService.call(name="City Loft", reference_code="PROP-002")
+        second_intention = CreateSaleProviderIntentionService.call(
+            owner=self.owner,
+            agent=self.agent,
+            property=secondary_property,
+        )
+        DeliverSaleValuationService.call(
+            intention=second_intention,
+            amount=Decimal("750000"),
+            currency=self.currency,
+        )
+        StartSaleProviderContractNegotiationService.call(intention=second_intention)
+
+        with self.assertRaises(ValidationError):
+            PromoteSaleProviderIntentionService.call(
+                intention=second_intention,
+                marketing_package_data={"currency": self.currency},
+                tokkobroker_property=tokko_property,
+                use_atomic=False,
+            )
 
     def _cleanup_media(self):
         self._media_override.disable()

@@ -479,6 +479,9 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
         from core.models import Currency
 
         kwargs['currency_queryset'] = Currency.objects.order_by('code')
+        kwargs['tokkobroker_property_queryset'] = TokkobrokerProperty.objects.filter(
+            provider_opportunity__isnull=True
+        ).order_by('-created_at')
         return kwargs
 
     def perform_action(self, form):
@@ -497,6 +500,7 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
             intention=self.get_intention(),
             opportunity_notes=data.get('opportunity_notes') or None,
             marketing_package_data=marketing_payload or None,
+            tokkobroker_property=data.get('tokkobroker_property'),
         )
 
 

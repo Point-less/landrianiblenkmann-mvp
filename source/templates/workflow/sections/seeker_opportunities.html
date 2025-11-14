@@ -7,11 +7,17 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Contact</th><th>State</th><th>Latest Activity</th></tr>
+        <tr><th>Contact</th><th>Status</th><th>Latest Activity</th></tr>
         {% for opportunity in seeker_opportunities %}
             <tr>
-                <td>{{ opportunity.source_intention.contact }}</td>
-                <td>{{ opportunity.get_state_display }}</td>
+                <td>
+                    <div class="table-title">{{ opportunity.source_intention.contact }}</div>
+                    <div class="table-subtext">Agent: {{ opportunity.source_intention.agent }}</div>
+                </td>
+                <td>
+                    <span class="pill">{{ opportunity.get_state_display }}</span>
+                    <div class="table-subtext">Currency: {{ opportunity.currency|default:"—" }}</div>
+                </td>
                 <td>
                     {% with latest=opportunity.state_transitions.all|first %}
                         {% if latest %}

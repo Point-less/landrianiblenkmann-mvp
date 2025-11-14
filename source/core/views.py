@@ -72,8 +72,8 @@ from opportunities.services import (
     MarketingPackageActivateService,
     MarketingPackageCreateService,
     MarketingPackageReleaseService,
-    MarketingPackageReserveService,
     MarketingPackageUpdateService,
+    MarketingPackagePauseService,
     CreateOperationService,
     CreateSeekerOpportunityService,
     OperationCloseService,
@@ -238,12 +238,17 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
         }
 
     def _context_marketing_packages(self):
+        from opportunities.models import MarketingPackage
+
         return {
-            'marketing_opportunities': (
-                ProviderOpportunity.objects.filter(state=ProviderOpportunity.State.MARKETING)
-                .select_related('source_intention__property')
-                .prefetch_related('marketing_packages')
+            'marketing_packages': (
+                MarketingPackage.objects.select_related('opportunity__source_intention__property', 'opportunity__source_intention__owner')
+                .filter(opportunity__state=ProviderOpportunity.State.MARKETING)
                 .order_by('-updated_at')
+            ),
+            'marketing_opportunities_without_packages': (
+                ProviderOpportunity.objects.filter(state=ProviderOpportunity.State.MARKETING, marketing_packages__isnull=True)
+                .select_related('source_intention__property')
             ),
         }
 
@@ -268,7 +273,10 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
     def _context_operations(self):
         return {
             'operations': (
-                Operation.objects.select_related('provider_opportunity', 'seeker_opportunity')
+                Operation.objects.select_related(
+                    'provider_opportunity__source_intention__owner',
+                    'seeker_opportunity__source_intention__contact',
+                )
                 .prefetch_related('state_transitions')
                 .order_by('-created_at')
             ),
@@ -640,6 +648,12 @@ class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
             initial['document_type'] = requested_type
         return initial
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        doc_type = self.request.GET.get('document_type') or self.request.POST.get('document_type')
+        kwargs['forced_document_type'] = doc_type
+        return kwargs
+
     def perform_action(self, form):
         CreateValidationDocumentService.call(
             validation=self.get_validation(),
@@ -704,14 +718,14 @@ class MarketingPackageActivateView(MarketingPackageActionView):
     service_class = MarketingPackageActivateService
 
 
-class MarketingPackageReserveView(MarketingPackageActionView):
-    success_message = 'Marketing package reserved.'
-    service_class = MarketingPackageReserveService
-
-
 class MarketingPackageReleaseView(MarketingPackageActionView):
-    success_message = 'Marketing package released.'
+    success_message = 'Marketing package resumed.'
     service_class = MarketingPackageReleaseService
+
+
+class MarketingPackagePauseView(MarketingPackageActionView):
+    success_message = 'Marketing package paused.'
+    service_class = MarketingPackagePauseService
 
 
 class OperationCreateView(WorkflowFormView):
@@ -846,7 +860,7 @@ class ObjectTransitionHistoryView(LoginRequiredMixin, TemplateView):
         transitions = FSMStateTransition.objects.filter(
             content_type=ContentType.objects.get_for_model(obj, for_concrete_model=False),
             object_id=obj.pk,
-        ).order_by('-occurred_at')
+        ).order_by('occurred_at')
         context.update(
             object=obj,
             transitions=transitions,

@@ -10,11 +10,17 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Property</th><th>Owner</th><th>Latest Activity</th><th>Actions</th></tr>
+        <tr><th>Property</th><th>Status</th><th>Latest Activity</th><th>Actions</th></tr>
         {% for intention in provider_intentions %}
             <tr>
-                <td>{{ intention.property }}</td>
-                <td>{{ intention.owner }}</td>
+                <td>
+                    <div class="table-title">{{ intention.property }}</div>
+                    <div class="table-subtext">Owner: {{ intention.owner }}</div>
+                </td>
+                <td>
+                    <span class="pill">{{ intention.get_state_display }}</span>
+                    <div class="table-subtext">Agent: {{ intention.agent }}</div>
+                </td>
                 <td class="latest-activity">
                     {% with latest=intention.state_transitions.all|first %}
                         {% if latest %}

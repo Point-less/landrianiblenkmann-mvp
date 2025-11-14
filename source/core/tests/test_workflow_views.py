@@ -73,20 +73,24 @@ class WorkflowViewSmokeTests(TestCase):
         )
         self.validation = Validation.objects.get(opportunity=self.provider_opportunity)
         OpportunityValidateService.call(opportunity=self.provider_opportunity)
+        docs = []
         for code, _ in Validation.required_document_choices(include_optional=False):
-            doc = CreateValidationDocumentService.call(
-                validation=self.validation,
-                document_type=code,
-                document=SimpleUploadedFile(f"{code}.pdf", b"doc"),
-                uploaded_by=self.admin,
+            docs.append(
+                CreateValidationDocumentService.call(
+                    validation=self.validation,
+                    document_type=code,
+                    document=SimpleUploadedFile(f"{code}.pdf", b"doc"),
+                    uploaded_by=self.admin,
+                )
             )
+        ValidationPresentService.call(validation=self.validation, reviewer=self.agent)
+        for doc in docs:
             ReviewValidationDocumentService.call(
                 document=doc,
                 action='accept',
                 reviewer=self.admin,
                 comment='auto',
             )
-        ValidationPresentService.call(validation=self.validation, reviewer=self.agent)
         ValidationAcceptService.call(validation=self.validation)
         self.provider_opportunity.refresh_from_db()
         self.marketing_package = self.provider_opportunity.marketing_packages.get()
@@ -157,7 +161,7 @@ class WorkflowViewSmokeTests(TestCase):
             ('marketing-package-create', {'opportunity_id': self.provider_opportunity.id}),
             ('marketing-package-edit', {'package_id': self.marketing_package.id}),
             ('marketing-package-activate', {'package_id': self.marketing_package.id}),
-            ('marketing-package-reserve', {'package_id': self.marketing_package.id}),
+            ('marketing-package-pause', {'package_id': self.marketing_package.id}),
             ('marketing-package-release', {'package_id': self.marketing_package.id}),
             ('operation-create', {}),
             ('operation-reinforce', {'operation_id': self.operation.id}),

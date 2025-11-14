@@ -38,3 +38,6 @@ pytest.cache/
 # System
 .DS_Store
 Thumbs.db
+
+source/media/
+source/staticfiles/

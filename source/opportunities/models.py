@@ -431,6 +431,13 @@ class MarketingPackage(TimeStampedMixin, FSMLoggableMixin):
 
     @transition(field="state", source=State.PAUSED, target=State.AVAILABLE)
     def release(self) -> "MarketingPackage":
+        has_active_operation = self.opportunity.operations.filter(
+            state__in=[Operation.State.OFFERED, Operation.State.REINFORCED]
+        ).exists()
+        if has_active_operation:
+            raise ValidationError(
+                "Cannot publish the marketing package while there is an active operation."
+            )
         self.state = MarketingPackage.State.AVAILABLE
         self.save(update_fields=["state", "updated_at"])
         return self

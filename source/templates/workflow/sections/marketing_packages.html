@@ -7,61 +7,65 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Opportunity</th><th>Packages</th></tr>
-        {% for opportunity in marketing_opportunities %}
+        <tr><th>Property</th><th>Status</th><th>Details</th><th>Actions</th></tr>
+        {% for package in marketing_packages %}
             <tr>
                 <td>
-                    {{ opportunity.source_intention.property }}
-                    <div class="muted">{{ opportunity.source_intention.owner }}</div>
-                    <div class="muted">State: {{ opportunity.get_state_display }}</div>
-                    <a class="btn" href="{% url 'marketing-package-create' opportunity.id %}?next={{ current_url|urlencode }}">New package</a>
+                    <div class="table-title">{{ package.opportunity.source_intention.property }}</div>
+                    <div class="table-subtext">Owner: {{ package.opportunity.source_intention.owner }}</div>
                 </td>
                 <td>
-                    {% with packages=opportunity.marketing_packages.all %}
-                    {% if packages %}
-                        <ul class="document-list">
-                            {% for package in packages %}
-                                <li style="flex-direction: column; align-items: flex-start; width: 100%;">
-                                    <div style="display:flex; gap:0.5rem; align-items:center;">
-                                        <strong>{{ package.headline|default:"Unnamed package" }}</strong>
-                                        <span class="pill">{{ package.get_state_display }}</span>
-                                        {% if package.price %}
-                                            <span class="pill">{{ package.price }} {{ package.currency }}</span>
-                                        {% endif %}
-                                    </div>
-                                    {% if package.description %}
-                                        <p class="muted" style="margin:0.25rem 0 0.5rem;">{{ package.description }}</p>
-                                    {% endif %}
-                                    <div class="actions" style="margin-bottom:0.5rem;">
-                                        <a href="{% url 'marketing-package-edit' package.id %}?next={{ current_url|urlencode }}">Edit</a>
-                                        {% if package|can_transition:'activate' %}
-                                            <a href="{% url 'marketing-package-activate' package.id %}?next={{ current_url|urlencode }}">Activate</a>
-                                        {% endif %}
-                                        {% if package|can_transition:'reserve' %}
-                                            <a href="{% url 'marketing-package-reserve' package.id %}?next={{ current_url|urlencode }}">Reserve</a>
-                                        {% endif %}
-                                        {% if package|can_transition:'release' %}
-                                            <a href="{% url 'marketing-package-release' package.id %}?next={{ current_url|urlencode }}">Release</a>
-                                        {% endif %}
-                                    </div>
-                                    {% if package.features %}
-                                        <small class="muted">Features: {{ package.features }}</small>
-                                    {% endif %}
-                                    {% if package.media_assets %}
-                                        <small class="muted">Assets: {{ package.media_assets }}</small>
-                                    {% endif %}
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <span>No marketing packages yet.</span>
+                    <span class="pill">{{ package.get_state_display }}</span>
+                    {% if package.price %}
+                        <div class="table-subtext">{{ package.price }} {{ package.currency }}</div>
                     {% endif %}
-                    {% endwith %}
+                </td>
+                <td>
+                    <div class="table-title">{{ package.headline|default:"Unnamed package" }}</div>
+                    {% if package.description %}
+                        <div class="table-subtext">{{ package.description }}</div>
+                    {% endif %}
+                    {% if package.features %}
+                        <div class="table-subtext">Features: {{ package.features }}</div>
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a href="{% url 'marketing-package-edit' package.id %}?next={{ current_url|urlencode }}">Edit</a>
+                    {% if package|can_transition:'activate' %}
+                        <a href="{% url 'marketing-package-activate' package.id %}?next={{ current_url|urlencode }}">Activate</a>
+                    {% endif %}
+                    {% if package|can_transition:'reserve' %}
+                        <a href="{% url 'marketing-package-pause' package.id %}?next={{ current_url|urlencode }}">Pause</a>
+                    {% endif %}
+                    {% if package|can_transition:'release' %}
+                        <a href="{% url 'marketing-package-release' package.id %}?next={{ current_url|urlencode }}">Resume</a>
+                    {% endif %}
                 </td>
             </tr>
         {% empty %}
-            <tr><td colspan="2">No opportunities in marketing stage.</td></tr>
+            <tr><td colspan="4">No marketing packages yet.</td></tr>
         {% endfor %}
     </table>
 </div>
+
+{% if marketing_opportunities_without_packages %}
+<div class="card">
+    <h3>Opportunities without packages</h3>
+    <table>
+        <tr><th>Property</th><th>Status</th><th>Actions</th></tr>
+        {% for opportunity in marketing_opportunities_without_packages %}
+            <tr>
+                <td>
+                    <div class="table-title">{{ opportunity.source_intention.property }}</div>
+                    <div class="table-subtext">Owner: {{ opportunity.source_intention.owner }}</div>
+                </td>
+                <td><span class="pill">{{ opportunity.get_state_display }}</span></td>
+                <td>
+                    <a class="btn" href="{% url 'marketing-package-create' opportunity.id %}?next={{ current_url|urlencode }}">Create package</a>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
 {% endblock %}

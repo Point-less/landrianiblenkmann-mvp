@@ -16,9 +16,9 @@ from .validation import (  # noqa: F401
 from .marketing import (  # noqa: F401
     MarketingPackageActivateService,
     MarketingPackageReleaseService,
-    MarketingPackageReserveService,
     MarketingPackageCreateService,
     MarketingPackageUpdateService,
+    MarketingPackagePauseService,
 )
 from .operations import (  # noqa: F401
     CreateOperationService,
@@ -43,10 +43,10 @@ __all__ = [
     "ValidationRejectService",
     "ValidationAcceptService",
     "MarketingPackageActivateService",
-    "MarketingPackageReserveService",
     "MarketingPackageReleaseService",
     "MarketingPackageCreateService",
     "MarketingPackageUpdateService",
+    "MarketingPackagePauseService",
     "CreateOperationService",
     "OperationReinforceService",
     "OperationCloseService",

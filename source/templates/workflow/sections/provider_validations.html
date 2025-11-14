@@ -8,24 +8,26 @@
 <p class="muted" style="margin-top:-0.5rem;">Formatos aceptados: JPG / PDF</p>
 <div class="card">
     <table>
-        <tr><th>Opportunity</th><th>State</th><th>Required Documents</th><th>Latest Activity</th></tr>
+        <tr><th>Property</th><th>Status</th><th>Documents</th><th>Latest Activity</th></tr>
         {% for validation in provider_validations %}
             <tr>
-                <td>{{ validation.opportunity.source_intention.property }}</td>
+                <td>
+                    <div class="table-title">{{ validation.opportunity.source_intention.property }}</div>
+                    <div class="table-subtext">Owner: {{ validation.opportunity.source_intention.owner }}</div>
+                </td>
                 <td>
                     <span class="pill">{{ validation.get_state_display }}</span>
-                    <div class="actions" style="margin-top:0.3rem;">
-                        {% if validation.can_present %}
-                            <a href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}">Present</a>
-                        {% endif %}
-                        {% if validation.can_accept %}
-                            <a href="{% url 'validation-accept' validation.id %}?next={{ current_url|urlencode }}">Accept</a>
-                        {% endif %}
-                        {% if validation.can_reset %}
-                            <a href="{% url 'validation-reject' validation.id %}?next={{ current_url|urlencode }}">Reset</a>
-                        {% endif %}
-                        <a href="{% url 'validation-document-upload' validation.id %}?next={{ current_url|urlencode }}">Upload</a>
-                    </div>
+                        <div class="actions" style="margin-top:0.3rem;">
+                            {% if validation.can_present %}
+                                <a href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}">Present</a>
+                            {% endif %}
+                            {% if validation.can_accept %}
+                                <a href="{% url 'validation-accept' validation.id %}?next={{ current_url|urlencode }}">Accept</a>
+                            {% endif %}
+                            {% if validation.can_reset %}
+                                <a href="{% url 'validation-reject' validation.id %}?next={{ current_url|urlencode }}">Reset</a>
+                            {% endif %}
+                        </div>
                 </td>
                 <td>
                     <ul class="document-list">
@@ -34,9 +36,10 @@
                                 <strong>{{ requirement.label }}</strong>
                                 {% if requirement.document %}
                                     <span class="pill status-{{ requirement.document.status }}">{{ requirement.document.get_status_display }}</span>
-                                    {% if requirement.document.status == 'pending' %}
-                                        <a href="{% url 'validation-document-review' requirement.document.id %}?next={{ current_url|urlencode }}">Review</a>
-                                    {% endif %}
+                                        <a href="{{ requirement.document.document.url }}" download>Download</a>
+                                        {% if requirement.document.status == 'pending' and validation.state == 'presented' %}
+                                            <a href="{% url 'validation-document-review' requirement.document.id %}?next={{ current_url|urlencode }}">Review</a>
+                                        {% endif %}
                                 {% else %}
                                     <span class="pill status-missing">Missing</span>
                                 {% endif %}
@@ -48,7 +51,8 @@
                                 <li>
                                     {{ doc.name }}
                                     <span class="pill status-{{ doc.status }}">{{ doc.get_status_display }}</span>
-                                    {% if doc.status == 'pending' %}
+                                    <a href="{{ doc.document.url }}" download>Download</a>
+                                    {% if doc.status == 'pending' and validation.state == 'presented' %}
                                         <a href="{% url 'validation-document-review' doc.id %}?next={{ current_url|urlencode }}">Review</a>
                                     {% endif %}
                                 </li>

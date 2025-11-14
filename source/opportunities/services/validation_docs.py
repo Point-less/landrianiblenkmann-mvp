@@ -6,7 +6,7 @@ from opportunities.models import Validation, ValidationDocument
 from utils.services import BaseService
 
 
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".pdf"}
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".pdf", ".png"}
 
 
 class CreateValidationDocumentService(BaseService):
@@ -44,6 +44,8 @@ class ReviewValidationDocumentService(BaseService):
             raise ValidationError({"action": "Invalid review action."})
         if reviewer is None:
             raise ValidationError({"reviewer": "Reviewer is required."})
+        if document.validation.state != Validation.State.PRESENTED:
+            raise ValidationError({"document": "Documents can only be reviewed once the validation is presented."})
 
         if action == "accept":
             document.accept(reviewer=reviewer, comment=comment)

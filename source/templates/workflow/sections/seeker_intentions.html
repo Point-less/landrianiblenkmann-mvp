@@ -10,16 +10,22 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Contact</th><th>Budget</th><th>Latest Activity</th><th>Actions</th></tr>
+        <tr><th>Contact</th><th>Status</th><th>Latest Activity</th><th>Actions</th></tr>
         {% for intention in seeker_intentions %}
             <tr>
-                <td>{{ intention.contact }}</td>
                 <td>
-                    {% if intention.budget_min or intention.budget_max %}
-                        {{ intention.budget_min|default:"?" }} - {{ intention.budget_max|default:"?" }} {{ intention.currency|default:"" }}
-                    {% else %}
-                        —
-                    {% endif %}
+                    <div class="table-title">{{ intention.contact }}</div>
+                    <div class="table-subtext">Agent: {{ intention.agent }}</div>
+                </td>
+                <td>
+                    <span class="pill">{{ intention.get_state_display }}</span>
+                    <div class="table-subtext">
+                        {% if intention.budget_min or intention.budget_max %}
+                            Budget: {{ intention.budget_min|default:"?" }} - {{ intention.budget_max|default:"?" }} {{ intention.currency|default:"" }}
+                        {% else %}
+                            No budget defined
+                        {% endif %}
+                    </div>
                 </td>
                 <td>
                     {% with latest=intention.state_transitions.all|first %}

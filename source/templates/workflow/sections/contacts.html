@@ -9,11 +9,17 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Name</th><th>Email</th><th>Actions</th></tr>
+        <tr><th>Contact</th><th>Contact Info</th><th>Actions</th></tr>
         {% for contact in contacts %}
             <tr>
-                <td>{{ contact }}</td>
-                <td>{{ contact.email|default:"—" }}</td>
+                <td>
+                    <div class="table-title">{{ contact }}</div>
+                    <div class="table-subtext">Created {{ contact.created_at|date:"M d, Y" }}</div>
+                </td>
+                <td>
+                    <div class="table-title">{{ contact.email|default:"Sin email" }}</div>
+                    <div class="table-subtext">{{ contact.phone_number|default:"Sin teléfono" }}</div>
+                </td>
                 <td><a href="{% url 'contact-edit' contact.id %}?next={{ current_url|urlencode }}">Edit</a></td>
             </tr>
         {% empty %}

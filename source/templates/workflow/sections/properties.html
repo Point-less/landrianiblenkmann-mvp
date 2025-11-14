@@ -9,11 +9,16 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Name</th><th>Reference</th><th>Actions</th></tr>
+        <tr><th>Property</th><th>Details</th><th>Actions</th></tr>
         {% for property in properties %}
             <tr>
-                <td>{{ property.name }}</td>
-                <td>{{ property.reference_code|default:"—" }}</td>
+                <td>
+                    <div class="table-title">{{ property.name }}</div>
+                    <div class="table-subtext">Created {{ property.created_at|date:"M d, Y" }}</div>
+                </td>
+                <td>
+                    <div class="table-title">Ref: {{ property.reference_code|default:"No reference" }}</div>
+                </td>
                 <td><a href="{% url 'property-edit' property.id %}?next={{ current_url|urlencode }}">Edit</a></td>
             </tr>
         {% empty %}

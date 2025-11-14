@@ -7,13 +7,16 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Property</th><th>Listing</th><th>Latest Activity</th><th>Actions</th></tr>
+        <tr><th>Property</th><th>Status</th><th>Latest Activity</th><th>Actions</th></tr>
         {% for opportunity in provider_opportunities %}
             <tr>
-                <td>{{ opportunity.source_intention.property }}</td>
+                <td>
+                    <div class="table-title">{{ opportunity.source_intention.property }}</div>
+                    <div class="table-subtext">Owner: {{ opportunity.source_intention.owner }}</div>
+                </td>
                 <td>
                     <span class="pill">{{ opportunity.get_state_display }}</span>
-                    <small class="muted">{{ opportunity.get_listing_kind_display }}</small>
+                    <div class="table-subtext">{{ opportunity.get_listing_kind_display }}</div>
                 </td>
                 <td class="latest-activity">
                     {% with latest=opportunity.state_transitions.all|first %}

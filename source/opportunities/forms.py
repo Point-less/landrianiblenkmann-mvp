@@ -70,16 +70,21 @@ class OperationLoseForm(HTML5FormMixin, forms.Form):
 
 
 class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
-    document_type = forms.ChoiceField(choices=[])
+    document_type = forms.ChoiceField(choices=[], widget=forms.Select())
 
     class Meta:
         model = ValidationDocument
         fields = ["document_type", "name", "document"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, forced_document_type: str | None = None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["document_type"].choices = Validation.required_document_choices(include_optional=True)
+        choices = Validation.required_document_choices(include_optional=True)
+        self.fields["document_type"].choices = choices
         self.fields["name"].required = False
+        if forced_document_type:
+            self.fields["document_type"].initial = forced_document_type
+            self.fields["document_type"].widget = forms.HiddenInput()
+            self.fields["document_type"].choices = [(forced_document_type, forced_document_type)]
 
 
 class ValidationDocumentReviewForm(HTML5FormMixin, forms.Form):

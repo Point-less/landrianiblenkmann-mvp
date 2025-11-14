@@ -10,12 +10,21 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Provider</th><th>Seeker</th><th>State</th><th>Latest Activity</th><th>Actions</th></tr>
+        <tr><th>Provider</th><th>Seeker</th><th>Status</th><th>Latest Activity</th><th>Actions</th></tr>
         {% for operation in operations %}
             <tr>
-                <td>{{ operation.provider_opportunity }}</td>
-                <td>{{ operation.seeker_opportunity }}</td>
-                <td>{{ operation.get_state_display }}</td>
+                <td>
+                    <div class="table-title">{{ operation.provider_opportunity }}</div>
+                    <div class="table-subtext">{{ operation.provider_opportunity.source_intention.owner }}</div>
+                </td>
+                <td>
+                    <div class="table-title">{{ operation.seeker_opportunity }}</div>
+                    <div class="table-subtext">{{ operation.seeker_opportunity.source_intention.contact }}</div>
+                </td>
+                <td>
+                    <span class="pill">{{ operation.get_state_display }}</span>
+                    <div class="table-subtext">Currency: {{ operation.currency|default:"—" }}</div>
+                </td>
                 <td>
                     {% with latest=operation.state_transitions.all|first %}
                         {% if latest %}

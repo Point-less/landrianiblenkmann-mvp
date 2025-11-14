@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django_fsm import TransitionNotAllowed
 
 from core.models import Currency
-from opportunities.models import Operation, ProviderOpportunity, SeekerOpportunity
+from opportunities.models import MarketingPackage, Operation, ProviderOpportunity, SeekerOpportunity
 
 from utils.services import BaseService
 
@@ -54,6 +54,8 @@ class CreateOperationService(BaseService):
             notes=notes or "",
         )
 
+        self._reserve_marketing_packages(provider_opportunity)
+
         if seeker_opportunity.state == SeekerOpportunity.State.MATCHING:
             try:
                 seeker_opportunity.start_negotiation()
@@ -62,6 +64,16 @@ class CreateOperationService(BaseService):
             seeker_opportunity.save(update_fields=["state", "updated_at"])
 
         return operation
+
+    def _reserve_marketing_packages(self, provider_opportunity: ProviderOpportunity) -> None:
+        packages = provider_opportunity.marketing_packages.filter(
+            state=MarketingPackage.State.AVAILABLE
+        ).order_by('-created_at')
+        for package in packages:
+            try:
+                package.reserve()
+            except ValidationError:
+                continue
 
 
 class OperationReinforceService(BaseService):

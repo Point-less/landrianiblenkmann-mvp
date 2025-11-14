@@ -44,6 +44,7 @@ from opportunities.services import (
     OpportunityValidateService,
     ValidationAcceptService,
     ValidationPresentService,
+    MarketingPackageReleaseService,
 )
 from utils.models import FSMStateTransition
 
@@ -90,7 +91,7 @@ class SaleFlowServiceTests(TestCase):
         OpportunityValidateService.call(opportunity=provider_opportunity)
         return provider_opportunity, validation, provider_intention
 
-    def _upload_required_documents(self, validation: Validation, *, review: bool = False):
+    def _upload_required_documents(self, validation: Validation):
         documents = []
         for code, _ in Validation.required_document_choices(include_optional=False):
             document = CreateValidationDocumentService.call(
@@ -100,14 +101,16 @@ class SaleFlowServiceTests(TestCase):
                 uploaded_by=self.reviewer,
             )
             documents.append(document)
-            if review:
-                ReviewValidationDocumentService.call(
-                    document=document,
-                    action="accept",
-                    reviewer=self.reviewer,
-                    comment="Auto-approved for test",
-                )
         return documents
+
+    def _review_required_documents(self, validation: Validation):
+        for document in validation.documents.filter(document_type__in=Validation.REQUIRED_DOCUMENT_CODES, status=ValidationDocument.Status.PENDING):
+            ReviewValidationDocumentService.call(
+                document=document,
+                action="accept",
+                reviewer=self.reviewer,
+                comment="Auto-approved for test",
+            )
 
     def test_full_sale_flow_via_services(self) -> None:
         provider_opportunity, validation, provider_intention = self._create_provider_opportunity()
@@ -116,11 +119,26 @@ class SaleFlowServiceTests(TestCase):
         self.assertEqual(provider_opportunity.state, ProviderOpportunity.State.VALIDATING)
         self.assertEqual(marketing_package.state, MarketingPackage.State.PREPARING)
 
-        self._upload_required_documents(validation, review=True)
+        self._upload_required_documents(validation)
 
         ValidationPresentService.call(validation=validation, reviewer=self.agent)
         validation.refresh_from_db()
         self.assertEqual(validation.state, Validation.State.PRESENTED)
+        self._review_required_documents(validation)
+
+        extra_document = CreateValidationDocumentService.call(
+            validation=validation,
+            document_type=ValidationDocument.DocumentType.OTHER,
+            name="Mandate",
+            document=SimpleUploadedFile("mandate.pdf", b"pdf"),
+            uploaded_by=self.reviewer,
+        )
+        ReviewValidationDocumentService.call(
+            document=extra_document,
+            action="accept",
+            reviewer=self.reviewer,
+            comment="Looks good",
+        )
 
         ValidationAcceptService.call(validation=validation)
         provider_opportunity.refresh_from_db()
@@ -156,26 +174,14 @@ class SaleFlowServiceTests(TestCase):
         self.assertEqual(operation.state, Operation.State.OFFERED)
         seeker_opportunity.refresh_from_db()
         self.assertEqual(seeker_opportunity.state, SeekerOpportunity.State.NEGOTIATING)
+        marketing_package.refresh_from_db()
+        self.assertEqual(marketing_package.state, MarketingPackage.State.PAUSED)
+        with self.assertRaises(ValidationError):
+            MarketingPackageReleaseService.call(package=marketing_package, use_atomic=False)
 
         OperationReinforceService.call(operation=operation)
         operation.refresh_from_db()
         self.assertEqual(operation.state, Operation.State.REINFORCED)
-
-        document = CreateValidationDocumentService.call(
-            validation=validation,
-            document_type=ValidationDocument.DocumentType.OTHER,
-            name="Mandate",
-            document=SimpleUploadedFile("mandate.pdf", b"pdf"),
-            uploaded_by=self.reviewer,
-        )
-        ReviewValidationDocumentService.call(
-            document=document,
-            action="accept",
-            reviewer=self.reviewer,
-            comment="Looks good",
-        )
-        document.refresh_from_db()
-        self.assertEqual(document.status, document.Status.ACCEPTED)
 
         OperationCloseService.call(operation=operation)
         operation.refresh_from_db()
@@ -231,10 +237,43 @@ class SaleFlowServiceTests(TestCase):
 
     def test_validation_accept_requires_reviewed_documents(self):
         provider_opportunity, validation, _ = self._create_provider_opportunity()
-        self._upload_required_documents(validation, review=False)
+        self._upload_required_documents(validation)
         ValidationPresentService.call(validation=validation, reviewer=self.agent)
         with self.assertRaises(ValidationError):
             ValidationAcceptService.call(validation=validation, use_atomic=False)
+
+    def test_document_review_requires_presented_validation(self):
+        provider_opportunity, validation, _ = self._create_provider_opportunity()
+        required_codes = [code for code, _ in Validation.required_document_choices(include_optional=False)]
+        document = CreateValidationDocumentService.call(
+            validation=validation,
+            document_type=required_codes[0],
+            document=SimpleUploadedFile("doc.pdf", b"data"),
+            uploaded_by=self.reviewer,
+        )
+        with self.assertRaises(ValidationError):
+            ReviewValidationDocumentService.call(
+                document=document,
+                action="accept",
+                reviewer=self.reviewer,
+                comment="Testing",
+                use_atomic=False,
+            )
+        for code in required_codes[1:]:
+            CreateValidationDocumentService.call(
+                validation=validation,
+                document_type=code,
+                document=SimpleUploadedFile(f"{code}.pdf", b"data"),
+                uploaded_by=self.reviewer,
+            )
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        self._review_required_documents(validation)
+        ReviewValidationDocumentService.call(
+            document=document,
+            action="accept",
+            reviewer=self.reviewer,
+            comment="Now allowed",
+        )
 
     def _cleanup_media(self):
         self._media_override.disable()

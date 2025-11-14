@@ -7,7 +7,6 @@ from opportunities.models import ProviderOpportunity, SeekerOpportunity
 @strawberry_django.filter(ProviderOpportunity)
 class ProviderOpportunityFilter:
     id: strawberry.auto
-    title: strawberry.auto
     state: strawberry.auto
     source_intention_id: strawberry.auto
 
@@ -15,7 +14,6 @@ class ProviderOpportunityFilter:
 @strawberry_django.filter(SeekerOpportunity)
 class SeekerOpportunityFilter:
     id: strawberry.auto
-    title: strawberry.auto
     state: strawberry.auto
     source_intention_id: strawberry.auto
 

@@ -84,7 +84,6 @@ class PromoteSaleProviderIntentionService(BaseService):
         self,
         *,
         intention: SaleProviderIntention,
-        opportunity_title: str | None = None,
         opportunity_notes: str | None = None,
         marketing_package_data: Mapping[str, Any] | None = None,
     ):
@@ -95,7 +94,6 @@ class PromoteSaleProviderIntentionService(BaseService):
 
         opportunity = CreateOpportunityService.call(
             intention=intention,
-            title=opportunity_title,
             notes=opportunity_notes,
             marketing_package_data=marketing_package_data,
         )

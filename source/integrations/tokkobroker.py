@@ -114,7 +114,6 @@ class TokkoClient:
                 )
             except requests.RequestException as exc:
                 raise TokkoAuthenticationError("OTP submission failed") from exc
-            print("asdasdasd", response.url)
             if "/jopi" not in response.url:
                 raise TokkoAuthenticationError("OTP validation failed")
         elif "/home" not in response.url:

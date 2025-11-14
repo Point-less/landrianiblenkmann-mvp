@@ -10,7 +10,7 @@ class Command(BaseCommand):
     help = "Apply migrations and ensure a default admin user exists."
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.MIGRATE("Applying database migrations"))
+        self.stdout.write("Applying database migrations...")
         call_command("migrate", interactive=False)
 
         user_model = get_user_model()
@@ -22,7 +22,7 @@ class Command(BaseCommand):
             )
             return
 
-        self.stdout.write(self.style.NOTICE(f"Creating superuser '{DEFAULT_USERNAME}'"))
+        self.stdout.write(f"Creating superuser '{DEFAULT_USERNAME}'")
         user_model.objects.create_superuser(
             username=DEFAULT_USERNAME,
             email=DEFAULT_EMAIL,

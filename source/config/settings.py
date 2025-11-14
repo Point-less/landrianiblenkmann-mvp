@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'django_fsm_log',
     'users.apps.UsersConfig',
     'utils.apps.UtilsConfig',
+    'integrations.apps.IntegrationsConfig',
     'opportunities.apps.OpportunitiesConfig',
     'intentions.apps.IntentionsConfig',
     'core.apps.CoreConfig',

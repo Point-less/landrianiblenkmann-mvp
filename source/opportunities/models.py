@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from builtins import property as builtin_property
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -23,7 +24,6 @@ class ProviderOpportunity(TimeStampedMixin, FSMLoggableMixin):
         EXCLUSIVE = "exclusive", "Exclusive"
         NON_EXCLUSIVE = "non_exclusive", "Non-exclusive"
 
-    title = models.CharField(max_length=255)
     source_intention = models.OneToOneField(
         "intentions.SaleProviderIntention",
         on_delete=models.PROTECT,
@@ -48,7 +48,7 @@ class ProviderOpportunity(TimeStampedMixin, FSMLoggableMixin):
         verbose_name_plural = "provider opportunities"
 
     def __str__(self) -> str:
-        return self.title
+        return f"Provider opportunity for {self.property}"
 
     @builtin_property
     def property(self):
@@ -85,7 +85,6 @@ class SeekerOpportunity(TimeStampedMixin, FSMLoggableMixin):
         CLOSED = "closed", "Closed"
         LOST = "lost", "Lost"
 
-    title = models.CharField(max_length=255)
     source_intention = models.OneToOneField(
         "intentions.SaleSeekerIntention",
         on_delete=models.PROTECT,
@@ -105,7 +104,7 @@ class SeekerOpportunity(TimeStampedMixin, FSMLoggableMixin):
         verbose_name_plural = "seeker opportunities"
 
     def __str__(self) -> str:
-        return self.title
+        return f"Seeker opportunity for {self.contact}"
 
     @builtin_property
     def contact(self):
@@ -184,6 +183,68 @@ class Validation(TimeStampedMixin, FSMLoggableMixin):
     @transition(field="state", source=State.PRESENTED, target=State.ACCEPTED)
     def accept(self) -> None:
         self.validated_at = timezone.now()
+
+
+class ValidationDocument(TimeStampedMixin):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        REJECTED = "rejected", "Rejected"
+
+    validation = models.ForeignKey(
+        Validation,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    name = models.CharField(max_length=255)
+    document = models.FileField(upload_to="validation_documents/%Y/%m/")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    reviewer_comment = models.TextField(blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_validation_documents",
+    )
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="decided_validation_documents",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "validation document"
+        verbose_name_plural = "validation documents"
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.get_status_display()})"
+
+    def _ensure_pending(self):
+        if self.status != self.Status.PENDING:
+            raise ValidationError("Document has already been reviewed.")
+
+    def accept(self, *, reviewer, comment: str | None = None):
+        self._ensure_pending()
+        self.status = self.Status.ACCEPTED
+        self.reviewer_comment = comment or ""
+        self.decided_by = reviewer
+        self.decided_at = timezone.now()
+
+    def reject(self, *, reviewer, comment: str | None = None):
+        self._ensure_pending()
+        self.status = self.Status.REJECTED
+        self.reviewer_comment = comment or ""
+        self.decided_by = reviewer
+        self.decided_at = timezone.now()
 
 
 class MarketingPackageQuerySet(models.QuerySet):
@@ -361,4 +422,5 @@ __all__ = [
     "ProviderOpportunity",
     "SeekerOpportunity",
     "Validation",
+    "ValidationDocument",
 ]

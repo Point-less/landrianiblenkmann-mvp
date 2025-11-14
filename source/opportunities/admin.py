@@ -3,8 +3,8 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
-from core.models import TokkobrokerProperty
-from core.tasks import sync_tokkobroker_properties_task, sync_tokkobroker_registry
+from integrations.models import TokkobrokerProperty
+from integrations.tasks import sync_tokkobroker_properties_task, sync_tokkobroker_registry
 
 
 @admin.register(TokkobrokerProperty)

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import shutil
+import tempfile
 from decimal import Decimal
 
-from django.test import TestCase
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
 
 from core.models import Currency
 from core.services import (
@@ -23,10 +27,12 @@ from intentions.services import (
 )
 from opportunities.models import MarketingPackage, Operation, ProviderOpportunity, SeekerOpportunity, Validation
 from opportunities.services import (
+    CreateValidationDocumentService,
     CreateOperationService,
     CreateSeekerOpportunityService,
     OperationCloseService,
     OperationReinforceService,
+    ReviewValidationDocumentService,
     OpportunityValidateService,
     ValidationAcceptService,
     ValidationPresentService,
@@ -38,7 +44,13 @@ class SaleFlowServiceTests(TestCase):
     maxDiff = None
 
     def setUp(self) -> None:
+        self._temp_media = tempfile.mkdtemp()
+        self.addCleanup(self._cleanup_media)
+        self._media_override = override_settings(MEDIA_ROOT=self._temp_media)
+        self._media_override.enable()
+
         self.currency = Currency.objects.create(code="USD", name="US Dollar", symbol="$")
+        self.reviewer = get_user_model().objects.create_user(username="reviewer")
         self.agent = CreateAgentService.call(first_name="Alice", last_name="Agent", email="alice@example.com")
         self.owner = CreateContactService.call(first_name="Oscar", last_name="Owner", email="owner@example.com")
         self.seeker_contact = CreateContactService.call(
@@ -65,7 +77,6 @@ class SaleFlowServiceTests(TestCase):
 
         provider_opportunity = PromoteSaleProviderIntentionService.call(
             intention=provider_intention,
-            opportunity_title="Ocean View Exclusive",
             marketing_package_data={"currency": self.currency, "price": Decimal("975000")},
         )
         self.assertEqual(provider_opportunity.state, ProviderOpportunity.State.CAPTURING)
@@ -120,6 +131,21 @@ class SaleFlowServiceTests(TestCase):
         operation.refresh_from_db()
         self.assertEqual(operation.state, Operation.State.REINFORCED)
 
+        document = CreateValidationDocumentService.call(
+            validation=validation,
+            name="Mandate",
+            document=SimpleUploadedFile("mandate.pdf", b"pdf"),
+            uploaded_by=self.reviewer,
+        )
+        ReviewValidationDocumentService.call(
+            document=document,
+            action="accept",
+            reviewer=self.reviewer,
+            comment="Looks good",
+        )
+        document.refresh_from_db()
+        self.assertEqual(document.status, document.Status.ACCEPTED)
+
         OperationCloseService.call(operation=operation)
         operation.refresh_from_db()
         provider_opportunity.refresh_from_db()
@@ -160,3 +186,7 @@ class SaleFlowServiceTests(TestCase):
         with self.subTest("abandon seeker intention"):
             AbandonSaleSeekerIntentionService.call(intention=abandon_intention, reason="Shifted priorities")
             self.assertEqual(abandon_intention.state, abandon_intention.State.ABANDONED)
+
+    def _cleanup_media(self):
+        self._media_override.disable()
+        shutil.rmtree(self._temp_media, ignore_errors=True)

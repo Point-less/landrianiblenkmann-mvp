@@ -22,18 +22,16 @@ class CreateOpportunityService(BaseService):
         self,
         *,
         intention: SaleProviderIntention,
-        title: str | None = None,
         notes: str | None = None,
         marketing_package_data: Mapping[str, Any] | None = None,
     ) -> ProviderOpportunity:
         marketing_payload = dict(marketing_package_data or {})
         opportunity = ProviderOpportunity.objects.create(
-            title=title or f"Listing for {intention.property.name}",
             source_intention=intention,
             notes=notes or intention.documentation_notes,
         )
 
-        marketing_payload.setdefault("headline", opportunity.title)
+        marketing_payload.setdefault("headline", f"Listing for {intention.property}")
 
         MarketingPackage.objects.create(
             opportunity=opportunity,
@@ -89,7 +87,6 @@ class CreateSeekerOpportunityService(BaseService):
         self,
         *,
         intention: SaleSeekerIntention,
-        title: str | None = None,
         notes: str | None = None,
     ) -> SeekerOpportunity:
         if hasattr(intention, "seeker_opportunity"):
@@ -98,7 +95,6 @@ class CreateSeekerOpportunityService(BaseService):
             raise ValidationError("Seeker intention must be mandated before conversion.")
 
         opportunity = SeekerOpportunity.objects.create(
-            title=title or f"Buyer search for {intention.contact}",
             source_intention=intention,
             notes=notes or intention.notes,
         )

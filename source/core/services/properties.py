@@ -2,7 +2,8 @@
 
 from datetime import date
 
-from core.models import Property, TokkobrokerProperty
+from core.models import Property
+from integrations.models import TokkobrokerProperty
 from utils.services import BaseService
 
 

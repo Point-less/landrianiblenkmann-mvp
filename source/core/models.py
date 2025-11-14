@@ -106,28 +106,10 @@ class ContactAgentRelationship(TimeStampedMixin):
         return f"{self.contact} <> {self.agent}"
 
 
-class TokkobrokerProperty(TimeStampedMixin):
-    """Minimal registry entry for Tokkobroker-sourced properties."""
-
-    tokko_id = models.PositiveIntegerField(unique=True)
-    ref_code = models.CharField(max_length=64)
-    address = models.CharField(max_length=255, blank=True)
-    tokko_created_at = models.DateField(blank=True, null=True)
-
-    class Meta:
-        ordering = ("-created_at",)
-        verbose_name = "Tokkobroker property"
-        verbose_name_plural = "Tokkobroker properties"
-
-    def __str__(self) -> str:
-        return f"{self.ref_code} ({self.tokko_id})"
-
-
 __all__ = [
     "Agent",
     "Contact",
     "ContactAgentRelationship",
     "Currency",
     "Property",
-    "TokkobrokerProperty",
 ]

@@ -24,6 +24,10 @@ from .operations import (  # noqa: F401
     OperationLoseService,
     OperationReinforceService,
 )
+from .validation_docs import (  # noqa: F401
+    CreateValidationDocumentService,
+    ReviewValidationDocumentService,
+)
 
 __all__ = [
     "BaseService",
@@ -43,6 +47,8 @@ __all__ = [
     "OperationReinforceService",
     "OperationCloseService",
     "OperationLoseService",
+    "CreateValidationDocumentService",
+    "ReviewValidationDocumentService",
     "discover_services",
     "get_services",
     "iter_services",

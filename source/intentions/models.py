@@ -52,7 +52,7 @@ class SaleProviderIntention(TimeStampedMixin, FSMLoggableMixin):
     )
     contract_signed_on = models.DateField(null=True, blank=True)
     documentation_notes = models.TextField(blank=True)
-    latest_valuation = models.ForeignKey(
+    valuation = models.ForeignKey(
         "SaleValuation",
         on_delete=models.SET_NULL,
         related_name="+",
@@ -91,7 +91,7 @@ class SaleProviderIntention(TimeStampedMixin, FSMLoggableMixin):
             delivered_at=timezone.now(),
             notes=notes or "",
         )
-        self.latest_valuation = valuation
+        self.valuation = valuation
 
     @transition(field="state", source=State.VALUATED, target=State.CONTRACT_NEGOTIATION)
     def start_contract_negotiation(self, signed_on=None) -> None:

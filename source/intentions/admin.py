@@ -19,7 +19,7 @@ class SaleProviderIntentionAdmin(admin.ModelAdmin):
         "owner__first_name",
         "owner__last_name",
     )
-    raw_id_fields = ("owner", "agent", "property", "latest_valuation")
+    raw_id_fields = ("owner", "agent", "property", "valuation")
     readonly_fields = ("created_at", "updated_at", "converted_at")
 
 

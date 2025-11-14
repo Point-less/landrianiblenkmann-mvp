@@ -14,6 +14,12 @@ class FSMLoggableMixin(models.Model):
         object_id_field="object_id",
         related_query_name="%(app_label)s_%(class)s_state_logs",
     )
+    state_transitions = GenericRelation(
+        "utils.FSMStateTransition",
+        content_type_field="content_type",
+        object_id_field="object_id",
+        related_query_name="%(app_label)s_%(class)s_state_transitions",
+    )
 
     class Meta:
         abstract = True

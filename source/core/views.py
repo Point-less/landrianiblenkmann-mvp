@@ -10,8 +10,17 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import TemplateView, View
 from django.views.generic.edit import FormView
+from django.utils.http import url_has_allowed_host_and_scheme
 
-from core.forms import AgentForm, ConfirmationForm, ContactForm, PropertyForm
+from core.forms import (
+    AgentEditForm,
+    AgentForm,
+    ConfirmationForm,
+    ContactEditForm,
+    ContactForm,
+    PropertyEditForm,
+    PropertyForm,
+)
 from core.models import Agent, Contact, Property
 from core.services import (
     CreateAgentService,
@@ -86,44 +95,83 @@ async def trigger_log(request):
     return JsonResponse({'status': 'queued', 'message_id': queued.message_id})
 
 
-class WorkflowDashboardView(LoginRequiredMixin, TemplateView):
-    template_name = 'workflow/dashboard.html'
+class DashboardSectionView(LoginRequiredMixin, TemplateView):
     login_url = '/admin/login/'
+    default_section = 'core'
+    template_map = {
+        'core': 'workflow/sections/core.html',
+        'providers': 'workflow/sections/providers.html',
+        'seekers': 'workflow/sections/seekers.html',
+        'operations': 'workflow/sections/operations.html',
+        'integrations': 'workflow/sections/integrations.html',
+    }
+
+    def dispatch(self, request, *args, **kwargs):
+        self.section = kwargs.get('section') or self.default_section
+        if self.section not in self.template_map:
+            raise Http404("Unknown dashboard section")
+        self.template_name = self.template_map[self.section]
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.update(
-            agents=Agent.objects.order_by('-created_at')[:10],
-            contacts=Contact.objects.select_related().order_by('-created_at')[:10],
-            properties=Property.objects.order_by('-created_at')[:10],
-            provider_intentions=(
+        context['active_section'] = self.section
+        context.update(getattr(self, f'_context_{self.section}')())
+        return context
+
+    def _context_core(self):
+        return {
+            'agents': Agent.objects.order_by('-created_at')[:10],
+            'contacts': Contact.objects.select_related().order_by('-created_at')[:10],
+            'properties': Property.objects.order_by('-created_at')[:10],
+        }
+
+    def _context_providers(self):
+        return {
+            'provider_intentions': (
                 SaleProviderIntention.objects.select_related('owner', 'agent', 'property')
                 .prefetch_related('state_transitions')
                 .order_by('-created_at')
             ),
-            seeker_intentions=(
+            'provider_opportunities': (
+                ProviderOpportunity.objects.select_related('source_intention')
+                .prefetch_related('state_transitions', 'validations')
+                .order_by('-created_at')
+            ),
+            'provider_validations': (
+                Validation.objects.select_related('opportunity__source_intention')
+                .prefetch_related('documents', 'state_transitions')
+                .order_by('-created_at')
+            ),
+        }
+
+    def _context_seekers(self):
+        return {
+            'seeker_intentions': (
                 SaleSeekerIntention.objects.select_related('contact', 'agent')
                 .prefetch_related('state_transitions')
                 .order_by('-created_at')
             ),
-            provider_opportunities=(
-                ProviderOpportunity.objects.select_related('source_intention')
-                .prefetch_related('validations__documents', 'state_transitions')
-                .order_by('-created_at')
-            ),
-            seeker_opportunities=(
+            'seeker_opportunities': (
                 SeekerOpportunity.objects.select_related('source_intention')
                 .prefetch_related('state_transitions')
                 .order_by('-created_at')
             ),
-            operations=(
+        }
+
+    def _context_operations(self):
+        return {
+            'operations': (
                 Operation.objects.select_related('provider_opportunity', 'seeker_opportunity')
                 .prefetch_related('state_transitions')
                 .order_by('-created_at')
             ),
-            tokko_properties=TokkobrokerProperty.objects.order_by('-created_at')[:10],
-        )
-        return context
+        }
+
+    def _context_integrations(self):
+        return {
+            'tokko_properties': TokkobrokerProperty.objects.order_by('-created_at')[:20],
+        }
 
 
 class WorkflowFormView(LoginRequiredMixin, SuccessMessageMixin, FormView):
@@ -146,6 +194,12 @@ class WorkflowFormView(LoginRequiredMixin, SuccessMessageMixin, FormView):
         if response is not None:
             return response
         return super().form_valid(form)
+
+    def get_success_url(self):
+        next_url = self.request.POST.get('next') or self.request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={self.request.get_host()}):
+            return next_url
+        return super().get_success_url()
 
     def _attach_form_errors(self, form, exc: ValidationError):
         if hasattr(exc, 'error_dict'):
@@ -184,6 +238,46 @@ class PropertyCreateView(WorkflowFormView):
 
     def perform_action(self, form):
         CreatePropertyService.call(**form.cleaned_data)
+
+
+class ModelUpdateView(WorkflowFormView):
+    model = None
+    form_class = None
+    pk_url_kwarg = 'pk'
+
+    def get_object(self):
+        if not hasattr(self, '_object'):
+            self._object = get_object_or_404(self.model, pk=self.kwargs[self.pk_url_kwarg])
+        return self._object
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['instance'] = self.get_object()
+        return kwargs
+
+    def perform_action(self, form):
+        form.save()
+
+
+class AgentUpdateView(ModelUpdateView):
+    model = Agent
+    form_class = AgentEditForm
+    pk_url_kwarg = 'agent_id'
+    success_message = 'Agent updated successfully.'
+
+
+class ContactUpdateView(ModelUpdateView):
+    model = Contact
+    form_class = ContactEditForm
+    pk_url_kwarg = 'contact_id'
+    success_message = 'Contact updated successfully.'
+
+
+class PropertyUpdateView(ModelUpdateView):
+    model = Property
+    form_class = PropertyEditForm
+    pk_url_kwarg = 'property_id'
+    success_message = 'Property updated successfully.'
 
 
 class ProviderIntentionMixin:
@@ -391,13 +485,19 @@ class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
     form_class = ValidationDocumentUploadForm
     success_message = 'Validation document uploaded.'
 
-    def get_success_url(self):
-        return reverse('workflow-dashboard') + '#providers-section'
+    def get_initial(self):
+        initial = super().get_initial()
+        requested_type = self.request.GET.get('document_type')
+        valid_codes = {code for code, _ in Validation.required_document_choices()}
+        if requested_type in valid_codes:
+            initial['document_type'] = requested_type
+        return initial
 
     def perform_action(self, form):
         CreateValidationDocumentService.call(
             validation=self.get_validation(),
-            name=form.cleaned_data['name'],
+            document_type=form.cleaned_data['document_type'],
+            name=form.cleaned_data.get('name') or None,
             document=form.cleaned_data['document'],
             uploaded_by=self.request.user if self.request.user.is_authenticated else None,
         )
@@ -406,9 +506,6 @@ class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
 class ValidationDocumentReviewView(ValidationDocumentMixin, WorkflowFormView):
     form_class = ValidationDocumentReviewForm
     success_message = 'Validation document reviewed.'
-
-    def get_success_url(self):
-        return reverse('workflow-dashboard') + '#providers-section'
 
     def perform_action(self, form):
         ReviewValidationDocumentService.call(
@@ -469,10 +566,16 @@ class TokkoSyncRunView(LoginRequiredMixin, View):
     def post(self, request):
         processed = sync_tokkobroker_registry()
         messages.success(request, f'Synced {processed} Tokkobroker properties.')
-        return redirect('workflow-dashboard')
+        return self._redirect_back(request)
 
     def get(self, request):  # pragma: no cover - defensive; redirect to avoid GET usage
-        return redirect('workflow-dashboard')
+        return self._redirect_back(request)
+
+    def _redirect_back(self, request):
+        next_url = request.POST.get('next') or request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            return redirect(next_url)
+        return redirect('workflow-dashboard-section', section='integrations')
 
 
 class TokkoSyncEnqueueView(LoginRequiredMixin, View):
@@ -481,10 +584,16 @@ class TokkoSyncEnqueueView(LoginRequiredMixin, View):
     def post(self, request):
         message = sync_tokkobroker_properties_task.send()
         messages.info(request, f'Tokkobroker sync enqueued (message ID: {message.message_id}).')
-        return redirect('workflow-dashboard')
+        return self._redirect_back(request)
 
     def get(self, request):  # pragma: no cover
-        return redirect('workflow-dashboard')
+        return self._redirect_back(request)
+
+    def _redirect_back(self, request):
+        next_url = request.POST.get('next') or request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            return redirect(next_url)
+        return redirect('workflow-dashboard-section', section='integrations')
 
 
 class TokkoClearView(LoginRequiredMixin, View):
@@ -493,10 +602,16 @@ class TokkoClearView(LoginRequiredMixin, View):
     def post(self, request):
         deleted, _ = TokkobrokerProperty.objects.all().delete()
         messages.warning(request, f'Cleared {deleted} Tokkobroker properties.')
-        return redirect('workflow-dashboard')
+        return self._redirect_back(request)
 
     def get(self, request):  # pragma: no cover
-        return redirect('workflow-dashboard')
+        return self._redirect_back(request)
+
+    def _redirect_back(self, request):
+        next_url = request.POST.get('next') or request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            return redirect(next_url)
+        return redirect('workflow-dashboard-section', section='integrations')
 
 
 class ObjectTransitionHistoryView(LoginRequiredMixin, TemplateView):

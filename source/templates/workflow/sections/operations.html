@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load workflow_extras %}
+{% block title %}Operations | {{ block.super }}{% endblock %}
+{% block content %}
+{% url 'workflow-dashboard-section' 'operations' as operations_dashboard_url %}
+<section>
+    <h2>Operations</h2>
+    <div class="card">
+        <table>
+            <tr><th>Provider</th><th>Seeker</th><th>State</th><th>Latest Activity</th><th>Actions</th></tr>
+            {% for operation in operations %}
+                <tr>
+                    <td>{{ operation.provider_opportunity }}</td>
+                    <td>{{ operation.seeker_opportunity }}</td>
+                    <td>{{ operation.get_state_display }}</td>
+                    <td>
+                        {% with latest=operation.state_transitions.all|first %}
+                            {% if latest %}
+                                {{ latest.from_state|default:'—' }} → {{ latest.to_state }}
+                                <small style="color:#6b7280;">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                            {% else %}
+                                <span>No transitions yet.</span>
+                            {% endif %}
+                        {% endwith %}
+                        <a class="history-link" href="{% url 'transition-history' 'opportunities' 'operation' operation.id %}">↺</a>
+                    </td>
+                    <td class="actions">
+                        {% if operation|can_transition:'reinforce' %}
+                            <a href="{% url 'operation-reinforce' operation.id %}?next={{ operations_dashboard_url }}">Reinforce</a>
+                        {% endif %}
+                        {% if operation|can_transition:'close' %}
+                            <a href="{% url 'operation-close' operation.id %}?next={{ operations_dashboard_url }}">Close</a>
+                        {% endif %}
+                        {% if operation|can_transition:'lose' %}
+                            <a href="{% url 'operation-lose' operation.id %}?next={{ operations_dashboard_url }}">Lose</a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5">No operations.</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</section>
+{% endblock %}

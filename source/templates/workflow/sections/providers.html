@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% load workflow_extras %}
+{% block title %}Providers | {{ block.super }}{% endblock %}
+{% block content %}
+{% url 'workflow-dashboard-section' 'providers' as providers_dashboard_url %}
+<section>
+    <h2>Provider Intentions</h2>
+    <div class="card">
+        <table>
+            <tr><th>Property</th><th>Owner</th><th>Latest Activity</th><th>Actions</th></tr>
+            {% for intention in provider_intentions %}
+                <tr>
+                    <td>{{ intention.property }}</td>
+                    <td>{{ intention.owner }}</td>
+                    <td class="latest-activity">
+                        {% with latest=intention.state_transitions.all|first %}
+                            {% if latest %}
+                                <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+                                <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                            {% else %}
+                                <span>No transitions yet.</span>
+                            {% endif %}
+                        {% endwith %}
+                        <a class="history-link" href="{% url 'transition-history' 'intentions' 'saleproviderintention' intention.id %}" title="View history">↺</a>
+                    </td>
+                    <td class="actions">
+                        {% if intention|can_transition:'deliver_valuation' %}
+                            <a href="{% url 'provider-deliver-valuation' intention.id %}?next={{ providers_dashboard_url }}">Deliver valuation</a>
+                        {% endif %}
+                        {% if intention|can_transition:'start_contract_negotiation' %}
+                            <a href="{% url 'provider-start-contract' intention.id %}?next={{ providers_dashboard_url }}">Start contract</a>
+                        {% endif %}
+                        {% if intention.is_promotable %}
+                            <a href="{% url 'provider-promote' intention.id %}?next={{ providers_dashboard_url }}">Promote</a>
+                        {% endif %}
+                        {% if intention|can_transition:'withdraw' %}
+                            <a href="{% url 'provider-withdraw' intention.id %}?next={{ providers_dashboard_url }}">Withdraw</a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4">No provider intentions.</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</section>
+
+<section>
+    <h2>Provider Opportunities</h2>
+    <div class="card">
+        <table>
+            <tr><th>Property</th><th>Listing</th><th>Latest Activity</th><th>Actions</th></tr>
+            {% for opportunity in provider_opportunities %}
+                <tr>
+                    <td>{{ opportunity.source_intention.property }}</td>
+                    <td>
+                        <span class="pill">{{ opportunity.get_state_display }}</span>
+                        <small class="muted">{{ opportunity.get_listing_kind_display }}</small>
+                    </td>
+                    <td class="latest-activity">
+                        {% with latest=opportunity.state_transitions.all|first %}
+                            {% if latest %}
+                                <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+                                <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                            {% else %}
+                                <span>No transitions yet.</span>
+                            {% endif %}
+                        {% endwith %}
+                        <a class="history-link" href="{% url 'transition-history' 'opportunities' 'provideropportunity' opportunity.id %}" title="View history">↺</a>
+                    </td>
+                    <td class="actions">
+                        {% if opportunity|can_transition:'start_validation' %}
+                            <a href="{% url 'provider-opportunity-validate' opportunity.id %}?next={{ providers_dashboard_url }}">Preparing</a>
+                        {% endif %}
+                        {% with validation=opportunity.validations.first %}
+                            {% if validation and validation.can_present %}
+                                <a href="{% url 'validation-present' validation.id %}?next={{ providers_dashboard_url }}">Present</a>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4">No provider opportunities.</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</section>
+
+<section>
+    <h2>Documental Validations</h2>
+    <div class="card">
+        <p class="muted" style="margin-top:0;">Formatos aceptados: JPG / PDF</p>
+        <table>
+            <tr><th>Opportunity</th><th>State</th><th>Required Documents</th><th>Latest Activity</th></tr>
+            {% for validation in provider_validations %}
+                <tr>
+                    <td>{{ validation.opportunity.source_intention.property }}</td>
+                    <td>
+                        <span class="pill">{{ validation.get_state_display }}</span>
+                        <div class="actions" style="margin-top:0.3rem;">
+                            {% if validation.can_present %}
+                                <a href="{% url 'validation-present' validation.id %}?next={{ providers_dashboard_url }}">Present</a>
+                            {% endif %}
+                            {% if validation.can_accept %}
+                                <a href="{% url 'validation-accept' validation.id %}?next={{ providers_dashboard_url }}">Accept</a>
+                            {% endif %}
+                            {% if validation.can_reset %}
+                                <a href="{% url 'validation-reject' validation.id %}?next={{ providers_dashboard_url }}">Reset</a>
+                            {% endif %}
+                            <a href="{% url 'validation-document-upload' validation.id %}?next={{ providers_dashboard_url }}">Upload</a>
+                        </div>
+                    </td>
+                    <td>
+                        <ul class="document-list">
+                            {% for requirement in validation.required_documents_status %}
+                                <li>
+                                    <strong>{{ requirement.label }}</strong>
+                                    {% if requirement.document %}
+                                        <span class="pill status-{{ requirement.document.status }}">{{ requirement.document.get_status_display }}</span>
+                                        {% if requirement.document.status == 'pending' %}
+                                            <a href="{% url 'validation-document-review' requirement.document.id %}?next={{ providers_dashboard_url }}">Review</a>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="pill status-missing">Missing</span>
+                                    {% endif %}
+                                    <a href="{% url 'validation-document-upload' validation.id %}?document_type={{ requirement.code }}&next={{ providers_dashboard_url }}">Upload</a>
+                                </li>
+                            {% endfor %}
+                            {% if validation.additional_documents %}
+                                {% for doc in validation.additional_documents %}
+                                    <li>
+                                        {{ doc.name }}
+                                        <span class="pill status-{{ doc.status }}">{{ doc.get_status_display }}</span>
+                                        {% if doc.status == 'pending' %}
+                                            <a href="{% url 'validation-document-review' doc.id %}?next={{ providers_dashboard_url }}">Review</a>
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            {% endif %}
+                        </ul>
+                    </td>
+                    <td class="latest-activity">
+                        {% with latest=validation.state_transitions.all|first %}
+                            {% if latest %}
+                                <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+                                <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                            {% else %}
+                                <span>No transitions yet.</span>
+                            {% endif %}
+                        {% endwith %}
+                        <a class="history-link" href="{% url 'transition-history' 'opportunities' 'validation' validation.id %}">↺</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4">No validations yet.</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</section>
+{% endblock %}

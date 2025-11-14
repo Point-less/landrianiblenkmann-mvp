@@ -13,6 +13,7 @@ class ValidationPresentService(BaseService):
     """Mark a validation as presented."""
 
     def run(self, *, validation: Validation, reviewer) -> Validation:
+        validation.ensure_required_documents_uploaded()
         try:
             validation.present(reviewer=reviewer)
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
@@ -42,6 +43,7 @@ class ValidationAcceptService(BaseService):
     """Accept a presented validation and advance the opportunity."""
 
     def run(self, *, validation: Validation) -> Validation:
+        validation.ensure_documents_ready_for_acceptance()
         try:
             validation.accept()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard

@@ -23,9 +23,11 @@ from intentions.services import (
 )
 from opportunities.models import Operation, ProviderOpportunity, Validation, ValidationDocument
 from opportunities.services import (
+    CreateValidationDocumentService,
     CreateOperationService,
     CreateSeekerOpportunityService,
     OpportunityValidateService,
+    ReviewValidationDocumentService,
     ValidationAcceptService,
     ValidationPresentService,
 )
@@ -51,7 +53,7 @@ class WorkflowViewSmokeTests(TestCase):
         self.owner = Contact.objects.create(first_name='Owner', last_name='One')
         self.seeker_contact = Contact.objects.create(first_name='Buyer', last_name='Beta')
         self.property = Property.objects.create(name='Ocean View Loft', reference_code='PROP-001')
-        self.file = SimpleUploadedFile('doc.txt', b'content')
+        self.file = SimpleUploadedFile('doc.pdf', b'content')
 
         self.provider_intention = CreateSaleProviderIntentionService.call(
             owner=self.owner,
@@ -71,11 +73,25 @@ class WorkflowViewSmokeTests(TestCase):
         )
         self.validation = Validation.objects.get(opportunity=self.provider_opportunity)
         OpportunityValidateService.call(opportunity=self.provider_opportunity)
+        for code, _ in Validation.required_document_choices(include_optional=False):
+            doc = CreateValidationDocumentService.call(
+                validation=self.validation,
+                document_type=code,
+                document=SimpleUploadedFile(f"{code}.pdf", b"doc"),
+                uploaded_by=self.admin,
+            )
+            ReviewValidationDocumentService.call(
+                document=doc,
+                action='accept',
+                reviewer=self.admin,
+                comment='auto',
+            )
         ValidationPresentService.call(validation=self.validation, reviewer=self.agent)
         ValidationAcceptService.call(validation=self.validation)
         self.provider_opportunity.refresh_from_db()
         self.validation_document = ValidationDocument.objects.create(
             validation=self.validation,
+            document_type=ValidationDocument.DocumentType.OTHER,
             name='ID Copy',
             document=self.file,
             uploaded_by=self.admin,
@@ -105,6 +121,10 @@ class WorkflowViewSmokeTests(TestCase):
     def test_all_workflow_views_render(self):
         url_specs = [
             ('workflow-dashboard', {}),
+            ('workflow-dashboard-section', {'section': 'providers'}),
+            ('workflow-dashboard-section', {'section': 'seekers'}),
+            ('workflow-dashboard-section', {'section': 'operations'}),
+            ('workflow-dashboard-section', {'section': 'integrations'}),
             ('agent-create', {}),
             ('contact-create', {}),
             ('property-create', {}),

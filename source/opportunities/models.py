@@ -147,6 +147,13 @@ class Validation(TimeStampedMixin, FSMLoggableMixin):
         PRESENTED = "presented", "Presented"
         ACCEPTED = "accepted", "Accepted"
 
+    REQUIRED_DOCUMENT_CODES: tuple[str, ...] = (
+        "owner_id",
+        "deed",
+        "sale_authorization",
+        "domain_report",
+    )
+
     opportunity = models.ForeignKey(
         ProviderOpportunity,
         on_delete=models.CASCADE,
@@ -170,6 +177,103 @@ class Validation(TimeStampedMixin, FSMLoggableMixin):
     def __str__(self) -> str:
         return f"Validation for {self.opportunity}"
 
+    @classmethod
+    def required_document_choices(cls, include_optional: bool = True) -> list[tuple[str, str]]:
+        """Return the configured required documents with human labels."""
+
+        label_map = dict(ValidationDocument.DocumentType.choices)
+        choices = [(code, label_map.get(code, code.replace("_", " ").title())) for code in cls.REQUIRED_DOCUMENT_CODES]
+        if include_optional:
+            choices.append(
+                (
+                    ValidationDocument.DocumentType.OTHER,
+                    label_map.get(ValidationDocument.DocumentType.OTHER, "Other"),
+                )
+            )
+        return choices
+
+    def _documents_by_type(self) -> dict[str, ValidationDocument]:
+        docs = {}
+        for document in self.documents.all():
+            docs.setdefault(document.document_type, document)
+        return docs
+
+    def required_documents_status(self) -> list[dict[str, object]]:
+        """Summarize required document readiness for UI consumption."""
+
+        label_map = dict(ValidationDocument.DocumentType.choices)
+        docs = self._documents_by_type()
+        summary: list[dict[str, object]] = []
+        for code in self.REQUIRED_DOCUMENT_CODES:
+            document = docs.get(code)
+            summary.append(
+                {
+                    "code": code,
+                    "label": label_map.get(code, code.replace("_", " ").title()),
+                    "document": document,
+                    "status": document.status if document else "missing",
+                }
+            )
+        return summary
+
+    def additional_documents(self) -> list["ValidationDocument"]:
+        return [doc for doc in self.documents.all() if doc.document_type not in self.REQUIRED_DOCUMENT_CODES]
+
+    def missing_required_documents(self) -> list[str]:
+        uploaded = set(self.documents.values_list("document_type", flat=True))
+        return [code for code in self.REQUIRED_DOCUMENT_CODES if code not in uploaded]
+
+    def ensure_required_documents_uploaded(self) -> None:
+        missing = self.missing_required_documents()
+        if not missing:
+            return
+        label_map = dict(ValidationDocument.DocumentType.choices)
+        missing_labels = [label_map.get(code, code.replace("_", " ").title()) for code in missing]
+        raise ValidationError(
+            {
+                "documents": (
+                    "Upload the required documents before presenting: "
+                    + ", ".join(missing_labels)
+                )
+            }
+        )
+
+    def ensure_documents_ready_for_acceptance(self) -> None:
+        self.ensure_required_documents_uploaded()
+        pending = self.documents.filter(
+            document_type__in=self.REQUIRED_DOCUMENT_CODES,
+            status=ValidationDocument.Status.PENDING,
+        )
+        if pending.exists():
+            raise ValidationError("Review all required documents before accepting the validation.")
+        rejected = self.documents.filter(
+            document_type__in=self.REQUIRED_DOCUMENT_CODES,
+            status=ValidationDocument.Status.REJECTED,
+        )
+        if rejected.exists():
+            raise ValidationError("Resolve rejected documents before accepting the validation.")
+
+    def can_present(self) -> bool:
+        if self.state != self.State.PREPARING:
+            return False
+        try:
+            self.ensure_required_documents_uploaded()
+        except ValidationError:
+            return False
+        return True
+
+    def can_accept(self) -> bool:
+        if self.state != self.State.PRESENTED:
+            return False
+        try:
+            self.ensure_documents_ready_for_acceptance()
+        except ValidationError:
+            return False
+        return True
+
+    def can_reset(self) -> bool:
+        return self.state == self.State.PRESENTED
+
     @transition(field="state", source=State.PREPARING, target=State.PRESENTED)
     def present(self, reviewer: Agent) -> None:  # noqa: ARG002 - retained for API compatibility
         self.presented_at = timezone.now()
@@ -186,6 +290,13 @@ class Validation(TimeStampedMixin, FSMLoggableMixin):
 
 
 class ValidationDocument(TimeStampedMixin):
+    class DocumentType(models.TextChoices):
+        OWNER_ID = "owner_id", "DNI PROPIETARIO"
+        DEED = "deed", "ESCRITURA"
+        SALE_AUTHORIZATION = "sale_authorization", "AUTORIZACIÓN DE VENTA"
+        DOMAIN_REPORT = "domain_report", "INFORME DE DOMINIO"
+        OTHER = "other", "OTRO DOCUMENTO"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         ACCEPTED = "accepted", "Accepted"
@@ -195,6 +306,11 @@ class ValidationDocument(TimeStampedMixin):
         Validation,
         on_delete=models.CASCADE,
         related_name="documents",
+    )
+    document_type = models.CharField(
+        max_length=50,
+        choices=DocumentType.choices,
+        default=DocumentType.OTHER,
     )
     name = models.CharField(max_length=255)
     document = models.FileField(upload_to="validation_documents/%Y/%m/")

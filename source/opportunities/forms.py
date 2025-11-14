@@ -5,7 +5,13 @@ from __future__ import annotations
 from django import forms
 
 from core.models import Agent, Currency
-from opportunities.models import Operation, ProviderOpportunity, SeekerOpportunity, ValidationDocument
+from opportunities.models import (
+    Operation,
+    ProviderOpportunity,
+    SeekerOpportunity,
+    Validation,
+    ValidationDocument,
+)
 
 
 class HTML5FormMixin:
@@ -63,9 +69,16 @@ class OperationLoseForm(HTML5FormMixin, forms.Form):
 
 
 class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
+    document_type = forms.ChoiceField(choices=[])
+
     class Meta:
         model = ValidationDocument
-        fields = ["name", "document"]
+        fields = ["document_type", "name", "document"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["document_type"].choices = Validation.required_document_choices(include_optional=True)
+        self.fields["name"].required = False
 
 
 class ValidationDocumentReviewForm(HTML5FormMixin, forms.Form):

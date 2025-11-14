@@ -39,6 +39,9 @@ class AgentForm(TypedFormMixin, forms.ModelForm):
         fields = ["first_name", "last_name", "email", "phone_number"]
 
 
+class AgentEditForm(AgentForm):
+    pass
+
 class ContactForm(TypedFormMixin, forms.ModelForm):
     agent = forms.ModelChoiceField(queryset=Agent.objects.all())
 
@@ -53,8 +56,28 @@ class PropertyForm(TypedFormMixin, forms.ModelForm):
         fields = ["name", "reference_code"]
 
 
+class ContactEditForm(TypedFormMixin, forms.ModelForm):
+    class Meta:
+        model = Contact
+        fields = ["first_name", "last_name", "email", "phone_number", "notes"]
+
+
+class PropertyEditForm(TypedFormMixin, forms.ModelForm):
+    class Meta:
+        model = Property
+        fields = ["name", "reference_code"]
+
+
 class ConfirmationForm(forms.Form):
     """Simple empty form used for confirmation-only actions."""
 
 
-__all__ = ["AgentForm", "ContactForm", "PropertyForm", "ConfirmationForm"]
+__all__ = [
+    "AgentForm",
+    "AgentEditForm",
+    "ContactForm",
+    "ContactEditForm",
+    "PropertyForm",
+    "PropertyEditForm",
+    "ConfirmationForm",
+]

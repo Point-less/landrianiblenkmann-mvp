@@ -1,16 +1,38 @@
+from pathlib import Path
+
 from django.core.exceptions import ValidationError
 
 from opportunities.models import Validation, ValidationDocument
 from utils.services import BaseService
 
 
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".pdf"}
+
+
 class CreateValidationDocumentService(BaseService):
-    def run(self, *, validation: Validation, name: str, document, uploaded_by=None) -> ValidationDocument:
+    def run(
+        self,
+        *,
+        validation: Validation,
+        document_type: str,
+        document,
+        uploaded_by=None,
+        name: str | None = None,
+    ) -> ValidationDocument:
         if not document:
             raise ValidationError({"document": "Please attach a document."})
+        if document_type not in ValidationDocument.DocumentType.values:
+            raise ValidationError({"document_type": "Invalid document type."})
+        suffix = Path(document.name or "").suffix.lower()
+        if suffix not in ALLOWED_EXTENSIONS:
+            allowed_display = ", ".join(ext.upper().lstrip(".") for ext in sorted(ALLOWED_EXTENSIONS))
+            raise ValidationError({"document": f"Formato inválido. Usa archivos {allowed_display}."})
+
+        label_map = dict(ValidationDocument.DocumentType.choices)
         return ValidationDocument.objects.create(
             validation=validation,
-            name=name,
+            document_type=document_type,
+            name=name or label_map.get(document_type, document_type.title()),
             document=document,
             uploaded_by=uploaded_by,
         )

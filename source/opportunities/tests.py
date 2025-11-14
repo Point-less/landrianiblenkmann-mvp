@@ -5,6 +5,7 @@ import tempfile
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
@@ -25,7 +26,14 @@ from intentions.services import (
     PromoteSaleProviderIntentionService,
     StartSaleProviderContractNegotiationService,
 )
-from opportunities.models import MarketingPackage, Operation, ProviderOpportunity, SeekerOpportunity, Validation
+from opportunities.models import (
+    MarketingPackage,
+    Operation,
+    ProviderOpportunity,
+    SeekerOpportunity,
+    Validation,
+    ValidationDocument,
+)
 from opportunities.services import (
     CreateValidationDocumentService,
     CreateOperationService,
@@ -60,7 +68,7 @@ class SaleFlowServiceTests(TestCase):
         LinkContactAgentService.call(contact=self.owner, agent=self.agent)
         LinkContactAgentService.call(contact=self.seeker_contact, agent=self.agent)
 
-    def test_full_sale_flow_via_services(self) -> None:
+    def _create_provider_opportunity(self):
         provider_intention = CreateSaleProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
@@ -74,19 +82,41 @@ class SaleFlowServiceTests(TestCase):
             notes="Comparable units closed last quarter",
         )
         StartSaleProviderContractNegotiationService.call(intention=provider_intention)
-
         provider_opportunity = PromoteSaleProviderIntentionService.call(
             intention=provider_intention,
             marketing_package_data={"currency": self.currency, "price": Decimal("975000")},
         )
-        self.assertEqual(provider_opportunity.state, ProviderOpportunity.State.CAPTURING)
         validation = Validation.objects.get(opportunity=provider_opportunity)
+        OpportunityValidateService.call(opportunity=provider_opportunity)
+        return provider_opportunity, validation, provider_intention
+
+    def _upload_required_documents(self, validation: Validation, *, review: bool = False):
+        documents = []
+        for code, _ in Validation.required_document_choices(include_optional=False):
+            document = CreateValidationDocumentService.call(
+                validation=validation,
+                document_type=code,
+                document=SimpleUploadedFile(f"{code}.pdf", b"data"),
+                uploaded_by=self.reviewer,
+            )
+            documents.append(document)
+            if review:
+                ReviewValidationDocumentService.call(
+                    document=document,
+                    action="accept",
+                    reviewer=self.reviewer,
+                    comment="Auto-approved for test",
+                )
+        return documents
+
+    def test_full_sale_flow_via_services(self) -> None:
+        provider_opportunity, validation, provider_intention = self._create_provider_opportunity()
         marketing_package = provider_opportunity.marketing_packages.get()
+
+        self.assertEqual(provider_opportunity.state, ProviderOpportunity.State.VALIDATING)
         self.assertEqual(marketing_package.state, MarketingPackage.State.PREPARING)
 
-        OpportunityValidateService.call(opportunity=provider_opportunity)
-        provider_opportunity.refresh_from_db()
-        self.assertEqual(provider_opportunity.state, ProviderOpportunity.State.VALIDATING)
+        self._upload_required_documents(validation, review=True)
 
         ValidationPresentService.call(validation=validation, reviewer=self.agent)
         validation.refresh_from_db()
@@ -133,6 +163,7 @@ class SaleFlowServiceTests(TestCase):
 
         document = CreateValidationDocumentService.call(
             validation=validation,
+            document_type=ValidationDocument.DocumentType.OTHER,
             name="Mandate",
             document=SimpleUploadedFile("mandate.pdf", b"pdf"),
             uploaded_by=self.reviewer,
@@ -186,6 +217,24 @@ class SaleFlowServiceTests(TestCase):
         with self.subTest("abandon seeker intention"):
             AbandonSaleSeekerIntentionService.call(intention=abandon_intention, reason="Shifted priorities")
             self.assertEqual(abandon_intention.state, abandon_intention.State.ABANDONED)
+
+    def test_validation_present_requires_documents(self):
+        provider_opportunity, validation, _ = self._create_provider_opportunity()
+        with self.assertRaises(ValidationError):
+            ValidationPresentService.call(
+                validation=validation,
+                reviewer=self.agent,
+                use_atomic=False,
+            )
+        provider_opportunity.refresh_from_db()
+        self.assertEqual(provider_opportunity.state, ProviderOpportunity.State.VALIDATING)
+
+    def test_validation_accept_requires_reviewed_documents(self):
+        provider_opportunity, validation, _ = self._create_provider_opportunity()
+        self._upload_required_documents(validation, review=False)
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        with self.assertRaises(ValidationError):
+            ValidationAcceptService.call(validation=validation, use_atomic=False)
 
     def _cleanup_media(self):
         self._media_override.disable()

@@ -103,7 +103,10 @@ class SaleProviderIntention(TimeStampedMixin, FSMLoggableMixin):
             raise ValidationError("An opportunity instance is required when converting an intention.")
         self.converted_at = timezone.now()
 
-    @transition(field="state", source="*", target=State.WITHDRAWN)
+    def can_withdraw(self) -> bool:
+        return self.state not in {self.State.CONVERTED, self.State.WITHDRAWN}
+
+    @transition(field="state", source="*", target=State.WITHDRAWN, conditions=[can_withdraw])
     def withdraw(self, *, reason: "SaleProviderIntention.WithdrawReason", notes: str | None = None) -> None:
         if self.state == self.State.CONVERTED:
             raise ValidationError("Converted intentions cannot be withdrawn.")
@@ -205,6 +208,9 @@ class SaleSeekerIntention(TimeStampedMixin, FSMLoggableMixin):
     def abandon(self, reason: str | None = None) -> None:
         if reason:
             self.notes = (self.notes or "") + f"\nAbandoned: {reason}"
+
+    def can_create_opportunity(self) -> bool:
+        return self.state == self.State.MANDATED and not hasattr(self, "seeker_opportunity")
 
 
 class SaleValuation(TimeStampedMixin):

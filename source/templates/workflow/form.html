@@ -6,6 +6,11 @@
 <div class="card">
     <form method="post" enctype="{% if form.is_multipart %}multipart/form-data{% else %}application/x-www-form-urlencoded{% endif %}">
         {% csrf_token %}
+        {% if request.GET.next %}
+            <input type="hidden" name="next" value="{{ request.GET.next }}">
+        {% elif request.POST.next %}
+            <input type="hidden" name="next" value="{{ request.POST.next }}">
+        {% endif %}
         {{ form.as_p }}
         <button type="submit">Submit</button>
     </form>

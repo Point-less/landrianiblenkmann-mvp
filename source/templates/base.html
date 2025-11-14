@@ -6,191 +6,152 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         :root {
-            color-scheme: light dark;
+            --brand-primary: rgb(35, 88, 58);
+            --brand-primary-dark: #1f4a32;
+            --brand-secondary: #d6b549;
+            --brand-secondary-dark: #b08e26;
+            --surface: #f7f4ed;
+            --surface-dark: #ece5d2;
+            --text-main: #1f2a24;
+            --text-muted: #5f665d;
+            --border-soft: #e3dfcf;
+            --pill-bg: #eef3eb;
+            --danger-bg: #fbe4df;
+            --white: #ffffff;
         }
         body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             margin: 0;
-            background: #f3f4f6;
-            color: #111827;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--surface);
+            color: var(--text-main);
         }
-        header {
-            background: #111827;
-            color: #f9fafb;
-            padding: 1rem 1.5rem;
-        }
-        .header-top {
+        .app-shell {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
+            min-height: 100vh;
         }
-        .menu-bar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1.5rem;
-            margin-top: 1rem;
+        .sidebar {
+            width: 240px;
+            background: var(--brand-primary);
+            color: var(--white);
+            padding: 1.5rem 1rem;
         }
-        .menu-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
+        .sidebar-logo {
+            margin-bottom: 1rem;
         }
-        .menu-group span {
-            font-size: 0.8rem;
+        .sidebar-logo img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        .nav-group { margin-bottom: 1.25rem; }
+        .nav-group span {
+            font-size: 0.75rem;
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: #93c5fd;
+            color: var(--brand-secondary);
+            display: block;
+            margin-bottom: 0.35rem;
         }
-        .menu-group a {
-            color: #dbeafe;
+        .nav-links { display: flex; flex-direction: column; gap: 0.3rem; }
+        .nav-links a {
+            color: #f4f3ee;
             text-decoration: none;
             font-size: 0.9rem;
         }
-        .menu-group a:hover {
-            text-decoration: underline;
+        .nav-links a.active { text-decoration: underline; font-weight: 600; color: var(--brand-secondary); }
+        .nav-links a:hover { text-decoration: underline; color: var(--brand-secondary); }
+        .content {
+            flex: 1;
+            padding: 1.5rem;
         }
-        main { padding: 1.5rem; }
         .card {
-            background: #fff;
-            padding: 1rem;
+            background: var(--white);
             border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+            padding: 1rem;
             margin-bottom: 1.5rem;
-        }
-        section { margin-bottom: 2rem; }
-        section > h2 {
-            margin: 0 0 1rem;
-            font-size: 1.5rem;
+            box-shadow: 0 10px 25px rgb(31 42 36 / 0.08);
         }
         table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-        th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
-        form { display: block; }
-        label { display: block; margin-top: 0.75rem; font-weight: 600; }
-        input, select, textarea { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; margin-top: 0.25rem; }
-        button { margin-top: 1rem; padding: 0.6rem 1.2rem; border: none; border-radius: 0.375rem; background: #2563eb; color: white; cursor: pointer; }
-        .actions a { margin-right: 0.5rem; }
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.1rem 0.5rem;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            background: #e0f2fe;
-            color: #0369a1;
-        }
-        .status-pending { background: #fef3c7; color: #92400e; }
-        .status-accepted { background: #dcfce7; color: #166534; }
-        .status-rejected { background: #fee2e2; color: #991b1b; }
-        .workflow-section { display: none; }
-        .workflow-section.active { display: block; }
-        .no-js .workflow-section { display: block !important; }
-        .menu-group a.active { text-decoration: underline; font-weight: 600; }
-        .timeline { list-style: none; padding-left: 0; margin: 0; font-size: 0.85rem; color: #374151; }
-        .timeline li { margin-bottom: 0.25rem; }
-        .timeline time { color: #6b7280; font-size: 0.75rem; margin-left: 0.3rem; }
-        .history-link {
-            display: inline-block;
-            width: 1rem;
-            height: 1rem;
-            line-height: 1rem;
-            text-align: center;
-            font-size: 0.8rem;
-            color: #1d4ed8;
-            margin-left: 0.25rem;
-            text-decoration: none;
-        }
-        .history-link:hover { color: #2563eb; }
+        th, td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+        th { text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.8rem; color: var(--text-muted); }
+        button { margin-top: 1rem; padding: 0.6rem 1.2rem; border: none; border-radius: 0.375rem; background: var(--brand-primary); color: var(--white); cursor: pointer; transition: background 0.2s ease; }
+        button:hover { background: var(--brand-primary-dark); }
+        .actions a { margin-right: 0.5rem; color: var(--brand-primary); }
+        .actions a:hover { color: var(--brand-primary-dark); }
+        .pill { display: inline-flex; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.75rem; background: var(--pill-bg); color: var(--brand-primary-dark); }
+        .pill.status-accepted { background: rgba(35, 88, 58, 0.1); color: var(--brand-primary-dark); }
+        .pill.status-rejected { background: var(--danger-bg); color: #a13f2b; }
+        .history-link { display: inline-block; width: 1rem; text-align: center; color: var(--brand-secondary-dark); text-decoration: none; }
+        .history-link:hover { color: var(--brand-secondary); }
+        .muted { color: var(--text-muted); display: block; }
+        .latest-activity { display: flex; align-items: center; gap: 0.35rem; }
+        .latest-activity span { display: inline-flex; flex-direction: column; }
+        .document-list { list-style: none; padding-left: 0; margin: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+        .document-list li { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+        .status-missing { background: var(--surface-dark); color: var(--text-muted); }
     </style>
 </head>
-<body class="no-js">
-<header>
-    <div class="header-top">
-        <strong>Sale Workflow</strong>
-        <a href="{% url 'workflow-dashboard' %}" style="color:#dbeafe;text-decoration:none;">Dashboard</a>
-    </div>
-    <nav class="menu-bar">
-        <div class="menu-group">
-            <span>Core</span>
-            <a href="#core-section" class="section-link" data-section-target="core-section">Overview</a>
-            <a href="{% url 'agent-create' %}">New Agent</a>
-            <a href="{% url 'contact-create' %}">New Contact</a>
-            <a href="{% url 'property-create' %}">New Property</a>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <a href="{% url 'workflow-dashboard' %}">
+                <img src="https://static.tokkobroker.com/tfw_images/6354_Landriani%20Blenkmann/Logo_Web_1100x160_3.png" alt="Landriani Blenkmann" loading="lazy">
+            </a>
         </div>
-        <div class="menu-group">
-            <span>Providers</span>
-            <a href="#providers-section" class="section-link" data-section-target="providers-section">States</a>
-            <a href="{% url 'provider-intention-create' %}">New Provider Intention</a>
-        </div>
-        <div class="menu-group">
-            <span>Seekers</span>
-            <a href="#seekers-section" class="section-link" data-section-target="seekers-section">States</a>
-            <a href="{% url 'seeker-intention-create' %}">New Seeker Intention</a>
-        </div>
-        <div class="menu-group">
-            <span>Operations</span>
-            <a href="#operations-section" class="section-link" data-section-target="operations-section">Pipeline</a>
-            <a href="{% url 'operation-create' %}">New Operation</a>
-        </div>
-        <div class="menu-group">
-            <span>Integrations</span>
-            <a href="#integrations-section" class="section-link" data-section-target="integrations-section">Tokkobroker</a>
-        </div>
-    </nav>
-</header>
-<main>
-    {% if messages %}
-        <div class="card">
-            <ul>
-                {% for message in messages %}
-                    <li>{{ message }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-    {% endif %}
-    {% block content %}{% endblock %}
-</main>
-<script>
-    (function() {
-        document.body.classList.remove('no-js');
-        const sections = Array.from(document.querySelectorAll('.workflow-section'));
-        const links = Array.from(document.querySelectorAll('.section-link'));
-
-        function activate(sectionId, opts) {
-            const options = Object.assign({ scroll: false }, opts);
-            const target = sections.find(section => section.id === sectionId) || sections[0];
-            if (!target) {
-                return;
-            }
-            sections.forEach(section => section.classList.toggle('active', section === target));
-            links.forEach(link => link.classList.toggle('active', link.dataset.sectionTarget === target.id));
-            history.replaceState(null, '', '#' + target.id);
-            if (options.scroll) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }
-
-        links.forEach(link => {
-            link.addEventListener('click', function(event) {
-                event.preventDefault();
-                activate(this.dataset.sectionTarget, { scroll: true });
-            });
-        });
-
-        window.addEventListener('hashchange', () => {
-            const hash = window.location.hash.replace('#', '');
-            if (hash) {
-                activate(hash, { scroll: true });
-            }
-        });
-
-        const initialHash = window.location.hash.replace('#', '');
-        const initialSection = sections.some(section => section.id === initialHash) ? initialHash : (sections[0] && sections[0].id);
-        if (initialSection) {
-            activate(initialSection, { scroll: false });
-        }
-    })();
-</script>
+        {% with active=active_section|default:'core' %}
+        <nav>
+            <div class="nav-group">
+                <span>Core</span>
+                <div class="nav-links">
+                    <a class="{% if active == 'core' %}active{% endif %}" href="{% url 'workflow-dashboard' %}">Overview</a>
+                    <a href="{% url 'agent-create' %}">New Agent</a>
+                    <a href="{% url 'contact-create' %}">New Contact</a>
+                    <a href="{% url 'property-create' %}">New Property</a>
+                </div>
+            </div>
+            <div class="nav-group">
+                <span>Providers</span>
+                <div class="nav-links">
+                    <a class="{% if active == 'providers' %}active{% endif %}" href="{% url 'workflow-dashboard-section' 'providers' %}">States</a>
+                    <a href="{% url 'provider-intention-create' %}">New Provider Intention</a>
+                </div>
+            </div>
+            <div class="nav-group">
+                <span>Seekers</span>
+                <div class="nav-links">
+                    <a class="{% if active == 'seekers' %}active{% endif %}" href="{% url 'workflow-dashboard-section' 'seekers' %}">States</a>
+                    <a href="{% url 'seeker-intention-create' %}">New Seeker Intention</a>
+                </div>
+            </div>
+            <div class="nav-group">
+                <span>Operations</span>
+                <div class="nav-links">
+                    <a class="{% if active == 'operations' %}active{% endif %}" href="{% url 'workflow-dashboard-section' 'operations' %}">Pipeline</a>
+                    <a href="{% url 'operation-create' %}">New Operation</a>
+                </div>
+            </div>
+            <div class="nav-group">
+                <span>Integrations</span>
+                <div class="nav-links">
+                    <a class="{% if active == 'integrations' %}active{% endif %}" href="{% url 'workflow-dashboard-section' 'integrations' %}">Tokkobroker</a>
+                </div>
+            </div>
+        </nav>
+        {% endwith %}
+    </aside>
+    <main class="content">
+        {% if messages %}
+            <div class="card">
+                <ul>
+                    {% for message in messages %}
+                        <li>{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+</div>
 </body>
 </html>

@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django.shortcuts import redirect
+from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
 from opportunities.models import TokkobrokerProperty
@@ -27,6 +28,7 @@ class TokkobrokerPropertyAdmin(admin.ModelAdmin):
                 name=f"{opts.app_label}_{opts.model_name}_sync_all",
             ),
         ]
+
         return custom_urls + super().get_urls()
 
     def sync_all(self, request):
@@ -34,17 +36,27 @@ class TokkobrokerPropertyAdmin(admin.ModelAdmin):
         if not self.has_change_permission(request):
             return self.permission_denied(request)
 
+        opts = self.model._meta
+        changelist_url = reverse(f"admin:{opts.app_label}_{opts.model_name}_changelist")
+
         if request.method == "POST":
             try:
-                # adapt this to what your helper expects (all / missing / diff)
-                processed = sync_tokkobroker_properties_task.send()
-                self.message_user(request, f"Synced {processed} Tokkobroker properties.", level=messages.SUCCESS)
+                message = sync_tokkobroker_properties_task.send()
+                self.message_user(
+                    request,
+                    f"Tokkobroker sync enqueued (message ID: {message.message_id}).",
+                    level=messages.SUCCESS,
+                )
             except Exception as exc:
                 self.message_user(request, f"Sync failed: {exc}", level=messages.ERROR)
 
-            opts = self.model._meta
-            return redirect(reverse(f"admin:{opts.app_label}_{opts.model_name}_changelist"))
+            return redirect(changelist_url)
 
-        # for GET just redirect back to changelist
-        opts = self.model._meta
-        return redirect(reverse(f"admin:{opts.app_label}_{opts.model_name}_changelist"))
+        context = {
+            **self.admin_site.each_context(request),
+            "opts": opts,
+            "app_label": opts.app_label,
+            "title": "Confirm Tokkobroker sync",
+            "changelist_url": changelist_url,
+        }
+        return TemplateResponse(request, "admin/tokkobrokerproperty/sync_all_confirm.html", context)

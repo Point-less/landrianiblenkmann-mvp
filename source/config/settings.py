@@ -7,6 +7,14 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'insecure-secret-key')
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
 TEMPLATE_DEBUG = DEBUG
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
+REDIS_CACHE_URL = os.environ.get('REDIS_CACHE_URL', 'redis://redis:6379/0')
+REDIS_RESULTS_URL = os.environ.get('REDIS_RESULTS_URL', 'redis://redis:6379/1')
+
+TOKKO_BASE_URL = os.environ.get('TOKKO_BASE_URL', 'https://backend-904.sandbox.tokkobroker.com')
+TOKKO_USERNAME = os.environ.get('TOKKO_USERNAME', 'admin')
+TOKKO_PASSWORD = os.environ.get('TOKKO_PASSWORD', 'admin')
+TOKKO_OTP_TOKEN = os.environ.get('TOKKO_OTP_TOKEN', '123456')
+TOKKO_TIMEOUT = int(os.environ.get('TOKKO_TIMEOUT', '30'))
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -35,13 +43,20 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'config.urls'
 
+default_loaders = [
+    'django.template.loaders.filesystem.Loader',
+    'django.template.loaders.app_directories.Loader',
+]
+
+cached_loaders = [('django.template.loaders.cached.Loader', default_loaders)]
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
+        'APP_DIRS': False,
         'OPTIONS': {
-            'debug' : DEBUG,
+            'loaders': default_loaders if DEBUG else cached_loaders,
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
@@ -62,6 +77,16 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', 'app_password'),
         'HOST': os.environ.get('DB_HOST', 'postgres'),
         'PORT': os.environ.get('DB_PORT', '5432'),
+    }
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': REDIS_CACHE_URL,
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
     }
 }
 
@@ -104,3 +129,12 @@ DRAMATIQ_BROKER = {
 }
 
 DRAMATIQ_TASKS_DATABASE = 'default'
+
+DRAMATIQ_RESULT_BACKEND = {
+    'BACKEND': 'dramatiq.results.backends.redis.RedisBackend',
+    'BACKEND_OPTIONS': {
+        'url': REDIS_RESULTS_URL,
+    },
+}
+
+DRAMATIQ_RESULT_BACKEND_ENABLED = True

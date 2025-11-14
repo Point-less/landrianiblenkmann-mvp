@@ -1,11 +1,14 @@
 {% extends "admin/change_list.html" %}
+{% load admin_urls %}
 
-{% block object-tools %}
+{% block object-tools-items %}
   {{ block.super }}
   {% if has_change_permission %}
-    <form method="post" action="{% url 'admin:opportunities_tokkobrokerproperty_sync_all' %}" style="display:inline;">
-      {% csrf_token %}
-      <button type="submit" class="button">Sync all from Tokkobroker</button>
-    </form>
+  <li>
+    {% url cl.opts|admin_urlname:'sync_all' as add_url %}
+    <a href="{% add_preserved_filters add_url is_popup to_field %}" class="syncLink">
+      Sync all {{ name }} from Tokkobroker
+    </a>
+  </li>
   {% endif %}
 {% endblock %}

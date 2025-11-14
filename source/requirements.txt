@@ -13,6 +13,12 @@ asgiref==3.9.2
     #   django
     #   servestatic
     #   strawberry-graphql-django
+async-timeout==5.0.1
+    # via redis
+certifi==2025.11.12
+    # via requests
+charset-normalizer==3.4.4
+    # via requests
 click==8.3.0
     # via
     #   typer
@@ -26,6 +32,7 @@ django==4.2.24
     #   django-dramatiq
     #   django-fsm-2
     #   django-fsm-log
+    #   django-redis
     #   strawberry-graphql-django
 django-appconf==1.1.0
     # via django-fsm-log
@@ -37,7 +44,9 @@ django-fsm-2==4.0.0
     # via -r requirements.in
 django-fsm-log==3.1.0
     # via -r requirements.in
-dramatiq[rabbitmq]==1.18.0
+django-redis==6.0.0
+    # via -r requirements.in
+dramatiq[rabbitmq,redis]==1.18.0
     # via
     #   -r requirements.in
     #   django-dramatiq
@@ -52,7 +61,9 @@ h11==0.16.0
 httptools==0.6.4
     # via uvicorn
 idna==3.10
-    # via anyio
+    # via
+    #   anyio
+    #   requests
 lia-web==0.2.3
     # via strawberry-graphql
 libcst==1.8.5
@@ -87,6 +98,12 @@ pyyaml==6.0.3
     # via
     #   libcst
     #   uvicorn
+redis==6.4.0
+    # via
+    #   django-redis
+    #   dramatiq
+requests==2.32.5
+    # via -r requirements.in
 rich==14.1.0
     # via
     #   strawberry-graphql
@@ -124,6 +141,8 @@ typing-extensions==4.15.0
     #   strawberry-graphql
     #   typer
     #   uvicorn
+urllib3==2.5.0
+    # via requests
 uvicorn[standard]==0.37.0
     # via
     #   -r requirements.in

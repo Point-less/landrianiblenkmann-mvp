@@ -79,12 +79,12 @@ def sync_tokkobroker_registry(
 
 
 @dramatiq.actor
-def sync_tokkobroker_properties_task() -> int:
+def sync_tokkobroker_properties_task() -> None:
     """Dramatiq entry-point for synchronizing Tokkobroker properties."""
 
     processed = sync_tokkobroker_registry()
     logger.info("Synced %s Tokkobroker properties", processed)
-    return processed
+    # Actor intentionally returns None; work is persisted directly via the ORM.
 
 
 __all__ = [

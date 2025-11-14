@@ -18,7 +18,7 @@ class ValidationPresentService(BaseService):
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
 
-        validation.save(update_fields=["state", "presented_at", "reviewer", "updated_at"])
+        validation.save(update_fields=["state", "presented_at", "updated_at"])
         return validation
 
 

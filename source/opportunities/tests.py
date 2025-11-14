@@ -2,11 +2,13 @@ from decimal import Decimal
 
 from unittest import mock
 
+from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.db import DEFAULT_DB_ALIAS, transaction
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 
 from core.models import Currency
+from opportunities.admin import TokkobrokerPropertyAdmin
 from opportunities.models import (
     AcquisitionAttempt,
     Agent,
@@ -16,6 +18,7 @@ from opportunities.models import (
     Operation,
     Opportunity,
     Property,
+    TokkobrokerProperty,
     Validation,
 )
 from opportunities.services import (
@@ -37,6 +40,7 @@ from opportunities.services import (
     ValidationPresentService,
     ValidationRejectService,
 )
+from opportunities.tasks import sync_tokkobroker_registry
 from utils.services import ServiceInvoker, for_actor
 
 
@@ -66,8 +70,6 @@ class OpportunityWorkflowTests(TestCase):
             "property": self.property,
             "agent": self.agent,
             "owner": self.owner,
-            "probability": 25,
-            "source": "referral",
         }
         data.update(overrides)
         return CreateOpportunityService.call(
@@ -83,15 +85,11 @@ class OpportunityWorkflowTests(TestCase):
 
         marketing_package = opportunity.marketing_packages.get()
         self.assertEqual(marketing_package.state, MarketingPackage.State.PREPARING)
-        self.assertTrue(marketing_package.is_active)
 
         validation = opportunity.validations.get()
         self.assertEqual(validation.state, Validation.State.PREPARING)
 
-        acquisition_attempt = AcquisitionAttempt.objects.create(
-            opportunity=opportunity,
-            assigned_to=self.agent,
-        )
+        acquisition_attempt = AcquisitionAttempt.objects.create(opportunity=opportunity)
 
         AcquisitionAttemptAppraiseService.call(
             attempt=acquisition_attempt,
@@ -123,7 +121,6 @@ class OpportunityWorkflowTests(TestCase):
         ValidationPresentService.call(validation=validation, reviewer=self.agent)
         validation.refresh_from_db()
         self.assertEqual(validation.state, Validation.State.PRESENTED)
-        self.assertEqual(validation.reviewer, self.agent)
         self.assertIsNotNone(validation.presented_at)
 
         ValidationAcceptService.call(validation=validation)
@@ -134,14 +131,10 @@ class OpportunityWorkflowTests(TestCase):
         opportunity.refresh_from_db()
         self.assertEqual(opportunity.state, Opportunity.State.MARKETING)
 
-        active_package = opportunity.marketing_packages.order_by("-version").first()
+        active_package = opportunity.marketing_packages.order_by("-created_at").first()
         self.assertIsNotNone(active_package)
-        self.assertNotEqual(active_package.pk, marketing_package.pk)
+        self.assertEqual(active_package.pk, marketing_package.pk)
         self.assertEqual(active_package.state, MarketingPackage.State.AVAILABLE)
-        self.assertTrue(active_package.is_active)
-
-        marketing_package.refresh_from_db()
-        self.assertFalse(marketing_package.is_active)
 
         operation = Operation.objects.create(
             opportunity=opportunity,
@@ -170,10 +163,7 @@ class OpportunityWorkflowTests(TestCase):
 
     def test_acquisition_reject_keeps_opportunity_in_capturing(self) -> None:
         opportunity = self.create_opportunity()
-        attempt = AcquisitionAttempt.objects.create(
-            opportunity=opportunity,
-            assigned_to=self.agent,
-        )
+        attempt = AcquisitionAttempt.objects.create(opportunity=opportunity)
 
         AcquisitionAttemptAppraiseService.call(attempt=attempt)
         attempt.refresh_from_db()
@@ -222,23 +212,15 @@ class OpportunityWorkflowTests(TestCase):
         ValidationAcceptService.call(validation=validation)
         opportunity.refresh_from_db()
 
-        active_pkg = opportunity.marketing_packages.order_by("-version").first()
-        base_version = active_pkg.version
+        active_pkg = opportunity.marketing_packages.order_by("-created_at").first()
 
         reserved_pkg = MarketingPackageReserveService.call(package=active_pkg)
-        self.assertNotEqual(reserved_pkg.pk, active_pkg.pk)
+        self.assertEqual(reserved_pkg.pk, active_pkg.pk)
         self.assertEqual(reserved_pkg.state, MarketingPackage.State.PAUSED)
-        self.assertTrue(reserved_pkg.is_active)
-        self.assertEqual(reserved_pkg.version, base_version + 1)
 
         released_pkg = MarketingPackageReleaseService.call(package=reserved_pkg)
-        self.assertNotEqual(released_pkg.pk, reserved_pkg.pk)
+        self.assertEqual(released_pkg.pk, reserved_pkg.pk)
         self.assertEqual(released_pkg.state, MarketingPackage.State.AVAILABLE)
-        self.assertTrue(released_pkg.is_active)
-        self.assertEqual(released_pkg.version, reserved_pkg.version + 1)
-
-        paused_pkg = opportunity.marketing_packages.get(pk=reserved_pkg.pk)
-        self.assertFalse(paused_pkg.is_active)
 
     def test_operation_loss_records_reason_and_closes_opportunity(self) -> None:
         opportunity = self.create_opportunity()
@@ -286,9 +268,8 @@ class OpportunityWorkflowTests(TestCase):
         validation.refresh_from_db()
         self.assertEqual(validation.state, Validation.State.PREPARING)
 
-        latest_pkg = opportunity.marketing_packages.order_by("-version").first()
+        latest_pkg = opportunity.marketing_packages.order_by("-created_at").first()
         self.assertEqual(latest_pkg.state, MarketingPackage.State.AVAILABLE)
-        self.assertTrue(latest_pkg.is_active)
 
     def test_reserve_requires_completed_validation(self) -> None:
         opportunity = self.create_opportunity()
@@ -297,7 +278,7 @@ class OpportunityWorkflowTests(TestCase):
         AcquisitionAttemptCaptureService.call(attempt=attempt)
 
         OpportunityPublishService.call(opportunity=opportunity)
-        available_pkg = opportunity.marketing_packages.order_by("-version").first()
+        available_pkg = opportunity.marketing_packages.order_by("-created_at").first()
         self.assertEqual(available_pkg.state, MarketingPackage.State.AVAILABLE)
 
         with self.assertRaisesMessage(
@@ -388,7 +369,7 @@ class OpportunityWorkflowTests(TestCase):
         ValidationAcceptService.call(validation=validation)
 
         opportunity.refresh_from_db()
-        available_pkg = opportunity.marketing_packages.order_by("-version").first()
+        available_pkg = opportunity.marketing_packages.order_by("-created_at").first()
 
         with self.assertRaises(ValidationError) as exc:
             MarketingPackageReleaseService.call(package=available_pkg)
@@ -400,6 +381,8 @@ class OpportunityWorkflowTests(TestCase):
 
         reserved_pkg = MarketingPackageReserveService.call(package=available_pkg)
         released_pkg = MarketingPackageReleaseService.call(package=reserved_pkg)
+        self.assertEqual(reserved_pkg.pk, available_pkg.pk)
+        self.assertEqual(released_pkg.pk, available_pkg.pk)
         self.assertEqual(released_pkg.state, MarketingPackage.State.AVAILABLE)
 
     def test_operation_reinforce_requires_offered_state(self) -> None:
@@ -533,3 +516,34 @@ class ServiceInvokerTests(TestCase):
 
         self.assertEqual(captured["actor"], "echo-user")
         self.assertEqual(result, "echo-user")
+
+
+class TokkobrokerRegistryTests(TestCase):
+    def test_sync_creates_registry_entries(self) -> None:
+        payload = {
+            "id": 123,
+            "ref_code": "ABC123",
+            "address": "123 Demo Street",
+            "quick_data": {"data": {"created_at": "18-07-2024"}},
+        }
+
+        processed = sync_tokkobroker_registry([payload])
+
+        self.assertEqual(processed, 1)
+        entry = TokkobrokerProperty.objects.get(tokko_id=123)
+        self.assertEqual(entry.ref_code, "ABC123")
+        self.assertEqual(entry.address, "123 Demo Street")
+        self.assertEqual(entry.tokko_created_at.isoformat(), "2024-07-18")
+
+    def test_admin_action_triggers_sync(self) -> None:
+        admin = TokkobrokerPropertyAdmin(TokkobrokerProperty, AdminSite())
+        request = RequestFactory().post("/admin/opportunities/tokkobrokerproperty/")
+
+        with (
+            mock.patch("opportunities.admin.sync_tokkobroker_registry", return_value=3) as mock_sync,
+            mock.patch.object(TokkobrokerPropertyAdmin, "message_user") as mock_message,
+        ):
+            admin.sync_from_tokkobroker_action(request, TokkobrokerProperty.objects.none())
+
+        mock_sync.assert_called_once_with()
+        mock_message.assert_called_once()

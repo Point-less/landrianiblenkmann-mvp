@@ -5,6 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'insecure-secret-key')
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
+TEMPLATE_DEBUG = DEBUG
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 INSTALLED_APPS = [
@@ -15,6 +16,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_dramatiq',
+    'django_fsm_log',
     'users.apps.UsersConfig',
     'utils.apps.UtilsConfig',
     'opportunities.apps.OpportunitiesConfig',
@@ -39,6 +41,7 @@ TEMPLATES = [
         'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
+            'debug' : DEBUG,
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',

@@ -5,7 +5,24 @@ from django.utils import timezone
 from django_fsm import FSMField, transition
 
 from core.models import Currency
-from utils.mixins import ImmutableRevisionMixin, TimeStampedMixin
+from utils.mixins import FSMLoggableMixin, TimeStampedMixin
+
+
+class TokkobrokerProperty(TimeStampedMixin):
+    """Minimal registry entry for Tokkobroker-sourced properties."""
+
+    tokko_id = models.PositiveIntegerField(unique=True)
+    ref_code = models.CharField(max_length=64)
+    address = models.CharField(max_length=255, blank=True)
+    tokko_created_at = models.DateField(blank=True, null=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "Tokkobroker property"
+        verbose_name_plural = "Tokkobroker properties"
+
+    def __str__(self) -> str:
+        return f"{self.ref_code} ({self.tokko_id})"
 
 
 class Contact(TimeStampedMixin):
@@ -94,7 +111,7 @@ class Property(TimeStampedMixin):
         return self.name
 
 
-class Opportunity(TimeStampedMixin):
+class Opportunity(TimeStampedMixin, FSMLoggableMixin):
     class State(models.TextChoices):
         CAPTURING = "capturing", "Capturing"
         VALIDATING = "validating", "Validating"
@@ -149,7 +166,7 @@ class Opportunity(TimeStampedMixin):
             raise ValidationError("Opportunity cannot be closed without a closed operation.")
 
 
-class AcquisitionAttempt(TimeStampedMixin):
+class AcquisitionAttempt(TimeStampedMixin, FSMLoggableMixin):
     class State(models.TextChoices):
         VALUATING = "valuating", "Valuating"
         NEGOTIATING = "negotiating", "Negotiating"
@@ -223,7 +240,7 @@ class Appraisal(TimeStampedMixin):
         return f"Appraisal for {self.attempt.opportunity}"
 
 
-class Validation(TimeStampedMixin):
+class Validation(TimeStampedMixin, FSMLoggableMixin):
     class State(models.TextChoices):
         PREPARING = "preparing", "Preparing"
         PRESENTED = "presented", "Presented"
@@ -253,11 +270,10 @@ class Validation(TimeStampedMixin):
         return f"Validation for {self.opportunity}"
 
     @transition(field="state", source=State.PREPARING, target=State.PRESENTED)
-    def present(self, reviewer: Agent) -> None:
-        """Present documentation for review."""
+    def present(self, reviewer: Agent) -> None:  # noqa: ARG002 - retained for API compatibility
+        """Present documentation for review, tracking the timestamp only."""
 
         self.presented_at = timezone.now()
-        self.reviewer = reviewer
 
     @transition(field="state", source=State.PRESENTED, target=State.PREPARING)
     def reset(self, notes: str | None = None) -> None:
@@ -276,17 +292,14 @@ class Validation(TimeStampedMixin):
 
 class MarketingPackageQuerySet(models.QuerySet):
     def active(self):
-        return self.filter(is_active=True)
+        return self.filter(state=self.model.State.AVAILABLE)
 
 
-class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
+class MarketingPackage(TimeStampedMixin, FSMLoggableMixin):
     class State(models.TextChoices):
         PREPARING = "preparing", "Preparing"
         AVAILABLE = "available", "Available"
         PAUSED = "paused", "Paused"
-
-    REVISION_SCOPE = ("opportunity",)
-    IMMUTABLE_ALLOW_UPDATES = frozenset({"updated_at"})
 
     opportunity = models.ForeignKey(
         Opportunity,
@@ -326,36 +339,38 @@ class MarketingPackage(ImmutableRevisionMixin, TimeStampedMixin):
         verbose_name_plural = "marketing packages"
 
     def __str__(self) -> str:
-        suffix = f" v{self.version}" if self.version else ""
         base = self.headline or f"Marketing package for {self.opportunity}"
-        return f"{base}{suffix}"
+        return base
 
     @transition(field="state", source=State.PREPARING, target=State.AVAILABLE)
     def activate(self) -> "MarketingPackage":
-        """Activate package, producing a new revision ready for marketing."""
+        """Activate the package for marketing."""
 
-        new_package = self.clone(state=MarketingPackage.State.AVAILABLE)
-        return new_package
+        self.state = MarketingPackage.State.AVAILABLE
+        self.save(update_fields=["state", "updated_at"])
+        return self
 
     @transition(field="state", source=State.AVAILABLE, target=State.PAUSED)
     def reserve(self) -> "MarketingPackage":
-        """Reserve the active package if validation is accepted."""
+        """Pause the active package when validation is accepted."""
 
         if not self.opportunity.validations.filter(state=Validation.State.ACCEPTED).exists():
             raise ValidationError("Cannot reserve marketing package before validation is accepted.")
 
-        new_package = self.clone(state=MarketingPackage.State.PAUSED)
-        return new_package
+        self.state = MarketingPackage.State.PAUSED
+        self.save(update_fields=["state", "updated_at"])
+        return self
 
     @transition(field="state", source=State.PAUSED, target=State.AVAILABLE)
     def release(self) -> "MarketingPackage":
         """Reactivate a paused package."""
 
-        new_package = self.clone(state=MarketingPackage.State.AVAILABLE)
-        return new_package
+        self.state = MarketingPackage.State.AVAILABLE
+        self.save(update_fields=["state", "updated_at"])
+        return self
 
 
-class Operation(TimeStampedMixin):
+class Operation(TimeStampedMixin, FSMLoggableMixin):
     class State(models.TextChoices):
         OFFERED = "offered", "Offered"
         REINFORCED = "reinforced", "Reinforced"

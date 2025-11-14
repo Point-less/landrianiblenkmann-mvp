@@ -9,4 +9,5 @@ servestatic>=3.1
 strawberry-graphql[debug-server]>=0.227
 strawberry-graphql-django>=0.32
 django-fsm-2>=3.0
+django-fsm-log>=3.1
 coverage[toml]>=7.6

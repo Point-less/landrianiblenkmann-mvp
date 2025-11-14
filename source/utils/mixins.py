@@ -1,7 +1,29 @@
 from copy import deepcopy
 
+from django.contrib.contenttypes.fields import GenericRelation
 from django.db import models, transaction
 from django.db.models import Max
+
+
+class FSMLoggableMixin(models.Model):
+    """Attach django-fsm-log entries to a model instance."""
+
+    state_logs = GenericRelation(
+        "django_fsm_log.StateLog",
+        content_type_field="content_type",
+        object_id_field="object_id",
+        related_query_name="%(app_label)s_%(class)s_state_logs",
+    )
+
+    class Meta:
+        abstract = True
+
+    def latest_state_log(self):
+        return self.state_logs.order_by("-timestamp").first()
+
+    def state_history(self):
+        return self.state_logs.order_by("-timestamp")
+
 
 
 class TimeStampedMixin(models.Model):

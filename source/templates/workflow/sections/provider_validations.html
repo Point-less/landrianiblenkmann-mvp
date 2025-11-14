@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load workflow_extras %}
+{% block title %}Documental Validations | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Documental Validations</h2>
+</div>
+<p class="muted" style="margin-top:-0.5rem;">Formatos aceptados: JPG / PDF</p>
+<div class="card">
+    <table>
+        <tr><th>Opportunity</th><th>State</th><th>Required Documents</th><th>Latest Activity</th></tr>
+        {% for validation in provider_validations %}
+            <tr>
+                <td>{{ validation.opportunity.source_intention.property }}</td>
+                <td>
+                    <span class="pill">{{ validation.get_state_display }}</span>
+                    <div class="actions" style="margin-top:0.3rem;">
+                        {% if validation.can_present %}
+                            <a href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}">Present</a>
+                        {% endif %}
+                        {% if validation.can_accept %}
+                            <a href="{% url 'validation-accept' validation.id %}?next={{ current_url|urlencode }}">Accept</a>
+                        {% endif %}
+                        {% if validation.can_reset %}
+                            <a href="{% url 'validation-reject' validation.id %}?next={{ current_url|urlencode }}">Reset</a>
+                        {% endif %}
+                        <a href="{% url 'validation-document-upload' validation.id %}?next={{ current_url|urlencode }}">Upload</a>
+                    </div>
+                </td>
+                <td>
+                    <ul class="document-list">
+                        {% for requirement in validation.required_documents_status %}
+                            <li>
+                                <strong>{{ requirement.label }}</strong>
+                                {% if requirement.document %}
+                                    <span class="pill status-{{ requirement.document.status }}">{{ requirement.document.get_status_display }}</span>
+                                    {% if requirement.document.status == 'pending' %}
+                                        <a href="{% url 'validation-document-review' requirement.document.id %}?next={{ current_url|urlencode }}">Review</a>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="pill status-missing">Missing</span>
+                                {% endif %}
+                                <a href="{% url 'validation-document-upload' validation.id %}?document_type={{ requirement.code }}&next={{ current_url|urlencode }}">Upload</a>
+                            </li>
+                        {% endfor %}
+                        {% if validation.additional_documents %}
+                            {% for doc in validation.additional_documents %}
+                                <li>
+                                    {{ doc.name }}
+                                    <span class="pill status-{{ doc.status }}">{{ doc.get_status_display }}</span>
+                                    {% if doc.status == 'pending' %}
+                                        <a href="{% url 'validation-document-review' doc.id %}?next={{ current_url|urlencode }}">Review</a>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        {% endif %}
+                    </ul>
+                </td>
+                <td class="latest-activity">
+                    {% with latest=validation.state_transitions.all|first %}
+                        {% if latest %}
+                            <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+                            <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                        {% else %}
+                            <span>No transitions yet.</span>
+                        {% endif %}
+                    {% endwith %}
+                    <a class="history-link" href="{% url 'transition-history' 'opportunities' 'validation' validation.id %}?next={{ current_url|urlencode }}">↺</a>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4">No validations yet.</td></tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

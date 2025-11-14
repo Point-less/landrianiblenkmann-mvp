@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load workflow_extras %}
+{% block title %}Seeker Intentions | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Seeker Intentions</h2>
+    {% if page_new_url %}
+        <a class="btn" href="{{ page_new_url }}?next={{ current_url|urlencode }}">New</a>
+    {% endif %}
+</div>
+<div class="card">
+    <table>
+        <tr><th>Contact</th><th>Budget</th><th>Latest Activity</th><th>Actions</th></tr>
+        {% for intention in seeker_intentions %}
+            <tr>
+                <td>{{ intention.contact }}</td>
+                <td>
+                    {% if intention.budget_min or intention.budget_max %}
+                        {{ intention.budget_min|default:"?" }} - {{ intention.budget_max|default:"?" }} {{ intention.currency|default:"" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>
+                    {% with latest=intention.state_transitions.all|first %}
+                        {% if latest %}
+                            {{ latest.from_state|default:'—' }} → {{ latest.to_state }}
+                            <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                        {% else %}
+                            <span>No transitions yet.</span>
+                        {% endif %}
+                    {% endwith %}
+                    <a class="history-link" href="{% url 'transition-history' 'intentions' 'saleseekerintention' intention.id %}?next={{ current_url|urlencode }}">↺</a>
+                </td>
+                <td class="actions">
+                    {% if intention|can_transition:'activate_search' %}
+                        <a href="{% url 'seeker-activate' intention.id %}?next={{ current_url|urlencode }}">Activate</a>
+                    {% endif %}
+                    {% if intention|can_transition:'sign_mandate' %}
+                        <a href="{% url 'seeker-mandate' intention.id %}?next={{ current_url|urlencode }}">Mandate</a>
+                    {% endif %}
+                    {% if intention.can_create_opportunity %}
+                        <a href="{% url 'seeker-create-opportunity' intention.id %}?next={{ current_url|urlencode }}">Create opportunity</a>
+                    {% endif %}
+                    {% if intention|can_transition:'abandon' %}
+                        <a href="{% url 'seeker-abandon' intention.id %}?next={{ current_url|urlencode }}">Abandon</a>
+                    {% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4">No seeker intentions.</td></tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

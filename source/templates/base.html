@@ -71,11 +71,31 @@
             margin-bottom: 1.5rem;
             box-shadow: 0 10px 25px rgb(31 42 36 / 0.08);
         }
-        table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-        th, td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
-        th { text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.8rem; color: var(--text-muted); }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 0.5rem;
+            border: 1px solid var(--border-soft);
+            border-radius: 0.4rem;
+            overflow: hidden;
+        }
+        th, td { padding: 0.5rem 0.65rem; vertical-align: top; background: var(--white); }
+        th {
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: var(--surface-dark);
+        }
+        tr + tr td, tr + tr th { border-top: 1px solid var(--border-soft); }
+        table tr:last-child td { border-bottom: none; }
         button { margin-top: 1rem; padding: 0.6rem 1.2rem; border: none; border-radius: 0.375rem; background: var(--brand-primary); color: var(--white); cursor: pointer; transition: background 0.2s ease; }
         button:hover { background: var(--brand-primary-dark); }
+        .btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.55rem 1.1rem; border-radius: 999px; text-decoration: none; background: var(--brand-secondary); color: var(--text-main); font-weight: 600; }
+        .btn:hover { background: var(--brand-secondary-dark); color: var(--white); }
+        .btn-danger { background: #b53a2b; color: var(--white); border-radius: 0.375rem; padding: 0.6rem 1.2rem; display: inline-flex; align-items: center; }
+        .btn-danger:hover { background: #8f2b1f; color: var(--white); }
         .actions a { margin-right: 0.5rem; color: var(--brand-primary); }
         .actions a:hover { color: var(--brand-primary-dark); }
         .pill { display: inline-flex; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.75rem; background: var(--pill-bg); color: var(--brand-primary-dark); }
@@ -89,6 +109,7 @@
         .document-list { list-style: none; padding-left: 0; margin: 0; display: flex; flex-direction: column; gap: 0.25rem; }
         .document-list li { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
         .status-missing { background: var(--surface-dark); color: var(--text-muted); }
+        .page-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
     </style>
 </head>
 <body>
@@ -99,44 +120,18 @@
                 <img src="https://static.tokkobroker.com/tfw_images/6354_Landriani%20Blenkmann/Logo_Web_1100x160_3.png" alt="Landriani Blenkmann" loading="lazy">
             </a>
         </div>
-        {% with active=active_section|default:'core' %}
+        {% with active=active_section navs=nav_groups %}
         <nav>
-            <div class="nav-group">
-                <span>Core</span>
-                <div class="nav-links">
-                    <a class="{% if active == 'core' %}active{% endif %}" href="{% url 'workflow-dashboard' %}">Overview</a>
-                    <a href="{% url 'agent-create' %}">New Agent</a>
-                    <a href="{% url 'contact-create' %}">New Contact</a>
-                    <a href="{% url 'property-create' %}">New Property</a>
+            {% for group, items in navs %}
+                <div class="nav-group">
+                    <span>{{ group }}</span>
+                    <div class="nav-links">
+                        {% for slug, label in items %}
+                            <a class="{% if active == slug %}active{% endif %}" href="{% url 'workflow-dashboard-section' slug %}">{{ label }}</a>
+                        {% endfor %}
+                    </div>
                 </div>
-            </div>
-            <div class="nav-group">
-                <span>Providers</span>
-                <div class="nav-links">
-                    <a class="{% if active == 'providers' %}active{% endif %}" href="{% url 'workflow-dashboard-section' 'providers' %}">States</a>
-                    <a href="{% url 'provider-intention-create' %}">New Provider Intention</a>
-                </div>
-            </div>
-            <div class="nav-group">
-                <span>Seekers</span>
-                <div class="nav-links">
-                    <a class="{% if active == 'seekers' %}active{% endif %}" href="{% url 'workflow-dashboard-section' 'seekers' %}">States</a>
-                    <a href="{% url 'seeker-intention-create' %}">New Seeker Intention</a>
-                </div>
-            </div>
-            <div class="nav-group">
-                <span>Operations</span>
-                <div class="nav-links">
-                    <a class="{% if active == 'operations' %}active{% endif %}" href="{% url 'workflow-dashboard-section' 'operations' %}">Pipeline</a>
-                    <a href="{% url 'operation-create' %}">New Operation</a>
-                </div>
-            </div>
-            <div class="nav-group">
-                <span>Integrations</span>
-                <div class="nav-links">
-                    <a class="{% if active == 'integrations' %}active{% endif %}" href="{% url 'workflow-dashboard-section' 'integrations' %}">Tokkobroker</a>
-                </div>
-            </div>
+            {% endfor %}
         </nav>
         {% endwith %}
     </aside>

@@ -89,6 +89,7 @@ class WorkflowViewSmokeTests(TestCase):
         ValidationPresentService.call(validation=self.validation, reviewer=self.agent)
         ValidationAcceptService.call(validation=self.validation)
         self.provider_opportunity.refresh_from_db()
+        self.marketing_package = self.provider_opportunity.marketing_packages.get()
         self.validation_document = ValidationDocument.objects.create(
             validation=self.validation,
             document_type=ValidationDocument.DocumentType.OTHER,
@@ -121,10 +122,19 @@ class WorkflowViewSmokeTests(TestCase):
     def test_all_workflow_views_render(self):
         url_specs = [
             ('workflow-dashboard', {}),
-            ('workflow-dashboard-section', {'section': 'providers'}),
-            ('workflow-dashboard-section', {'section': 'seekers'}),
+            ('workflow-dashboard-section', {'section': 'agents'}),
+            ('workflow-dashboard-section', {'section': 'contacts'}),
+            ('workflow-dashboard-section', {'section': 'properties'}),
+            ('workflow-dashboard-section', {'section': 'provider-intentions'}),
+            ('workflow-dashboard-section', {'section': 'provider-opportunities'}),
+            ('workflow-dashboard-section', {'section': 'marketing-packages'}),
+            ('workflow-dashboard-section', {'section': 'provider-validations'}),
+            ('workflow-dashboard-section', {'section': 'seeker-intentions'}),
+            ('workflow-dashboard-section', {'section': 'seeker-opportunities'}),
             ('workflow-dashboard-section', {'section': 'operations'}),
-            ('workflow-dashboard-section', {'section': 'integrations'}),
+            ('workflow-dashboard-section', {'section': 'integration-tokkobroker'}),
+            ('workflow-dashboard-section', {'section': 'integration-zonaprop'}),
+            ('workflow-dashboard-section', {'section': 'integration-meta'}),
             ('agent-create', {}),
             ('contact-create', {}),
             ('property-create', {}),
@@ -144,6 +154,11 @@ class WorkflowViewSmokeTests(TestCase):
             ('validation-accept', {'validation_id': self.validation.id}),
             ('validation-document-upload', {'validation_id': self.validation.id}),
             ('validation-document-review', {'document_id': self.validation_document.id}),
+            ('marketing-package-create', {'opportunity_id': self.provider_opportunity.id}),
+            ('marketing-package-edit', {'package_id': self.marketing_package.id}),
+            ('marketing-package-activate', {'package_id': self.marketing_package.id}),
+            ('marketing-package-reserve', {'package_id': self.marketing_package.id}),
+            ('marketing-package-release', {'package_id': self.marketing_package.id}),
             ('operation-create', {}),
             ('operation-reinforce', {'operation_id': self.operation.id}),
             ('operation-close', {'operation_id': self.operation.id}),

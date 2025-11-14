@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load workflow_extras %}
+{% block title %}Provider Opportunities | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Provider Opportunities</h2>
+</div>
+<div class="card">
+    <table>
+        <tr><th>Property</th><th>Listing</th><th>Latest Activity</th><th>Actions</th></tr>
+        {% for opportunity in provider_opportunities %}
+            <tr>
+                <td>{{ opportunity.source_intention.property }}</td>
+                <td>
+                    <span class="pill">{{ opportunity.get_state_display }}</span>
+                    <small class="muted">{{ opportunity.get_listing_kind_display }}</small>
+                </td>
+                <td class="latest-activity">
+                    {% with latest=opportunity.state_transitions.all|first %}
+                        {% if latest %}
+                            <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+                            <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                        {% else %}
+                            <span>No transitions yet.</span>
+                        {% endif %}
+                    {% endwith %}
+                    <a class="history-link" href="{% url 'transition-history' 'opportunities' 'provideropportunity' opportunity.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
+                </td>
+                <td class="actions">
+                    {% if opportunity|can_transition:'start_validation' %}
+                        <a href="{% url 'provider-opportunity-validate' opportunity.id %}?next={{ current_url|urlencode }}">Preparing</a>
+                    {% endif %}
+                    {% with validation=opportunity.validations.first %}
+                        {% if validation and validation.can_present %}
+                            <a href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}">Present</a>
+                        {% endif %}
+                    {% endwith %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4">No provider opportunities.</td></tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

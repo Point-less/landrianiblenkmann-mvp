@@ -6,6 +6,7 @@ from django import forms
 
 from core.models import Agent, Currency
 from opportunities.models import (
+    MarketingPackage,
     Operation,
     ProviderOpportunity,
     SeekerOpportunity,
@@ -86,6 +87,26 @@ class ValidationDocumentReviewForm(HTML5FormMixin, forms.Form):
     comment = forms.CharField(required=False, widget=forms.Textarea)
 
 
+class MarketingPackageForm(HTML5FormMixin, forms.ModelForm):
+    features = forms.JSONField(required=False, widget=forms.Textarea(attrs={'rows': 3}), help_text="JSON list or object.")
+    media_assets = forms.JSONField(required=False, widget=forms.Textarea(attrs={'rows': 3}), help_text="JSON list of asset URLs.")
+
+    class Meta:
+        model = MarketingPackage
+        fields = [
+            "headline",
+            "description",
+            "price",
+            "currency",
+            "features",
+            "media_assets",
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["currency"].queryset = Currency.objects.order_by("code")
+
+
 __all__ = [
     "ValidationPresentForm",
     "ValidationRejectForm",
@@ -94,4 +115,5 @@ __all__ = [
     "OperationLoseForm",
     "ValidationDocumentUploadForm",
     "ValidationDocumentReviewForm",
+    "MarketingPackageForm",
 ]

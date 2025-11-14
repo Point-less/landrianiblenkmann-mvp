@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Agents | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Agents</h2>
+    {% if page_new_url %}
+        <a class="btn" href="{{ page_new_url }}?next={{ current_url|urlencode }}">New</a>
+    {% endif %}
+</div>
+<div class="card">
+    <table>
+        <tr><th>Name</th><th>Email</th><th>Actions</th></tr>
+        {% for agent in agents %}
+            <tr>
+                <td>{{ agent }}</td>
+                <td>{{ agent.email|default:"—" }}</td>
+                <td><a href="{% url 'agent-edit' agent.id %}?next={{ current_url|urlencode }}">Edit</a></td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="3">No agents yet.</td></tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

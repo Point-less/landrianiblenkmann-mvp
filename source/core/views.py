@@ -51,6 +51,7 @@ from intentions.services import (
     WithdrawSaleProviderIntentionService,
 )
 from opportunities.forms import (
+    MarketingPackageForm,
     OperationForm,
     OperationLoseForm,
     SeekerOpportunityCreateForm,
@@ -60,6 +61,7 @@ from opportunities.forms import (
     ValidationRejectForm,
 )
 from opportunities.models import (
+    MarketingPackage,
     Operation,
     ProviderOpportunity,
     SeekerOpportunity,
@@ -67,6 +69,11 @@ from opportunities.models import (
     ValidationDocument,
 )
 from opportunities.services import (
+    MarketingPackageActivateService,
+    MarketingPackageCreateService,
+    MarketingPackageReleaseService,
+    MarketingPackageReserveService,
+    MarketingPackageUpdateService,
     CreateOperationService,
     CreateSeekerOpportunityService,
     OperationCloseService,
@@ -97,14 +104,74 @@ async def trigger_log(request):
 
 class DashboardSectionView(LoginRequiredMixin, TemplateView):
     login_url = '/admin/login/'
-    default_section = 'core'
+    NAV_GROUPS = [
+        (
+            'Core',
+            [
+                ('agents', 'Agents'),
+                ('contacts', 'Contacts'),
+                ('properties', 'Properties'),
+            ],
+        ),
+        (
+            'Providers',
+            [
+                ('provider-intentions', 'Provider Intentions'),
+                ('provider-opportunities', 'Provider Opportunities'),
+                ('marketing-packages', 'Marketing Packages'),
+                ('provider-validations', 'Documental Validations'),
+            ],
+        ),
+        (
+            'Seekers',
+            [
+                ('seeker-intentions', 'Seeker Intentions'),
+                ('seeker-opportunities', 'Seeker Opportunities'),
+            ],
+        ),
+        (
+            'Operations',
+            [
+                ('operations', 'Operations'),
+            ],
+        ),
+        (
+            'Integrations',
+            [
+                ('integration-tokkobroker', 'Tokkobroker'),
+                ('integration-zonaprop', 'Zonaprop'),
+                ('integration-meta', 'Meta'),
+            ],
+        ),
+    ]
+
     template_map = {
-        'core': 'workflow/sections/core.html',
-        'providers': 'workflow/sections/providers.html',
-        'seekers': 'workflow/sections/seekers.html',
+        'agents': 'workflow/sections/agents.html',
+        'contacts': 'workflow/sections/contacts.html',
+        'properties': 'workflow/sections/properties.html',
+        'provider-intentions': 'workflow/sections/provider_intentions.html',
+        'provider-opportunities': 'workflow/sections/provider_opportunities.html',
+        'provider-validations': 'workflow/sections/provider_validations.html',
+        'marketing-packages': 'workflow/sections/marketing_packages.html',
+        'seeker-intentions': 'workflow/sections/seeker_intentions.html',
+        'seeker-opportunities': 'workflow/sections/seeker_opportunities.html',
         'operations': 'workflow/sections/operations.html',
-        'integrations': 'workflow/sections/integrations.html',
+        'integration-tokkobroker': 'workflow/sections/integrations.html',
+        'integration-zonaprop': 'workflow/sections/integration_placeholder.html',
+        'integration-meta': 'workflow/sections/integration_placeholder.html',
     }
+
+    NEW_ROUTE_NAMES = {
+        'agents': 'agent-create',
+        'contacts': 'contact-create',
+        'properties': 'property-create',
+        'provider-intentions': 'provider-intention-create',
+        'seeker-intentions': 'seeker-intention-create',
+        'operations': 'operation-create',
+    }
+
+    ALL_SECTIONS = [slug for _, items in NAV_GROUPS for slug, _ in items]
+    default_section = ALL_SECTIONS[0]
 
     def dispatch(self, request, *args, **kwargs):
         self.section = kwargs.get('section') or self.default_section
@@ -116,44 +183,83 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['active_section'] = self.section
-        context.update(getattr(self, f'_context_{self.section}')())
+        context['nav_groups'] = self.NAV_GROUPS
+        context['current_url'] = self.request.get_full_path()
+        context['page_new_url'] = self._resolve_new_url()
+        context.update(getattr(self, f'_context_{self.section.replace('-', '_')}')())
         return context
 
-    def _context_core(self):
+    def _resolve_new_url(self):
+        route_name = self.NEW_ROUTE_NAMES.get(self.section)
+        if not route_name:
+            return None
+        return reverse(route_name)
+
+    def _context_agents(self):
         return {
-            'agents': Agent.objects.order_by('-created_at')[:10],
-            'contacts': Contact.objects.select_related().order_by('-created_at')[:10],
-            'properties': Property.objects.order_by('-created_at')[:10],
+            'agents': Agent.objects.order_by('-created_at'),
         }
 
-    def _context_providers(self):
+    def _context_contacts(self):
+        return {
+            'contacts': Contact.objects.select_related().order_by('-created_at'),
+        }
+
+    def _context_properties(self):
+        return {
+            'properties': Property.objects.order_by('-created_at'),
+        }
+
+    def _context_provider_intentions(self):
         return {
             'provider_intentions': (
                 SaleProviderIntention.objects.select_related('owner', 'agent', 'property')
                 .prefetch_related('state_transitions')
                 .order_by('-created_at')
             ),
+        }
+
+    def _context_provider_opportunities(self):
+        return {
             'provider_opportunities': (
-                ProviderOpportunity.objects.select_related('source_intention')
+                ProviderOpportunity.objects.select_related('source_intention__property', 'source_intention__owner')
                 .prefetch_related('state_transitions', 'validations')
                 .order_by('-created_at')
             ),
+        }
+
+    def _context_provider_validations(self):
+        return {
             'provider_validations': (
-                Validation.objects.select_related('opportunity__source_intention')
+                Validation.objects.select_related('opportunity__source_intention__property')
                 .prefetch_related('documents', 'state_transitions')
                 .order_by('-created_at')
             ),
         }
 
-    def _context_seekers(self):
+    def _context_marketing_packages(self):
+        return {
+            'marketing_opportunities': (
+                ProviderOpportunity.objects.filter(state=ProviderOpportunity.State.MARKETING)
+                .select_related('source_intention__property')
+                .prefetch_related('marketing_packages')
+                .order_by('-updated_at')
+            ),
+        }
+
+    def _context_seeker_intentions(self):
         return {
             'seeker_intentions': (
                 SaleSeekerIntention.objects.select_related('contact', 'agent')
                 .prefetch_related('state_transitions')
                 .order_by('-created_at')
             ),
+        }
+
+    def _context_seeker_opportunities(self):
+        return {
             'seeker_opportunities': (
-                SeekerOpportunity.objects.select_related('source_intention')
+                SeekerOpportunity.objects.select_related('source_intention__contact', 'source_intention__agent')
                 .prefetch_related('state_transitions')
                 .order_by('-created_at')
             ),
@@ -168,9 +274,22 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
             ),
         }
 
-    def _context_integrations(self):
+    def _context_integration_tokkobroker(self):
         return {
+            'integration_name': 'Tokkobroker',
             'tokko_properties': TokkobrokerProperty.objects.order_by('-created_at')[:20],
+        }
+
+    def _context_integration_zonaprop(self):
+        return {
+            'integration_name': 'Zonaprop',
+            'status_message': 'Estamos preparando esta integración. Pronto podrás sincronizar propiedades de Zonaprop desde aquí.',
+        }
+
+    def _context_integration_meta(self):
+        return {
+            'integration_name': 'Meta',
+            'status_message': 'Integración con Meta Ads en desarrollo. Volvé pronto para activarla.',
         }
 
 
@@ -183,6 +302,14 @@ class WorkflowFormView(LoginRequiredMixin, SuccessMessageMixin, FormView):
     def perform_action(self, form):
         """Subclasses override to run service logic; return HttpResponse to short-circuit."""
         return None
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault('nav_groups', DashboardSectionView.NAV_GROUPS)
+        context.setdefault('active_section', None)
+        context.setdefault('current_url', self.request.get_full_path())
+        context.setdefault('page_new_url', None)
+        return context
 
     def form_valid(self, form):
         try:
@@ -425,6 +552,26 @@ class ProviderOpportunityMixin:
         return context
 
 
+class MarketingOpportunityMixin(ProviderOpportunityMixin):
+    def get_opportunity(self):
+        opportunity = super().get_opportunity()
+        if opportunity.state != ProviderOpportunity.State.MARKETING:
+            raise Http404("Opportunity is not in marketing stage")
+        return opportunity
+
+
+class MarketingPackageMixin:
+    pk_url_kwarg = 'package_id'
+
+    def get_package(self):
+        return get_object_or_404(MarketingPackage, pk=self.kwargs[self.pk_url_kwarg])
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['package'] = self.get_package()
+        return context
+
+
 class ValidationMixin:
     pk_url_kwarg = 'validation_id'
 
@@ -514,6 +661,57 @@ class ValidationDocumentReviewView(ValidationDocumentMixin, WorkflowFormView):
             reviewer=self.request.user,
             comment=form.cleaned_data.get('comment'),
         )
+
+
+class MarketingPackageCreateView(MarketingOpportunityMixin, WorkflowFormView):
+    form_class = MarketingPackageForm
+    success_message = 'Marketing package created.'
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
+
+    def perform_action(self, form):
+        MarketingPackageCreateService.call(opportunity=self.get_opportunity(), **form.cleaned_data)
+
+
+class MarketingPackageUpdateView(MarketingPackageMixin, WorkflowFormView):
+    form_class = MarketingPackageForm
+    success_message = 'Marketing package updated.'
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
+
+    def get_initial(self):
+        package = self.get_package()
+        initial = super().get_initial()
+        for field in self.form_class.Meta.fields:
+            initial[field] = getattr(package, field)
+        return initial
+
+    def perform_action(self, form):
+        MarketingPackageUpdateService.call(package=self.get_package(), **form.cleaned_data)
+
+
+class MarketingPackageActionView(MarketingPackageMixin, WorkflowFormView):
+    form_class = ConfirmationForm
+    service_class = None
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
+
+    def perform_action(self, form):
+        if not self.service_class:
+            raise RuntimeError('service_class not configured')
+        self.service_class.call(package=self.get_package())
+
+
+class MarketingPackageActivateView(MarketingPackageActionView):
+    success_message = 'Marketing package activated.'
+    service_class = MarketingPackageActivateService
+
+
+class MarketingPackageReserveView(MarketingPackageActionView):
+    success_message = 'Marketing package reserved.'
+    service_class = MarketingPackageReserveService
+
+
+class MarketingPackageReleaseView(MarketingPackageActionView):
+    success_message = 'Marketing package released.'
+    service_class = MarketingPackageReleaseService
 
 
 class OperationCreateView(WorkflowFormView):
@@ -617,6 +815,17 @@ class TokkoClearView(LoginRequiredMixin, View):
 class ObjectTransitionHistoryView(LoginRequiredMixin, TemplateView):
     template_name = 'workflow/transition_history.html'
     login_url = '/admin/login/'
+    OBJECT_SECTION_MAP = {
+        'core.agent': 'agents',
+        'core.contact': 'contacts',
+        'core.property': 'properties',
+        'intentions.saleproviderintention': 'provider-intentions',
+        'intentions.saleseekerintention': 'seeker-intentions',
+        'opportunities.provideropportunity': 'provider-opportunities',
+        'opportunities.validation': 'provider-validations',
+        'opportunities.seekeropportunity': 'seeker-opportunities',
+        'opportunities.operation': 'operations',
+    }
 
     def get_object(self):
         app_label = self.kwargs['app_label']
@@ -642,4 +851,17 @@ class ObjectTransitionHistoryView(LoginRequiredMixin, TemplateView):
             object=obj,
             transitions=transitions,
         )
+        context.setdefault('nav_groups', DashboardSectionView.NAV_GROUPS)
+        context.setdefault('active_section', None)
+        context.setdefault('current_url', self.request.get_full_path())
+        context['back_url'] = self._resolve_back_url(obj)
         return context
+
+    def _resolve_back_url(self, obj):
+        next_url = self.request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={self.request.get_host()}):
+            return next_url
+        slug = self.OBJECT_SECTION_MAP.get(obj._meta.label_lower)
+        if slug:
+            return reverse('workflow-dashboard-section', kwargs={'section': slug})
+        return reverse('workflow-dashboard')

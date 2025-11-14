@@ -17,6 +17,8 @@ from .marketing import (  # noqa: F401
     MarketingPackageActivateService,
     MarketingPackageReleaseService,
     MarketingPackageReserveService,
+    MarketingPackageCreateService,
+    MarketingPackageUpdateService,
 )
 from .operations import (  # noqa: F401
     CreateOperationService,
@@ -43,6 +45,8 @@ __all__ = [
     "MarketingPackageActivateService",
     "MarketingPackageReserveService",
     "MarketingPackageReleaseService",
+    "MarketingPackageCreateService",
+    "MarketingPackageUpdateService",
     "CreateOperationService",
     "OperationReinforceService",
     "OperationCloseService",

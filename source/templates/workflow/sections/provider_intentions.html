@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load workflow_extras %}
+{% block title %}Provider Intentions | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Provider Intentions</h2>
+    {% if page_new_url %}
+        <a class="btn" href="{{ page_new_url }}?next={{ current_url|urlencode }}">New</a>
+    {% endif %}
+</div>
+<div class="card">
+    <table>
+        <tr><th>Property</th><th>Owner</th><th>Latest Activity</th><th>Actions</th></tr>
+        {% for intention in provider_intentions %}
+            <tr>
+                <td>{{ intention.property }}</td>
+                <td>{{ intention.owner }}</td>
+                <td class="latest-activity">
+                    {% with latest=intention.state_transitions.all|first %}
+                        {% if latest %}
+                            <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+                            <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                        {% else %}
+                            <span>No transitions yet.</span>
+                        {% endif %}
+                    {% endwith %}
+                    <a class="history-link" href="{% url 'transition-history' 'intentions' 'saleproviderintention' intention.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
+                </td>
+                <td class="actions">
+                    {% if intention|can_transition:'deliver_valuation' %}
+                        <a href="{% url 'provider-deliver-valuation' intention.id %}?next={{ current_url|urlencode }}">Deliver valuation</a>
+                    {% endif %}
+                    {% if intention|can_transition:'start_contract_negotiation' %}
+                        <a href="{% url 'provider-start-contract' intention.id %}?next={{ current_url|urlencode }}">Start contract</a>
+                    {% endif %}
+                    {% if intention.is_promotable %}
+                        <a href="{% url 'provider-promote' intention.id %}?next={{ current_url|urlencode }}">Promote</a>
+                    {% endif %}
+                    {% if intention|can_transition:'withdraw' %}
+                        <a href="{% url 'provider-withdraw' intention.id %}?next={{ current_url|urlencode }}">Withdraw</a>
+                    {% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4">No provider intentions.</td></tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

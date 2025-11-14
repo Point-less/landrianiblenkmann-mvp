@@ -21,6 +21,8 @@
             <tr><td colspan="6">No transitions recorded.</td></tr>
         {% endfor %}
     </table>
-    <a href="{% url 'workflow-dashboard' %}">Back to dashboard</a>
+    <div style="margin-top:1rem;">
+        <a class="btn" href="{{ back_url }}">Back</a>
+    </div>
 </div>
 {% endblock %}

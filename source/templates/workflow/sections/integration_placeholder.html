@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ integration_name }} | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ integration_name }}</h2>
+</div>
+<div class="card">
+    <p>{{ status_message|default:"This integration is not yet available." }}</p>
+</div>
+{% endblock %}

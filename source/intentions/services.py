@@ -22,16 +22,10 @@ class PromoteSaleProviderIntentionService(BaseService):
         if not intention.is_promotable():
             raise ValidationError("Intention must have approved documents and not be converted yet.")
 
-        opportunity_payload = {
-            "title": opportunity_title or f"Listing for {intention.property.name}",
-            "property": intention.property,
-            "agent": intention.agent,
-            "owner": intention.owner,
-            "notes": opportunity_notes or intention.documentation_notes,
-        }
-
         opportunity = CreateOpportunityService.call(
-            opportunity_data=opportunity_payload,
+            intention=intention,
+            title=opportunity_title,
+            notes=opportunity_notes,
             marketing_package_data=marketing_package_data,
         )
 
@@ -39,7 +33,6 @@ class PromoteSaleProviderIntentionService(BaseService):
         intention.save(
             update_fields=[
                 "state",
-                "converted_opportunity",
                 "converted_at",
                 "updated_at",
             ]

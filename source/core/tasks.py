@@ -86,7 +86,13 @@ def sync_tokkobroker_properties_task() -> None:
     logger.info("Synced %s Tokkobroker properties", processed)
 
 
+@dramatiq.actor
+def log_message(message: str) -> None:
+    logger.info("Core log message: %s", message)
+
+
 __all__ = [
     "sync_tokkobroker_registry",
     "sync_tokkobroker_properties_task",
+    "log_message",
 ]

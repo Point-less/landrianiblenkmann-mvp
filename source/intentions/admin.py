@@ -11,7 +11,6 @@ class SaleProviderIntentionAdmin(admin.ModelAdmin):
         "owner",
         "agent",
         "state",
-        "converted_opportunity",
         "updated_at",
     )
     list_filter = ("state", "agent")
@@ -20,7 +19,7 @@ class SaleProviderIntentionAdmin(admin.ModelAdmin):
         "owner__first_name",
         "owner__last_name",
     )
-    raw_id_fields = ("owner", "agent", "property", "latest_valuation", "converted_opportunity")
+    raw_id_fields = ("owner", "agent", "property", "latest_valuation")
     readonly_fields = ("created_at", "updated_at", "converted_at")
 
 
@@ -33,7 +32,6 @@ class SaleSeekerIntentionAdmin(admin.ModelAdmin):
         "state",
         "budget_min",
         "budget_max",
-        "converted_opportunity",
         "updated_at",
     )
     list_filter = ("state", "agent")
@@ -41,7 +39,7 @@ class SaleSeekerIntentionAdmin(admin.ModelAdmin):
         "contact__first_name",
         "contact__last_name",
     )
-    raw_id_fields = ("contact", "agent", "converted_opportunity")
+    raw_id_fields = ("contact", "agent")
     readonly_fields = ("created_at", "updated_at", "search_activated_at", "mandate_signed_on")
 
 

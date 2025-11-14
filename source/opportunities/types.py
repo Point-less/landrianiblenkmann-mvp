@@ -9,11 +9,10 @@ strawberry_types.field_type_map.setdefault(FSMField, str)
 
 from core.models import Agent, Contact, ContactAgentRelationship, Currency, Property
 from opportunities.models import (
-    AcquisitionAttempt,
-    Appraisal,
     MarketingPackage,
     Operation,
-    Opportunity,
+    ProviderOpportunity,
+    SeekerOpportunity,
     Validation,
 )
 
@@ -43,16 +42,6 @@ class PropertyType(relay.Node):
     pass
 
 
-@strawberry_django.type(AcquisitionAttempt, fields="__all__")
-class AcquisitionAttemptType(relay.Node):
-    state: str = strawberry_django.field()
-
-
-@strawberry_django.type(Appraisal, fields="__all__")
-class AppraisalType(relay.Node):
-    pass
-
-
 @strawberry_django.type(Validation, fields="__all__")
 class ValidationType(relay.Node):
     state: str = strawberry_django.field()
@@ -68,8 +57,13 @@ class OperationType(relay.Node):
     state: str = strawberry_django.field()
 
 
-@strawberry_django.type(Opportunity, fields="__all__")
-class OpportunityType(relay.Node):
+@strawberry_django.type(ProviderOpportunity, fields="__all__")
+class ProviderOpportunityType(relay.Node):
+    state: str = strawberry_django.field()
+
+
+@strawberry_django.type(SeekerOpportunity, fields="__all__")
+class SeekerOpportunityType(relay.Node):
     state: str = strawberry_django.field()
 
 
@@ -79,10 +73,9 @@ __all__ = [
     "ContactAgentRelationshipType",
     "CurrencyType",
     "PropertyType",
-    "AcquisitionAttemptType",
-    "AppraisalType",
     "ValidationType",
     "MarketingPackageType",
     "OperationType",
-    "OpportunityType",
+    "ProviderOpportunityType",
+    "SeekerOpportunityType",
 ]

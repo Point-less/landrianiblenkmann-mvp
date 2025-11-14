@@ -7,11 +7,6 @@ from .opportunities import (  # noqa: F401
     OpportunityPublishService,
     OpportunityValidateService,
 )
-from .acquisition import (  # noqa: F401
-    AcquisitionAttemptAppraiseService,
-    AcquisitionAttemptCaptureService,
-    AcquisitionAttemptRejectService,
-)
 from .validation import (  # noqa: F401
     ValidationAcceptService,
     ValidationPresentService,
@@ -35,9 +30,6 @@ __all__ = [
     "OpportunityValidateService",
     "OpportunityPublishService",
     "OpportunityCloseService",
-    "AcquisitionAttemptAppraiseService",
-    "AcquisitionAttemptCaptureService",
-    "AcquisitionAttemptRejectService",
     "ValidationPresentService",
     "ValidationRejectService",
     "ValidationAcceptService",

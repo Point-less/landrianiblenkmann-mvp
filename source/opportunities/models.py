@@ -1,35 +1,38 @@
+from __future__ import annotations
+
+from builtins import property as builtin_property
+
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django_fsm import FSMField, transition
 
-from core.models import Agent, Contact, Currency, Property
+from core.models import Agent, Currency
 from utils.mixins import FSMLoggableMixin, TimeStampedMixin
 
 
-class Opportunity(TimeStampedMixin, FSMLoggableMixin):
+class ProviderOpportunity(TimeStampedMixin, FSMLoggableMixin):
     class State(models.TextChoices):
         CAPTURING = "capturing", "Capturing"
         VALIDATING = "validating", "Validating"
         MARKETING = "marketing", "Marketing"
         CLOSED = "closed", "Closed"
 
+    class ListingKind(models.TextChoices):
+        EXCLUSIVE = "exclusive", "Exclusive"
+        NON_EXCLUSIVE = "non_exclusive", "Non-exclusive"
+
     title = models.CharField(max_length=255)
-    property = models.ForeignKey(
-        Property,
+    source_intention = models.OneToOneField(
+        "intentions.SaleProviderIntention",
         on_delete=models.PROTECT,
-        related_name="opportunities",
+        related_name="provider_opportunity",
     )
-    agent = models.ForeignKey(
-        Agent,
-        on_delete=models.PROTECT,
-        related_name="opportunities",
-    )
-    owner = models.ForeignKey(
-        Contact,
-        on_delete=models.PROTECT,
-        related_name="owned_opportunities",
+    listing_kind = models.CharField(
+        max_length=20,
+        choices=ListingKind.choices,
+        default=ListingKind.EXCLUSIVE,
     )
     state = FSMField(
         max_length=20,
@@ -41,11 +44,23 @@ class Opportunity(TimeStampedMixin, FSMLoggableMixin):
 
     class Meta:
         ordering = ("-created_at",)
-        verbose_name = "opportunity"
-        verbose_name_plural = "opportunities"
+        verbose_name = "provider opportunity"
+        verbose_name_plural = "provider opportunities"
 
     def __str__(self) -> str:
         return self.title
+
+    @builtin_property
+    def property(self):
+        return self.source_intention.property
+
+    @builtin_property
+    def agent(self):
+        return self.source_intention.agent
+
+    @builtin_property
+    def owner(self):
+        return self.source_intention.owner
 
     @transition(field="state", source=State.CAPTURING, target=State.VALIDATING)
     def start_validation(self) -> None:
@@ -60,81 +75,71 @@ class Opportunity(TimeStampedMixin, FSMLoggableMixin):
         """Close the opportunity once an operation is completed."""
 
         if not self.operations.filter(state=Operation.State.CLOSED).exists():
-            raise ValidationError("Opportunity cannot be closed without a closed operation.")
+            raise ValidationError("Provider opportunity cannot be closed without a closed operation.")
 
 
-class AcquisitionAttempt(TimeStampedMixin, FSMLoggableMixin):
+class SeekerOpportunity(TimeStampedMixin, FSMLoggableMixin):
     class State(models.TextChoices):
-        VALUATING = "valuating", "Valuating"
+        MATCHING = "matching", "Matching"
         NEGOTIATING = "negotiating", "Negotiating"
         CLOSED = "closed", "Closed"
+        LOST = "lost", "Lost"
 
-    opportunity = models.ForeignKey(
-        Opportunity,
-        on_delete=models.CASCADE,
-        related_name="acquisition_attempts",
+    title = models.CharField(max_length=255)
+    source_intention = models.OneToOneField(
+        "intentions.SaleSeekerIntention",
+        on_delete=models.PROTECT,
+        related_name="seeker_opportunity",
     )
+    notes = models.TextField(blank=True)
     state = FSMField(
         max_length=20,
         choices=State.choices,
-        default=State.VALUATING,
+        default=State.MATCHING,
         protected=False,
     )
-    closed_at = models.DateTimeField(null=True, blank=True)
-    notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ("-created_at",)
-        verbose_name = "acquisition attempt"
-        verbose_name_plural = "acquisition attempts"
+        verbose_name = "seeker opportunity"
+        verbose_name_plural = "seeker opportunities"
 
     def __str__(self) -> str:
-        return f"Acquisition attempt for {self.opportunity}"
+        return self.title
 
-    @transition(field="state", source=State.VALUATING, target=State.NEGOTIATING)
+    @builtin_property
+    def contact(self):
+        return self.source_intention.contact
+
+    @builtin_property
+    def agent(self):
+        return self.source_intention.agent
+
+    @builtin_property
+    def currency(self):
+        return self.source_intention.currency
+
+    @builtin_property
+    def budget_min(self):
+        return self.source_intention.budget_min
+
+    @builtin_property
+    def budget_max(self):
+        return self.source_intention.budget_max
+
+    @transition(field="state", source=State.MATCHING, target=State.NEGOTIATING)
     def start_negotiation(self) -> None:
-        """Enter the negotiating phase for the attempt."""
+        if not self.source_intention.currency or not self.source_intention.budget_max:
+            raise ValidationError("Seeker opportunity must define budget and currency before negotiating.")
 
     @transition(field="state", source=State.NEGOTIATING, target=State.CLOSED)
-    def close_attempt(self, notes: str | None = None) -> None:
-        """Close the acquisition attempt."""
+    def close(self) -> None:
+        """Signifies the seeker fulfilled their purchase via an operation."""
 
-        self.closed_at = timezone.now()
-        if notes:
-            self.notes = notes
-
-
-class Appraisal(TimeStampedMixin):
-    attempt = models.OneToOneField(
-        AcquisitionAttempt,
-        on_delete=models.CASCADE,
-        related_name="appraisal",
-    )
-    amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0)],
-    )
-    currency = models.ForeignKey(
-        Currency,
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name='appraisals',
-    )
-    evaluated_at = models.DateField(null=True, blank=True)
-    summary = models.TextField(blank=True)
-    external_report_url = models.URLField(blank=True)
-
-    class Meta:
-        ordering = ("-created_at",)
-        verbose_name = "appraisal"
-        verbose_name_plural = "appraisals"
-
-    def __str__(self) -> str:
-        return f"Appraisal for {self.attempt.opportunity}"
+    @transition(field="state", source=[State.MATCHING, State.NEGOTIATING], target=State.LOST)
+    def mark_lost(self, reason: str | None = None) -> None:
+        if reason:
+            self.notes = (self.notes or "") + f"\nLost: {reason}"
 
 
 class Validation(TimeStampedMixin, FSMLoggableMixin):
@@ -144,7 +149,7 @@ class Validation(TimeStampedMixin, FSMLoggableMixin):
         ACCEPTED = "accepted", "Accepted"
 
     opportunity = models.ForeignKey(
-        Opportunity,
+        ProviderOpportunity,
         on_delete=models.CASCADE,
         related_name="validations",
     )
@@ -168,22 +173,16 @@ class Validation(TimeStampedMixin, FSMLoggableMixin):
 
     @transition(field="state", source=State.PREPARING, target=State.PRESENTED)
     def present(self, reviewer: Agent) -> None:  # noqa: ARG002 - retained for API compatibility
-        """Present documentation for review, tracking the timestamp only."""
-
         self.presented_at = timezone.now()
 
     @transition(field="state", source=State.PRESENTED, target=State.PREPARING)
     def reset(self, notes: str | None = None) -> None:
-        """Return validation to preparation with optional reviewer notes."""
-
         self.validated_at = None
         if notes is not None:
             self.notes = notes
 
     @transition(field="state", source=State.PRESENTED, target=State.ACCEPTED)
     def accept(self) -> None:
-        """Accept validation and mark as completed."""
-
         self.validated_at = timezone.now()
 
 
@@ -199,7 +198,7 @@ class MarketingPackage(TimeStampedMixin, FSMLoggableMixin):
         PAUSED = "paused", "Paused"
 
     opportunity = models.ForeignKey(
-        Opportunity,
+        ProviderOpportunity,
         on_delete=models.CASCADE,
         related_name="marketing_packages",
     )
@@ -241,27 +240,20 @@ class MarketingPackage(TimeStampedMixin, FSMLoggableMixin):
 
     @transition(field="state", source=State.PREPARING, target=State.AVAILABLE)
     def activate(self) -> "MarketingPackage":
-        """Activate the package for marketing."""
-
         self.state = MarketingPackage.State.AVAILABLE
         self.save(update_fields=["state", "updated_at"])
         return self
 
     @transition(field="state", source=State.AVAILABLE, target=State.PAUSED)
     def reserve(self) -> "MarketingPackage":
-        """Pause the active package when validation is accepted."""
-
         if not self.opportunity.validations.filter(state=Validation.State.ACCEPTED).exists():
             raise ValidationError("Cannot reserve marketing package before validation is accepted.")
-
         self.state = MarketingPackage.State.PAUSED
         self.save(update_fields=["state", "updated_at"])
         return self
 
     @transition(field="state", source=State.PAUSED, target=State.AVAILABLE)
     def release(self) -> "MarketingPackage":
-        """Reactivate a paused package."""
-
         self.state = MarketingPackage.State.AVAILABLE
         self.save(update_fields=["state", "updated_at"])
         return self
@@ -272,9 +264,15 @@ class Operation(TimeStampedMixin, FSMLoggableMixin):
         OFFERED = "offered", "Offered"
         REINFORCED = "reinforced", "Reinforced"
         CLOSED = "closed", "Closed"
+        LOST = "lost", "Lost"
 
-    opportunity = models.ForeignKey(
-        Opportunity,
+    provider_opportunity = models.ForeignKey(
+        ProviderOpportunity,
+        on_delete=models.CASCADE,
+        related_name="operations",
+    )
+    seeker_opportunity = models.ForeignKey(
+        SeekerOpportunity,
         on_delete=models.CASCADE,
         related_name="operations",
     )
@@ -317,23 +315,48 @@ class Operation(TimeStampedMixin, FSMLoggableMixin):
     )
     occurred_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    lost_reason = models.TextField(blank=True)
 
     class Meta:
         ordering = ("-created_at",)
         verbose_name = "operation"
         verbose_name_plural = "operations"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider_opportunity", "seeker_opportunity"],
+                condition=models.Q(state__in=["offered", "reinforced"]),
+                name="opportunities_unique_active_operation",
+            )
+        ]
 
     def __str__(self) -> str:
-        return f"Operation {self.get_state_display()} for {self.opportunity}"
+        return f"Operation {self.get_state_display()} for {self.provider_opportunity}"
 
     @transition(field="state", source=State.OFFERED, target=State.REINFORCED)
     def reinforce(self) -> None:
-        """Register an offer reinforcement."""
-
         self.occurred_at = timezone.now()
 
     @transition(field="state", source=State.REINFORCED, target=State.CLOSED)
     def close(self) -> None:
-        """Record a closed negotiation stage."""
-
         self.occurred_at = timezone.now()
+        self.save(update_fields=["state", "occurred_at", "updated_at"])
+        self.provider_opportunity.close_opportunity()
+        self.provider_opportunity.save(update_fields=["state", "updated_at"])
+        if self.seeker_opportunity.state == SeekerOpportunity.State.NEGOTIATING:
+            self.seeker_opportunity.close()
+            self.seeker_opportunity.save(update_fields=["state", "updated_at"])
+
+    @transition(field="state", source=[State.OFFERED, State.REINFORCED], target=State.LOST)
+    def lose(self, reason: str | None = None) -> None:
+        self.occurred_at = timezone.now()
+        if reason:
+            self.lost_reason = reason
+
+
+__all__ = [
+    "MarketingPackage",
+    "Operation",
+    "ProviderOpportunity",
+    "SeekerOpportunity",
+    "Validation",
+]

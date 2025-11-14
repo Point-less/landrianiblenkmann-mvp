@@ -3,23 +3,30 @@ from typing import Any, Mapping, Optional
 from django.core.exceptions import ValidationError
 from django_fsm import TransitionNotAllowed
 
-from opportunities.models import MarketingPackage, Opportunity, Validation
+from opportunities.models import MarketingPackage, ProviderOpportunity, Validation
+from intentions.models import SaleProviderIntention
 
 from utils.services import BaseService
 from .marketing import MarketingPackageActivateService
 
 
 class CreateOpportunityService(BaseService):
-    """Create an opportunity with an optional initial marketing package."""
+    """Create a provider opportunity with an optional initial marketing package."""
 
     def run(
         self,
         *,
-        opportunity_data: Mapping[str, Any],
+        intention: SaleProviderIntention,
+        title: str | None = None,
+        notes: str | None = None,
         marketing_package_data: Mapping[str, Any] | None = None,
-    ) -> Opportunity:
+    ) -> ProviderOpportunity:
         marketing_payload = dict(marketing_package_data or {})
-        opportunity = Opportunity.objects.create(**opportunity_data)
+        opportunity = ProviderOpportunity.objects.create(
+            title=title or f"Listing for {intention.property.name}",
+            source_intention=intention,
+            notes=notes or intention.documentation_notes,
+        )
 
         marketing_payload.setdefault("headline", opportunity.title)
 
@@ -34,7 +41,7 @@ class CreateOpportunityService(BaseService):
 
 
 class OpportunityValidateService(BaseService):
-    def run(self, *, opportunity: Opportunity, actor: Optional[Any] = None) -> Opportunity:
+    def run(self, *, opportunity: ProviderOpportunity, actor: Optional[Any] = None) -> ProviderOpportunity:
         try:
             opportunity.start_validation()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
@@ -46,7 +53,7 @@ class OpportunityValidateService(BaseService):
 
 
 class OpportunityPublishService(BaseService):
-    def run(self, *, opportunity: Opportunity, actor: Optional[Any] = None) -> Opportunity:
+    def run(self, *, opportunity: ProviderOpportunity, actor: Optional[Any] = None) -> ProviderOpportunity:
         try:
             opportunity.start_marketing()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
@@ -60,7 +67,7 @@ class OpportunityPublishService(BaseService):
 
 
 class OpportunityCloseService(BaseService):
-    def run(self, *, opportunity: Opportunity, actor: Optional[Any] = None) -> Opportunity:
+    def run(self, *, opportunity: ProviderOpportunity, actor: Optional[Any] = None) -> ProviderOpportunity:
         try:
             opportunity.close_opportunity()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard

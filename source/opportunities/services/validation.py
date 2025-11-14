@@ -3,7 +3,7 @@ from typing import Optional
 from django.core.exceptions import ValidationError
 from django_fsm import TransitionNotAllowed
 
-from opportunities.models import Opportunity, Validation
+from opportunities.models import ProviderOpportunity, Validation
 
 from utils.services import BaseService
 from .opportunities import OpportunityPublishService
@@ -50,6 +50,6 @@ class ValidationAcceptService(BaseService):
         validation.save(update_fields=["state", "validated_at", "updated_at"])
 
         opportunity = validation.opportunity
-        if opportunity.state == Opportunity.State.VALIDATING:
+        if opportunity.state == ProviderOpportunity.State.VALIDATING:
             OpportunityPublishService.call(opportunity=opportunity)
         return validation

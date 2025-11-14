@@ -2,16 +2,20 @@ import strawberry
 import strawberry_django
 from strawberry import relay
 
-from opportunities.filters import OpportunityFilter
-from opportunities.types import OpportunityType
+from opportunities.filters import ProviderOpportunityFilter, SeekerOpportunityFilter
+from opportunities.types import ProviderOpportunityType, SeekerOpportunityType
 
 
 @strawberry.type
 class OpportunitiesQuery:
-    opportunities: relay.ListConnection[OpportunityType] = strawberry_django.connection(
-        relay.ListConnection[OpportunityType],
-        filters=OpportunityFilter,
+    provider_opportunities: relay.ListConnection[ProviderOpportunityType] = strawberry_django.connection(
+        relay.ListConnection[ProviderOpportunityType],
+        filters=ProviderOpportunityFilter,
+    )
+    seeker_opportunities: relay.ListConnection[SeekerOpportunityType] = strawberry_django.connection(
+        relay.ListConnection[SeekerOpportunityType],
+        filters=SeekerOpportunityFilter,
     )
 
 
-__all__ = ["OpportunitiesQuery", "OpportunityType"]
+__all__ = ["OpportunitiesQuery", "ProviderOpportunityType", "SeekerOpportunityType"]

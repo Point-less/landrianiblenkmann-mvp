@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
@@ -10,10 +10,6 @@ from django_fsm import FSMField, transition
 
 from core.models import Agent, Contact, Currency, Property
 from utils.mixins import FSMLoggableMixin, TimeStampedMixin
-
-if TYPE_CHECKING:  # pragma: no cover - typing helper only
-    from opportunities.models import Opportunity
-
 
 def _default_feature_map() -> dict:
     return {}
@@ -26,9 +22,12 @@ class SaleProviderIntention(TimeStampedMixin, FSMLoggableMixin):
         ASSESSING = "assessing", "Assessing"
         VALUATED = "valuated", "Valuated"
         CONTRACT_NEGOTIATION = "contract_negotiation", "Contract Negotiation"
-        DOCS_APPROVED = "docs_approved", "Documents Approved"
         CONVERTED = "converted", "Converted"
         WITHDRAWN = "withdrawn", "Withdrawn"
+
+    class WithdrawReason(models.TextChoices):
+        LACK_OF_COMMITMENT = "lack_commitment", "Not truly committed"
+        CANNOT_SELL = "cannot_sell", "Unable to sell (documentation/legal)"
 
     owner = models.ForeignKey(
         Contact,
@@ -60,14 +59,12 @@ class SaleProviderIntention(TimeStampedMixin, FSMLoggableMixin):
         null=True,
         blank=True,
     )
-    converted_opportunity = models.ForeignKey(
-        "opportunities.Opportunity",
-        on_delete=models.SET_NULL,
-        related_name="source_sale_provider_intentions",
-        null=True,
+    converted_at = models.DateTimeField(null=True, blank=True)
+    withdraw_reason = models.CharField(
+        max_length=32,
+        choices=WithdrawReason.choices,
         blank=True,
     )
-    converted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ("-created_at",)
@@ -79,10 +76,8 @@ class SaleProviderIntention(TimeStampedMixin, FSMLoggableMixin):
 
     def clean(self):
         super().clean()
-        if self.converted_opportunity and self.state != self.State.CONVERTED:
-            raise ValidationError({
-                "converted_opportunity": "Converted opportunity should only exist once the intention is converted.",
-            })
+        if self.state == self.State.WITHDRAWN and not self.withdraw_reason:
+            raise ValidationError({"withdraw_reason": "Please capture a withdraw reason."})
 
     @transition(field="state", source=State.ASSESSING, target=State.VALUATED)
     def deliver_valuation(self, *, amount, currency: Currency, notes: str | None = None) -> None:
@@ -102,29 +97,24 @@ class SaleProviderIntention(TimeStampedMixin, FSMLoggableMixin):
     def start_contract_negotiation(self, signed_on=None) -> None:
         self.contract_signed_on = signed_on or timezone.now().date()
 
-    @transition(field="state", source=State.CONTRACT_NEGOTIATION, target=State.DOCS_APPROVED)
-    def approve_documents(self, notes: str | None = None) -> None:
-        if notes:
-            self.documentation_notes = notes
-        if not self.documentation_notes:
-            raise ValidationError("Provide documentation notes before approving.")
-
-    @transition(field="state", source=State.DOCS_APPROVED, target=State.CONVERTED)
-    def mark_converted(self, *, opportunity: "Opportunity") -> None:
+    @transition(field="state", source=State.CONTRACT_NEGOTIATION, target=State.CONVERTED)
+    def mark_converted(self, *, opportunity: "ProviderOpportunity") -> None:
         if opportunity is None:
             raise ValidationError("An opportunity instance is required when converting an intention.")
-        self.converted_opportunity = opportunity
         self.converted_at = timezone.now()
 
     @transition(field="state", source="*", target=State.WITHDRAWN)
-    def withdraw(self, reason: str | None = None) -> None:
+    def withdraw(self, *, reason: "SaleProviderIntention.WithdrawReason", notes: str | None = None) -> None:
         if self.state == self.State.CONVERTED:
             raise ValidationError("Converted intentions cannot be withdrawn.")
-        if reason:
-            self.documentation_notes = (self.documentation_notes or "") + f"\nWithdrawn: {reason}"
+        if reason not in self.WithdrawReason.values:
+            raise ValidationError({"withdraw_reason": "Invalid withdraw reason."})
+        self.withdraw_reason = reason
+        if notes:
+            self.documentation_notes = (self.documentation_notes or "") + f"\nWithdrawn: {notes}"
 
     def is_promotable(self) -> bool:
-        return self.state == self.State.DOCS_APPROVED and self.converted_opportunity_id is None
+        return self.state == self.State.CONTRACT_NEGOTIATION and not hasattr(self, "provider_opportunity")
 
 
 class SaleSeekerIntention(TimeStampedMixin, FSMLoggableMixin):
@@ -135,7 +125,6 @@ class SaleSeekerIntention(TimeStampedMixin, FSMLoggableMixin):
         ACTIVE = "active", "Active Search"
         MANDATED = "mandated", "Mandated"
         CONVERTED = "converted", "Converted"
-        FULFILLED = "fulfilled", "Fulfilled"
         ABANDONED = "abandoned", "Abandoned"
 
     contact = models.ForeignKey(
@@ -179,13 +168,6 @@ class SaleSeekerIntention(TimeStampedMixin, FSMLoggableMixin):
     notes = models.TextField(blank=True)
     search_activated_at = models.DateTimeField(null=True, blank=True)
     mandate_signed_on = models.DateField(null=True, blank=True)
-    converted_opportunity = models.ForeignKey(
-        "opportunities.Opportunity",
-        on_delete=models.SET_NULL,
-        related_name="source_sale_seeker_intentions",
-        null=True,
-        blank=True,
-    )
 
     class Meta:
         ordering = ("-created_at",)
@@ -199,9 +181,9 @@ class SaleSeekerIntention(TimeStampedMixin, FSMLoggableMixin):
         super().clean()
         if self.budget_min and self.budget_max and self.budget_min > self.budget_max:
             raise ValidationError({"budget_max": "Max budget cannot be lower than min budget."})
-        if self.converted_opportunity and self.state not in {self.State.CONVERTED, self.State.FULFILLED}:
+        if hasattr(self, "seeker_opportunity") and self.state != self.State.CONVERTED:
             raise ValidationError({
-                "converted_opportunity": "Converted opportunity should only exist for converted/fulfilled intentions.",
+                "seeker_opportunity": "Converted intentions should own a seeker opportunity only once converted.",
             })
 
     @transition(field="state", source=State.QUALIFYING, target=State.ACTIVE)
@@ -215,15 +197,9 @@ class SaleSeekerIntention(TimeStampedMixin, FSMLoggableMixin):
         self.mandate_signed_on = signed_on or timezone.now().date()
 
     @transition(field="state", source=State.MANDATED, target=State.CONVERTED)
-    def mark_converted(self, *, opportunity: "Opportunity") -> None:
+    def mark_converted(self, *, opportunity: "SeekerOpportunity") -> None:
         if opportunity is None:
             raise ValidationError("An opportunity is required when converting a seeker intention.")
-        self.converted_opportunity = opportunity
-
-    @transition(field="state", source=State.CONVERTED, target=State.FULFILLED)
-    def mark_fulfilled(self) -> None:
-        if not self.converted_opportunity:
-            raise ValidationError("Cannot mark fulfilled without a linked opportunity.")
 
     @transition(field="state", source=[State.QUALIFYING, State.ACTIVE], target=State.ABANDONED)
     def abandon(self, reason: str | None = None) -> None:

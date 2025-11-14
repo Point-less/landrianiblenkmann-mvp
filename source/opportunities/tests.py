@@ -14,7 +14,8 @@ from opportunities.models import (
     Appraisal,
     MarketingPackage,
     Operation,
-    Opportunity,
+    ProviderOpportunity,
+    SeekerOpportunity,
     Validation,
 )
 from opportunities.services import (
@@ -45,7 +46,7 @@ class ActorEchoService(BaseService):
         return actor
 
 
-class OpportunityWorkflowTests(TestCase):
+class ProviderOpportunityWorkflowTests(TestCase):
     def setUp(self) -> None:
         self.currency = Currency.objects.create(code="USD", name="US Dollar", symbol="$")
         self.agent = Agent.objects.create(
@@ -58,9 +59,14 @@ class OpportunityWorkflowTests(TestCase):
             last_name="Owner",
             email="oscar.owner@example.com",
         )
+        self.buyer = Contact.objects.create(
+            first_name="Bella",
+            last_name="Buyer",
+            email="bella.buyer@example.com",
+        )
         self.property = Property.objects.create(name="Ocean View Condo")
 
-    def create_opportunity(self, **overrides) -> Opportunity:
+    def create_opportunity(self, **overrides) -> ProviderOpportunity:
         data = {
             "title": "Ocean View Listing",
             "property": self.property,
@@ -73,11 +79,27 @@ class OpportunityWorkflowTests(TestCase):
             marketing_package_data={"currency": self.currency},
         )
 
+    def create_seeker_opportunity(self, **overrides) -> SeekerOpportunity:
+        data = {
+            "title": "Buyer Search",
+            "contact": self.buyer,
+            "agent": self.agent,
+            "budget_min": Decimal("800000"),
+            "budget_max": Decimal("950000"),
+            "currency": self.currency,
+        }
+        data.update(overrides)
+        seeker = SeekerOpportunity.objects.create(**data)
+        if seeker.state == SeekerOpportunity.State.MATCHING:
+            seeker.start_negotiation()
+            seeker.save(update_fields=["state", "updated_at"])
+        return seeker
+
     def test_minimal_happy_path_workflow(self) -> None:
         opportunity = self.create_opportunity()
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.CAPTURING)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.CAPTURING)
 
         marketing_package = opportunity.marketing_packages.get()
         self.assertEqual(marketing_package.state, MarketingPackage.State.PREPARING)
@@ -109,7 +131,7 @@ class OpportunityWorkflowTests(TestCase):
         self.assertIsNotNone(acquisition_attempt.closed_at)
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.VALIDATING)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.VALIDATING)
 
         validation.refresh_from_db()
         self.assertEqual(validation.state, Validation.State.PREPARING)
@@ -125,7 +147,7 @@ class OpportunityWorkflowTests(TestCase):
         self.assertIsNotNone(validation.validated_at)
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.MARKETING)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.MARKETING)
 
         active_package = opportunity.marketing_packages.order_by("-created_at").first()
         self.assertIsNotNone(active_package)
@@ -133,7 +155,8 @@ class OpportunityWorkflowTests(TestCase):
         self.assertEqual(active_package.state, MarketingPackage.State.AVAILABLE)
 
         operation = Operation.objects.create(
-            opportunity=opportunity,
+            provider_opportunity=opportunity,
+            seeker_opportunity=self.create_seeker_opportunity(),
             state=Operation.State.OFFERED,
             offered_amount=Decimal("930000"),
             reserve_amount=Decimal("20000"),
@@ -145,13 +168,13 @@ class OpportunityWorkflowTests(TestCase):
         operation.refresh_from_db()
         self.assertEqual(operation.state, Operation.State.REINFORCED)
 
-        OperationCloseService.call(operation=operation, opportunity=opportunity)
+        OperationCloseService.call(operation=operation)
         operation.refresh_from_db()
         self.assertEqual(operation.state, Operation.State.CLOSED)
         self.assertIsNotNone(operation.occurred_at)
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.CLOSED)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.CLOSED)
 
         self.assertTrue(
             opportunity.operations.filter(state=Operation.State.CLOSED).exists()
@@ -175,7 +198,7 @@ class OpportunityWorkflowTests(TestCase):
         self.assertIn("Owner not ready", attempt.notes)
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.CAPTURING)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.CAPTURING)
 
     def test_validation_cycle_reject_and_accept(self) -> None:
         opportunity = self.create_opportunity()
@@ -195,7 +218,7 @@ class OpportunityWorkflowTests(TestCase):
         ValidationAcceptService.call(validation=validation)
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.MARKETING)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.MARKETING)
 
     def test_marketing_reserve_and_release_creates_new_revisions(self) -> None:
         opportunity = self.create_opportunity()
@@ -229,7 +252,8 @@ class OpportunityWorkflowTests(TestCase):
         ValidationAcceptService.call(validation=validation)
 
         operation = Operation.objects.create(
-            opportunity=opportunity,
+            provider_opportunity=opportunity,
+            seeker_opportunity=self.create_seeker_opportunity(),
             state=Operation.State.OFFERED,
             offered_amount=Decimal("900000"),
             reserve_amount=Decimal("10000"),
@@ -245,7 +269,7 @@ class OpportunityWorkflowTests(TestCase):
         self.assertIn("Buyer withdrew", operation.notes)
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.CLOSED)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.CLOSED)
 
     def test_publish_allowed_without_completed_validation(self) -> None:
         opportunity = self.create_opportunity()
@@ -259,7 +283,7 @@ class OpportunityWorkflowTests(TestCase):
         OpportunityPublishService.call(opportunity=opportunity)
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.MARKETING)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.MARKETING)
 
         validation.refresh_from_db()
         self.assertEqual(validation.state, Validation.State.PREPARING)
@@ -302,7 +326,7 @@ class OpportunityWorkflowTests(TestCase):
         ValidationAcceptService.call(validation=validation)
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.MARKETING)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.MARKETING)
 
         with self.assertRaises(ValidationError) as exc:
             OpportunityValidateService.call(opportunity=opportunity)
@@ -319,11 +343,11 @@ class OpportunityWorkflowTests(TestCase):
         ValidationAcceptService.call(validation=validation)
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.MARKETING)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.MARKETING)
 
         with self.assertRaises(ValidationError) as exc:
             OpportunityCloseService.call(opportunity=opportunity)
-        self.assertIn("Opportunity cannot be closed without a closed operation.", str(exc.exception))
+        self.assertIn("Provider opportunity cannot be closed without a closed operation.", str(exc.exception))
 
     def test_acquisition_appraise_requires_current_state(self) -> None:
         opportunity = self.create_opportunity()
@@ -391,7 +415,8 @@ class OpportunityWorkflowTests(TestCase):
         ValidationAcceptService.call(validation=validation)
 
         operation = Operation.objects.create(
-            opportunity=opportunity,
+            provider_opportunity=opportunity,
+            seeker_opportunity=self.create_seeker_opportunity(),
             state=Operation.State.REINFORCED,
             currency=self.currency,
         )
@@ -410,14 +435,15 @@ class OpportunityWorkflowTests(TestCase):
         ValidationAcceptService.call(validation=validation)
 
         operation = Operation.objects.create(
-            opportunity=opportunity,
+            provider_opportunity=opportunity,
+            seeker_opportunity=self.create_seeker_opportunity(),
             state=Operation.State.REINFORCED,
             currency=self.currency,
         )
 
-        OperationCloseService.call(operation=operation, opportunity=opportunity)
+        OperationCloseService.call(operation=operation)
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.state, Opportunity.State.CLOSED)
+        self.assertEqual(opportunity.state, ProviderOpportunity.State.CLOSED)
 
     def test_service_atomic_respects_existing_transactions(self) -> None:
         with transaction.atomic():

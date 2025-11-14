@@ -339,6 +339,8 @@ class Operation(TimeStampedMixin, FSMLoggableMixin):
     @transition(field="state", source=State.REINFORCED, target=State.CLOSED)
     def close(self) -> None:
         self.occurred_at = timezone.now()
+        # Ensure the state is persisted as CLOSED before dependent transitions need it.
+        self.state = Operation.State.CLOSED
         self.save(update_fields=["state", "occurred_at", "updated_at"])
         self.provider_opportunity.close_opportunity()
         self.provider_opportunity.save(update_fields=["state", "updated_at"])

@@ -9,5 +9,5 @@
   - GraphQL lives at `/graphql/`, rendered by Strawberry’s GraphiQL UI and protected by Django login. Project bootstrap creates `admin/admin` for local access.
   - Live code reload is handled in containers via `watchmedo`, so edits to `source/` invalidate Gunicorn and Dramatiq automatically.
 - **Bootstrap command**: `python manage.py bootstrap` runs migrations and ensures the default superuser (`admin/admin`). Re-run after tearing down volumes.
-- **Services**: `web` (Uvicorn + Django), `dramatiq` worker, `postgres`, `rabbitmq`. Ports exposed: `8001` (web), `15672`/`5672` (RabbitMQ UI/broker).
+- **Services**: `frontend` (Uvicorn + Django), `dramatiq` worker, `postgres`, `rabbitmq`. Ports exposed: `8005` (frontend), `15672`/`5672` (RabbitMQ UI/broker).
 - **Dev workflow**: modify code under `source/`, call Dockerised management commands with `docker compose exec web ...`, use the bootstrap command to reset state, and drive Dramatiq via the `/trigger-log/` endpoint if needed (`docker compose up dramatiq` keeps the worker running).

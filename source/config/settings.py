@@ -39,6 +39,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'config.middleware.RequireLoginMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -120,6 +121,22 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.User'
+
+LOGIN_URL = '/admin/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGIN_REQUIRED_EXEMPT_URLS = [
+    LOGIN_URL,
+    '/health/',
+    '/trigger-log/',
+]
+LOGIN_REQUIRED_EXEMPT_PREFIXES = [
+    path for path in (
+        STATIC_URL,
+        MEDIA_URL,
+        '/_strawberry/static/',
+    )
+    if path
+]
 
 DRAMATIQ_BROKER = {
     'BROKER': 'dramatiq.brokers.rabbitmq.RabbitmqBroker',

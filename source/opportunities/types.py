@@ -7,19 +7,15 @@ from strawberry_django.fields import types as strawberry_types
 
 strawberry_types.field_type_map.setdefault(FSMField, str)
 
+from core.models import Agent, Contact, ContactAgentRelationship, Currency, Property
 from opportunities.models import (
     AcquisitionAttempt,
-    Agent,
     Appraisal,
-    Contact,
-    ContactAgentRelationship,
     MarketingPackage,
     Operation,
     Opportunity,
-    Property,
     Validation,
 )
-from core.models import Currency
 
 
 @strawberry_django.type(Contact, fields="__all__")

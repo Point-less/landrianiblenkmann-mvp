@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'utils.apps.UtilsConfig',
     'opportunities.apps.OpportunitiesConfig',
+    'intentions.apps.IntentionsConfig',
     'core.apps.CoreConfig',
 ]
 

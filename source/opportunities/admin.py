@@ -3,8 +3,8 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
-from opportunities.models import TokkobrokerProperty
-from opportunities.tasks import sync_tokkobroker_properties_task
+from core.models import TokkobrokerProperty
+from core.tasks import sync_tokkobroker_properties_task, sync_tokkobroker_registry
 
 
 @admin.register(TokkobrokerProperty)
@@ -13,6 +13,7 @@ class TokkobrokerPropertyAdmin(admin.ModelAdmin):
     search_fields = ("tokko_id", "ref_code", "address")
     list_filter = ("tokko_created_at", "created_at")
     change_list_template = "admin/tokkobrokerproperty/change_list.html"
+    actions = ("sync_from_tokkobroker_action",)
 
     def changelist_view(self, request, extra_context=None):
         extra_context = dict(extra_context or {})
@@ -60,3 +61,9 @@ class TokkobrokerPropertyAdmin(admin.ModelAdmin):
             "changelist_url": changelist_url,
         }
         return TemplateResponse(request, "admin/tokkobrokerproperty/sync_all_confirm.html", context)
+
+    def sync_from_tokkobroker_action(self, request, queryset):
+        processed = sync_tokkobroker_registry()
+        self.message_user(request, f"Synced {processed} Tokkobroker properties.")
+
+    sync_from_tokkobroker_action.short_description = "Sync Tokkobroker registry now"

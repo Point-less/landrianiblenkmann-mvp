@@ -7,18 +7,14 @@ from django.core.exceptions import ValidationError
 from django.db import DEFAULT_DB_ALIAS, transaction
 from django.test import RequestFactory, TestCase
 
-from core.models import Currency
+from core.models import Agent, Contact, ContactAgentRelationship, Currency, Property, TokkobrokerProperty
 from opportunities.admin import TokkobrokerPropertyAdmin
 from opportunities.models import (
     AcquisitionAttempt,
-    Agent,
     Appraisal,
-    Contact,
     MarketingPackage,
     Operation,
     Opportunity,
-    Property,
-    TokkobrokerProperty,
     Validation,
 )
 from opportunities.services import (
@@ -40,7 +36,7 @@ from opportunities.services import (
     ValidationPresentService,
     ValidationRejectService,
 )
-from opportunities.tasks import sync_tokkobroker_registry
+from core.tasks import sync_tokkobroker_registry
 from utils.services import ServiceInvoker, for_actor
 
 

@@ -3,8 +3,13 @@ from typing import Any, Mapping, Optional
 from django.core.exceptions import ValidationError
 from django_fsm import TransitionNotAllowed
 
-from opportunities.models import MarketingPackage, ProviderOpportunity, Validation
-from intentions.models import SaleProviderIntention
+from opportunities.models import (
+    MarketingPackage,
+    ProviderOpportunity,
+    SeekerOpportunity,
+    Validation,
+)
+from intentions.models import SaleProviderIntention, SaleSeekerIntention
 
 from utils.services import BaseService
 from .marketing import MarketingPackageActivateService
@@ -74,4 +79,30 @@ class OpportunityCloseService(BaseService):
             raise ValidationError(str(exc)) from exc
 
         opportunity.save(update_fields=["state", "updated_at"])
+        return opportunity
+
+
+class CreateSeekerOpportunityService(BaseService):
+    """Convert a seeker intention into an actionable opportunity."""
+
+    def run(
+        self,
+        *,
+        intention: SaleSeekerIntention,
+        title: str | None = None,
+        notes: str | None = None,
+    ) -> SeekerOpportunity:
+        if hasattr(intention, "seeker_opportunity"):
+            raise ValidationError("Intention already has a seeker opportunity attached.")
+        if intention.state != SaleSeekerIntention.State.MANDATED:
+            raise ValidationError("Seeker intention must be mandated before conversion.")
+
+        opportunity = SeekerOpportunity.objects.create(
+            title=title or f"Buyer search for {intention.contact}",
+            source_intention=intention,
+            notes=notes or intention.notes,
+        )
+
+        intention.mark_converted(opportunity=opportunity)
+        intention.save(update_fields=["state", "updated_at"])
         return opportunity

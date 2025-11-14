@@ -3,9 +3,65 @@ from typing import Optional
 from django.core.exceptions import ValidationError
 from django_fsm import TransitionNotAllowed
 
-from opportunities.models import Operation
+from core.models import Currency
+from opportunities.models import Operation, ProviderOpportunity, SeekerOpportunity
 
 from utils.services import BaseService
+
+
+class CreateOperationService(BaseService):
+    """Start an operation linking a provider and seeker opportunity."""
+
+    active_states = (Operation.State.OFFERED, Operation.State.REINFORCED)
+
+    def run(
+        self,
+        *,
+        provider_opportunity: ProviderOpportunity,
+        seeker_opportunity: SeekerOpportunity,
+        offered_amount=None,
+        reserve_amount=None,
+        reinforcement_amount=None,
+        currency: Currency | None = None,
+        notes: str | None = None,
+    ) -> Operation:
+        if provider_opportunity.state != ProviderOpportunity.State.MARKETING:
+            raise ValidationError({
+                "provider_opportunity": "Provider opportunity must be marketing before opening an operation.",
+            })
+        if seeker_opportunity.state not in {
+            SeekerOpportunity.State.MATCHING,
+            SeekerOpportunity.State.NEGOTIATING,
+        }:
+            raise ValidationError({
+                "seeker_opportunity": "Seeker opportunity must be matching or negotiating.",
+            })
+
+        if Operation.objects.filter(
+            provider_opportunity=provider_opportunity,
+            seeker_opportunity=seeker_opportunity,
+            state__in=self.active_states,
+        ).exists():
+            raise ValidationError("An active operation already exists for this pair.")
+
+        operation = Operation.objects.create(
+            provider_opportunity=provider_opportunity,
+            seeker_opportunity=seeker_opportunity,
+            offered_amount=offered_amount,
+            reserve_amount=reserve_amount,
+            reinforcement_amount=reinforcement_amount,
+            currency=currency,
+            notes=notes or "",
+        )
+
+        if seeker_opportunity.state == SeekerOpportunity.State.MATCHING:
+            try:
+                seeker_opportunity.start_negotiation()
+            except TransitionNotAllowed as exc:
+                raise ValidationError(str(exc)) from exc
+            seeker_opportunity.save(update_fields=["state", "updated_at"])
+
+        return operation
 
 
 class OperationReinforceService(BaseService):

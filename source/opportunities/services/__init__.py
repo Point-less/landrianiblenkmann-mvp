@@ -3,6 +3,7 @@
 from utils.services import BaseService, service_atomic  # noqa: F401
 from .opportunities import (  # noqa: F401
     CreateOpportunityService,
+    CreateSeekerOpportunityService,
     OpportunityCloseService,
     OpportunityPublishService,
     OpportunityValidateService,
@@ -18,6 +19,7 @@ from .marketing import (  # noqa: F401
     MarketingPackageReserveService,
 )
 from .operations import (  # noqa: F401
+    CreateOperationService,
     OperationCloseService,
     OperationLoseService,
     OperationReinforceService,
@@ -30,12 +32,14 @@ __all__ = [
     "OpportunityValidateService",
     "OpportunityPublishService",
     "OpportunityCloseService",
+    "CreateSeekerOpportunityService",
     "ValidationPresentService",
     "ValidationRejectService",
     "ValidationAcceptService",
     "MarketingPackageActivateService",
     "MarketingPackageReserveService",
     "MarketingPackageReleaseService",
+    "CreateOperationService",
     "OperationReinforceService",
     "OperationCloseService",
     "OperationLoseService",

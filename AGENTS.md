@@ -1,13 +1,140 @@
 # Project Quick Reference
 
-- **Stack**: Django 4.2 + Strawberry GraphQL (Relay pagination), Dramatiq workers, Postgres 16, RabbitMQ 3, all delivered via Docker Compose (`docker compose up -d`).
-- **Code layout**:
-  - `users/` holds the custom `User` model, GraphQL filter definitions (`filters.py`), query mixins (`schema.py`), and shared types (`types.py`).
-  - `config/schema.py` aggregates app-level schemas; `config/graphql.py` exposes an authenticated, CSRF-exempt GraphQL view mapped in `config/urls.py`.
-  - `core/urls.py` surfaces health and Dramatiq trigger endpoints; other apps can follow the same pattern for modular routing.
-- **Runtime defaults**:
-  - GraphQL lives at `/graphql/`, rendered by Strawberry’s GraphiQL UI and protected by Django login. Project bootstrap creates `admin/admin` for local access.
-  - Live code reload is handled in containers via `watchmedo`, so edits to `source/` invalidate Gunicorn and Dramatiq automatically.
-- **Bootstrap command**: `python manage.py bootstrap` runs migrations and ensures the default superuser (`admin/admin`). Re-run after tearing down volumes.
-- **Services**: `frontend` (Uvicorn + Django), `dramatiq` worker, `postgres`, `rabbitmq`. Ports exposed: `8005` (frontend), `15672`/`5672` (RabbitMQ UI/broker).
-- **Dev workflow**: modify code under `source/`, call Dockerised management commands with `docker compose exec frontend ...`, use the bootstrap command to reset state, and drive Dramatiq via the `/trigger-log/` endpoint if needed (`docker compose up dramatiq` keeps the worker running).
+> [!IMPORTANT]
+> **Documentation Consistency**: This file must be kept in sync with the actual project structure. Every time any modification is made to the project architecture (new apps, services, URL patterns, models, or configuration changes), this document MUST be updated to reflect those changes.
+
+## Stack & Infrastructure
+
+- **Framework**: Django 4.2 with Strawberry GraphQL (Relay pagination)
+- **Task Queue**: Dramatiq workers with RabbitMQ 3 broker
+- **Databases**: PostgreSQL 16, Redis 7.4 (caching + Dramatiq results)
+- **Deployment**: Docker Compose (`docker compose up -d`)
+- **Optional**: Cloudflared tunnel (enable with `docker compose --profile tunnel up`)
+
+## Services
+
+| Service | Port(s) | Purpose |
+|---------|---------|---------|
+| `frontend` | 8005 | Uvicorn + Django application server |
+| `dramatiq` | - | Background task worker |
+| `postgres` | 5432 (internal) | PostgreSQL database |
+| `rabbitmq` | 5672 (broker), 15672 (UI) | Message broker + management UI |
+| `redis` | 6379 | Cache and Dramatiq result backend |
+| `cloudflared` | - | Optional Cloudflare tunnel (profile: `tunnel`) |
+
+## Application Structure
+
+The project is organized into 7 Django apps under `source/`:
+
+### `config/`
+Project configuration and routing hub.
+- **Settings**: Django configuration, middleware (`RequireLoginMiddleware`), environment variables
+- **Schema** (`schema.py`): Aggregates GraphQL schemas from apps (users, opportunities)
+- **GraphQL** (`graphql.py`): Authenticated, CSRF-exempt GraphQL view
+- **URLs** (`urls.py`): Root URL configuration routing to admin, graphql, and app-level URLs
+
+### `core/`
+Shared domain models and dashboard views.
+- **Models**: `Agent`, `Contact`, `Property`, `Currency`, `ContactAgentRelationship`
+- **URLs** (`urls.py`): Dashboard views, health checks, entity CRUD (agents, contacts, properties), transition history
+- **Views** (`views.py`): Workflow dashboard, entity management forms, health/trigger endpoints
+- **Purpose**: Foundation entities used across the real estate workflow
+
+### `integrations/`
+External service integrations.
+- **Models**: `TokkobrokerProperty` - registry for externally-sourced properties
+- **TokkobrokerClient** (`tokkobroker.py`): HTTP client for Tokkobroker API integration
+- **Tasks** (`tasks.py`): Dramatiq tasks for syncing property data
+- **URLs** (`urls.py`): Integration-specific endpoints
+
+### `intentions/`
+Pre-contract intent tracking with FSM state management.
+- **Models**:
+  - `SaleProviderIntention`: Property owner's pre-contract engagement (states: assessing → valuated → contract_negotiation → converted/withdrawn)
+  - `SaleSeekerIntention`: Buyer's pre-representation interest (states: qualifying → active → mandated → converted/abandoned)
+  - `SaleValuation`: Valuation records delivered to providers
+- **Purpose**: Capture and qualify leads before formal contracts
+- **FSM States**: Uses django-fsm for state transitions with validation rules
+- **URLs** (`urls.py`): Intention management endpoints
+
+### `opportunities/`
+Sales pipeline management with FSM workflows.
+- **Models**:
+  - `ProviderOpportunity`: Property sale opportunities (states: capturing → validating → marketing → closed)
+  - `SeekerOpportunity`: Buyer opportunities (states: matching → negotiating → closed/lost)
+  - `Validation`: Document validation workflow (states: preparing → presented → accepted)
+  - Supporting models: `ValidationDocument`, `Match`, `Operation`
+- **Schema** (`schema.py`, `types.py`, `filters.py`): GraphQL queries, types, and filtering for opportunities
+- **Purpose**: Manage active sales pipeline from contract to close
+- **URLs** (`urls.py`): Opportunity and validation management endpoints
+- **Services** (`services/`): Business logic for opportunity lifecycle
+
+### `users/`
+Custom user model and GraphQL infrastructure.
+- **Models**: Custom `User` model (AUTH_USER_MODEL)
+- **Schema** (`schema.py`): `UsersQuery` mixin for GraphQL
+- **Types** (`types.py`): Strawberry types for GraphQL
+- **Filters** (`filters.py`): GraphQL filter definitions
+- **Purpose**: Authentication and user-specific GraphQL patterns
+
+### `utils/`
+Shared utilities and mixins.
+- **Mixins**: `TimeStampedMixin` (created_at/updated_at), `FSMLoggableMixin` (django-fsm-log integration)
+- **Purpose**: DRY helpers used across all apps
+
+## Domain Workflow
+
+The system models a real estate agency's sales workflow:
+
+1. **Intentions**: Capture provider (seller) and seeker (buyer) interest
+2. **Opportunities**: Convert qualified intentions into active pipeline opportunities
+3. **Validations**: Verify provider opportunity documentation (deed, authorization, etc.)
+4. **Operations**: Close deals and record final transactions
+
+State transitions use **django-fsm** with **django-fsm-log** for audit trails.
+
+## GraphQL API
+
+- **Endpoint**: `/graphql/` (protected by Django login, rendered with GraphiQL UI)
+- **Schema** (`config/schema.py`): Merges `UsersQuery` + `OpportunitiesQuery`
+- **Pagination**: Relay-style pagination via Strawberry
+- **Authentication**: Requires login; protected by `RequireLoginMiddleware`
+
+## URL Routing
+
+| Pattern | App | Purpose |
+|---------|-----|---------|
+| `/admin/` | Django Admin | Admin interface |
+| `/graphql/` | config | GraphQL endpoint (GraphiQL UI) |
+| `/`, `/dashboard/` | core | Workflow dashboard and entity management |
+| `/health/`, `/trigger-log/` | core | Health check and Dramatiq trigger endpoints |
+| `/agents/`, `/contacts/`, `/properties/` | core | Entity CRUD |
+| `/transitions/...` | core | FSM transition history |
+| _App-specific patterns_ | intentions, opportunities, integrations | Modular routing per app |
+
+## Bootstrap & Development
+
+- **Bootstrap**: `python manage.py bootstrap` runs migrations and creates default superuser (`admin/admin`)
+  - Re-run after `docker compose down -v` to reset state
+- **Live Reload**: `watchmedo` auto-restarts Gunicorn and Dramatiq on code changes in `source/`
+- **Management Commands**: `docker compose exec frontend python manage.py <command>`
+- **Dramatiq Worker**: `docker compose up dramatiq` keeps worker running; trigger via `/trigger-log/`
+- **Cloudflared Tunnel**: `docker compose --profile tunnel up` to enable
+
+## Configuration
+
+Environment variables (see `config/settings.py`):
+- **Database**: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
+- **Redis**: `REDIS_CACHE_URL`, `REDIS_RESULTS_URL`
+- **Dramatiq**: `DRAMATIQ_BROKER_URL` (RabbitMQ)
+- **Tokkobroker**: `TOKKO_BASE_URL`, `TOKKO_USERNAME`, `TOKKO_PASSWORD`, `TOKKO_OTP_TOKEN`, `TOKKO_TIMEOUT`
+- **Django**: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `TZ`
+
+## Key Technologies
+
+- **django-fsm** + **django-fsm-log**: State machine workflows with audit logging
+- **Strawberry GraphQL**: Type-safe GraphQL with Relay pagination
+- **Dramatiq**: Background task processing
+- **Redis**: Caching layer and Dramatiq result backend
+- **RabbitMQ**: Message broker for Dramatiq
+- **watchmedo**: Hot reload for development

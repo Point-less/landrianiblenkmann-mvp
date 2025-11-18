@@ -62,8 +62,15 @@ services:
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles:
+      - tunnel
+    depends_on:
+      - frontend
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
 
 volumes:
   postgres_data:

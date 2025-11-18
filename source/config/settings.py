@@ -159,3 +159,7 @@ DRAMATIQ_RESULT_BACKEND = {
 }
 
 DRAMATIQ_RESULT_BACKEND_ENABLED = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.marketview.com.ar",
+]

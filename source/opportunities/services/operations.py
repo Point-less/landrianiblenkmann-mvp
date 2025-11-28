@@ -42,7 +42,7 @@ class CreateOperationService(BaseService):
                 "seeker_opportunity": "Seeker opportunity must be matching or negotiating.",
             })
 
-        if ActiveOperationsBetweenOpportunitiesQuery.call(
+        if self.s.opportunities.ActiveOperationsBetweenOpportunitiesQuery(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
         ).exists():
@@ -75,7 +75,7 @@ class CreateOperationService(BaseService):
         ).order_by('-created_at')
         for package in packages:
             try:
-                MarketingPackagePauseService.call(package=package)
+                self.s.opportunities.MarketingPackagePauseService(package=package)
             except ValidationError:
                 continue
 
@@ -117,7 +117,7 @@ class OperationLoseService(BaseService):
         operation.save(update_fields=["state", "occurred_at", "lost_reason", "updated_at"])
 
         seeker = operation.seeker_opportunity
-        has_other_active = SeekerActiveOperationsQuery.call(seeker_opportunity=seeker).exclude(pk=operation.pk).exists()
+        has_other_active = self.s.opportunities.SeekerActiveOperationsQuery(seeker_opportunity=seeker).exclude(pk=operation.pk).exists()
 
         if seeker.state == SeekerOpportunity.State.NEGOTIATING and not has_other_active:
             try:

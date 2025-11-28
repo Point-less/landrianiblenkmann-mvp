@@ -10,6 +10,7 @@ from opportunities.models import (
     SeekerOpportunity,
     Validation,
 )
+from opportunities.services.validation import ValidationEnsureService
 from opportunities.services.queries import ProviderOpportunityByTokkobrokerPropertyQuery
 from intentions.models import SaleProviderIntention, SaleSeekerIntention
 
@@ -30,7 +31,7 @@ class CreateOpportunityService(BaseService):
     ) -> ProviderOpportunity:
         marketing_payload = dict(marketing_package_data or {})
 
-        if tokkobroker_property and ProviderOpportunityByTokkobrokerPropertyQuery.call(
+        if tokkobroker_property and self.s.opportunities.ProviderOpportunityByTokkobrokerPropertyQuery(
             tokkobroker_property=tokkobroker_property
         ).exists():
             raise ValidationError("Tokkobroker property is already linked to another opportunity.")
@@ -61,7 +62,7 @@ class OpportunityValidateService(BaseService):
             raise ValidationError(str(exc)) from exc
 
         opportunity.save(update_fields=["state", "updated_at"])
-        Validation.objects.get_or_create(opportunity=opportunity)
+        self.s.opportunities.ValidationEnsureService(opportunity=opportunity)
         return opportunity
 
 
@@ -75,7 +76,7 @@ class OpportunityPublishService(BaseService):
         opportunity.save(update_fields=["state", "updated_at"])
         latest_package = opportunity.marketing_packages.order_by("-created_at").first()
         if latest_package and latest_package.state == MarketingPackage.State.PREPARING:
-            MarketingPackageActivateService.call(package=latest_package)
+            self.s.opportunities.MarketingPackageActivateService(package=latest_package)
         return opportunity
 
 

@@ -22,20 +22,7 @@ from core.forms import (
     PropertyForm,
 )
 from core.models import Agent, Contact, Property
-from core.services import (
-    CreateAgentService,
-    CreateContactService,
-    CreatePropertyService,
-    LinkContactAgentService,
-    AgentsQuery,
-    ContactsQuery,
-    PropertiesQuery,
-    ProviderIntentionsQuery,
-    SeekerIntentionsQuery,
-    TokkobrokerPropertiesQuery,
-    AvailableTokkobrokerPropertiesQuery,
-    CurrenciesQuery,
-)
+from utils.services import S
 from intentions.forms import (
     DeliverValuationForm,
     ProviderContractForm,
@@ -47,7 +34,7 @@ from intentions.forms import (
     SeekerMandateForm,
 )
 from intentions.models import SaleProviderIntention, SaleSeekerIntention
-from intentions.services import (
+from intentions.services import (  # noqa: F401  # retained for registry discovery
     AbandonSaleSeekerIntentionService,
     ActivateSaleSeekerIntentionService,
     CreateSaleProviderIntentionService,
@@ -76,7 +63,7 @@ from opportunities.models import (
     Validation,
     ValidationDocument,
 )
-from opportunities.services import (
+from opportunities.services import (  # noqa: F401  # retained for registry discovery
     MarketingPackageActivateService,
     MarketingPackageCreateService,
     MarketingPackageReleaseService,
@@ -213,59 +200,59 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
 
     def _context_agents(self):
         return {
-            'agents': AgentsQuery.call(actor=self.request.user),
+            'agents': S.core.AgentsQuery(actor=self.request.user),
         }
 
     def _context_contacts(self):
         return {
-            'contacts': ContactsQuery.call(actor=self.request.user),
+            'contacts': S.core.ContactsQuery(actor=self.request.user),
         }
 
     def _context_properties(self):
         return {
-            'properties': PropertiesQuery.call(actor=self.request.user),
+            'properties': S.core.PropertiesQuery(actor=self.request.user),
         }
 
     def _context_provider_intentions(self):
         return {
-            'provider_intentions': ProviderIntentionsQuery.call(actor=self.request.user),
+            'provider_intentions': S.core.ProviderIntentionsQuery(actor=self.request.user),
         }
 
     def _context_provider_opportunities(self):
         return {
-            'provider_opportunities': DashboardProviderOpportunitiesQuery.call(actor=self.request.user),
+            'provider_opportunities': S.opportunities.DashboardProviderOpportunitiesQuery(actor=self.request.user),
         }
 
     def _context_provider_validations(self):
         return {
-            'provider_validations': DashboardProviderValidationsQuery.call(actor=self.request.user),
+            'provider_validations': S.opportunities.DashboardProviderValidationsQuery(actor=self.request.user),
         }
 
     def _context_marketing_packages(self):
         return {
-            'marketing_packages': DashboardMarketingPackagesQuery.call(actor=self.request.user),
-            'marketing_opportunities_without_packages': DashboardMarketingOpportunitiesWithoutPackagesQuery.call(actor=self.request.user),
+            'marketing_packages': S.opportunities.DashboardMarketingPackagesQuery(actor=self.request.user),
+            'marketing_opportunities_without_packages': S.opportunities.DashboardMarketingOpportunitiesWithoutPackagesQuery(actor=self.request.user),
         }
 
     def _context_seeker_intentions(self):
         return {
-            'seeker_intentions': SeekerIntentionsQuery.call(actor=self.request.user),
+            'seeker_intentions': S.core.SeekerIntentionsQuery(actor=self.request.user),
         }
 
     def _context_seeker_opportunities(self):
         return {
-            'seeker_opportunities': DashboardSeekerOpportunitiesQuery.call(actor=self.request.user),
+            'seeker_opportunities': S.opportunities.DashboardSeekerOpportunitiesQuery(actor=self.request.user),
         }
 
     def _context_operations(self):
         return {
-            'operations': DashboardOperationsQuery.call(actor=self.request.user),
+            'operations': S.opportunities.DashboardOperationsQuery(actor=self.request.user),
         }
 
     def _context_integration_tokkobroker(self):
         return {
             'integration_name': 'Tokkobroker',
-            'tokko_properties': TokkobrokerPropertiesQuery.call(actor=self.request.user),
+            'tokko_properties': S.core.TokkobrokerPropertiesQuery(actor=self.request.user),
         }
 
     def _context_integration_zonaprop(self):
@@ -337,7 +324,7 @@ class AgentCreateView(WorkflowFormView):
     success_message = 'Agent registered successfully.'
 
     def perform_action(self, form):
-        CreateAgentService.call(**form.cleaned_data)
+        S.core.CreateAgentService(**form.cleaned_data)
 
 
 class ContactCreateView(WorkflowFormView):
@@ -346,8 +333,8 @@ class ContactCreateView(WorkflowFormView):
 
     def perform_action(self, form):
         agent = form.cleaned_data.pop('agent')
-        contact = CreateContactService.call(**form.cleaned_data)
-        LinkContactAgentService.call(contact=contact, agent=agent)
+        contact = S.core.CreateContactService(**form.cleaned_data)
+        S.core.LinkContactAgentService(contact=contact, agent=agent)
 
 
 class PropertyCreateView(WorkflowFormView):
@@ -355,7 +342,7 @@ class PropertyCreateView(WorkflowFormView):
     success_message = 'Property registered successfully.'
 
     def perform_action(self, form):
-        CreatePropertyService.call(**form.cleaned_data)
+        S.core.CreatePropertyService(**form.cleaned_data)
 
 
 class ModelUpdateView(WorkflowFormView):
@@ -427,7 +414,7 @@ class ProviderIntentionCreateView(WorkflowFormView):
     success_message = 'Provider intention created.'
 
     def perform_action(self, form):
-        CreateSaleProviderIntentionService.call(**form.cleaned_data)
+        S.intentions.CreateSaleProviderIntentionService(**form.cleaned_data)
 
 
 class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
@@ -436,11 +423,11 @@ class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs['currency_queryset'] = CurrenciesQuery.call(actor=self.request.user)
+        kwargs['currency_queryset'] = S.core.CurrenciesQuery(actor=self.request.user)
         return kwargs
 
     def perform_action(self, form):
-        DeliverSaleValuationService.call(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.DeliverSaleValuationService(intention=self.get_intention(), **form.cleaned_data)
 
 
 class ProviderContractView(ProviderIntentionMixin, WorkflowFormView):
@@ -448,7 +435,7 @@ class ProviderContractView(ProviderIntentionMixin, WorkflowFormView):
     success_message = 'Contract negotiation started.'
 
     def perform_action(self, form):
-        StartSaleProviderContractNegotiationService.call(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.StartSaleProviderContractNegotiationService(intention=self.get_intention(), **form.cleaned_data)
 
 
 class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
@@ -457,8 +444,8 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs['currency_queryset'] = CurrenciesQuery.call(actor=self.request.user)
-        kwargs['tokkobroker_property_queryset'] = AvailableTokkobrokerPropertiesQuery.call(actor=self.request.user)
+        kwargs['currency_queryset'] = S.core.CurrenciesQuery(actor=self.request.user)
+        kwargs['tokkobroker_property_queryset'] = S.core.AvailableTokkobrokerPropertiesQuery(actor=self.request.user)
         return kwargs
 
     def perform_action(self, form):
@@ -473,7 +460,7 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
             }.items()
             if value not in (None, '')
         }
-        PromoteSaleProviderIntentionService.call(
+        S.intentions.PromoteSaleProviderIntentionService(
             intention=self.get_intention(),
             opportunity_notes=data.get('opportunity_notes') or None,
             marketing_package_data=marketing_payload or None,
@@ -486,7 +473,7 @@ class ProviderWithdrawView(ProviderIntentionMixin, WorkflowFormView):
     success_message = 'Provider intention withdrawn.'
 
     def perform_action(self, form):
-        WithdrawSaleProviderIntentionService.call(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.WithdrawSaleProviderIntentionService(intention=self.get_intention(), **form.cleaned_data)
 
 
 class SeekerIntentionCreateView(WorkflowFormView):
@@ -494,7 +481,7 @@ class SeekerIntentionCreateView(WorkflowFormView):
     success_message = 'Seeker intention registered.'
 
     def perform_action(self, form):
-        CreateSaleSeekerIntentionService.call(**form.cleaned_data)
+        S.intentions.CreateSaleSeekerIntentionService(**form.cleaned_data)
 
 
 class SeekerActivateView(SeekerIntentionMixin, WorkflowFormView):
@@ -502,7 +489,7 @@ class SeekerActivateView(SeekerIntentionMixin, WorkflowFormView):
     success_message = 'Seeker search activated.'
 
     def perform_action(self, form):
-        ActivateSaleSeekerIntentionService.call(intention=self.get_intention())
+        S.intentions.ActivateSaleSeekerIntentionService(intention=self.get_intention())
 
 
 class SeekerMandateView(SeekerIntentionMixin, WorkflowFormView):
@@ -510,7 +497,7 @@ class SeekerMandateView(SeekerIntentionMixin, WorkflowFormView):
     success_message = 'Seeker mandate captured.'
 
     def perform_action(self, form):
-        MandateSaleSeekerIntentionService.call(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.MandateSaleSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
 
 
 class SeekerAbandonView(SeekerIntentionMixin, WorkflowFormView):
@@ -518,7 +505,7 @@ class SeekerAbandonView(SeekerIntentionMixin, WorkflowFormView):
     success_message = 'Seeker intention abandoned.'
 
     def perform_action(self, form):
-        AbandonSaleSeekerIntentionService.call(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.AbandonSaleSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
 
 
 class SeekerOpportunityCreateView(SeekerIntentionMixin, WorkflowFormView):
@@ -526,7 +513,7 @@ class SeekerOpportunityCreateView(SeekerIntentionMixin, WorkflowFormView):
     success_message = 'Seeker opportunity created.'
 
     def perform_action(self, form):
-        CreateSeekerOpportunityService.call(intention=self.get_intention(), **form.cleaned_data)
+        S.opportunities.CreateSeekerOpportunityService(intention=self.get_intention(), **form.cleaned_data)
 
 
 class ProviderOpportunityMixin:
@@ -590,7 +577,7 @@ class OpportunityValidateView(ProviderOpportunityMixin, WorkflowFormView):
     success_message = 'Opportunity moved into validation.'
 
     def perform_action(self, form):
-        OpportunityValidateService.call(opportunity=self.get_opportunity())
+        S.opportunities.OpportunityValidateService(opportunity=self.get_opportunity())
 
 
 class ValidationPresentView(ValidationMixin, WorkflowFormView):
@@ -598,7 +585,7 @@ class ValidationPresentView(ValidationMixin, WorkflowFormView):
     success_message = 'Validation presented.'
 
     def perform_action(self, form):
-        ValidationPresentService.call(validation=self.get_validation(), reviewer=form.cleaned_data['reviewer'])
+        S.opportunities.ValidationPresentService(validation=self.get_validation(), reviewer=form.cleaned_data['reviewer'])
 
 
 class ValidationRejectView(ValidationMixin, WorkflowFormView):
@@ -606,7 +593,7 @@ class ValidationRejectView(ValidationMixin, WorkflowFormView):
     success_message = 'Validation sent back to preparation.'
 
     def perform_action(self, form):
-        ValidationRejectService.call(validation=self.get_validation(), notes=form.cleaned_data.get('notes'))
+        S.opportunities.ValidationRejectService(validation=self.get_validation(), notes=form.cleaned_data.get('notes'))
 
 
 class ValidationAcceptView(ValidationMixin, WorkflowFormView):
@@ -614,7 +601,7 @@ class ValidationAcceptView(ValidationMixin, WorkflowFormView):
     success_message = 'Validation accepted and opportunity published.'
 
     def perform_action(self, form):
-        ValidationAcceptService.call(validation=self.get_validation())
+        S.opportunities.ValidationAcceptService(validation=self.get_validation())
 
 
 class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
@@ -636,7 +623,7 @@ class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
         return kwargs
 
     def perform_action(self, form):
-        CreateValidationDocumentService.call(
+        S.opportunities.CreateValidationDocumentService(
             validation=self.get_validation(),
             document_type=form.cleaned_data['document_type'],
             name=form.cleaned_data.get('name') or None,
@@ -650,7 +637,7 @@ class ValidationDocumentReviewView(ValidationDocumentMixin, WorkflowFormView):
     success_message = 'Validation document reviewed.'
 
     def perform_action(self, form):
-        ReviewValidationDocumentService.call(
+        S.opportunities.ReviewValidationDocumentService(
             document=self.get_document(),
             action=form.cleaned_data['action'],
             reviewer=self.request.user,
@@ -664,7 +651,7 @@ class MarketingPackageCreateView(MarketingOpportunityMixin, WorkflowFormView):
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
 
     def perform_action(self, form):
-        MarketingPackageCreateService.call(opportunity=self.get_opportunity(), **form.cleaned_data)
+        S.opportunities.MarketingPackageCreateService(opportunity=self.get_opportunity(), **form.cleaned_data)
 
 
 class MarketingPackageUpdateView(MarketingPackageMixin, WorkflowFormView):
@@ -680,7 +667,7 @@ class MarketingPackageUpdateView(MarketingPackageMixin, WorkflowFormView):
         return initial
 
     def perform_action(self, form):
-        MarketingPackageUpdateService.call(package=self.get_package(), **form.cleaned_data)
+        S.opportunities.MarketingPackageUpdateService(package=self.get_package(), **form.cleaned_data)
 
 
 class MarketingPackageActionView(MarketingPackageMixin, WorkflowFormView):
@@ -719,7 +706,7 @@ class OperationCreateView(WorkflowFormView):
         return kwargs
 
     def perform_action(self, form):
-        CreateOperationService.call(**form.cleaned_data)
+        S.opportunities.CreateOperationService(**form.cleaned_data)
 
 
 class OperationMixin:
@@ -739,7 +726,7 @@ class OperationReinforceView(OperationMixin, WorkflowFormView):
     success_message = 'Operation reinforced.'
 
     def perform_action(self, form):
-        OperationReinforceService.call(operation=self.get_operation())
+        S.opportunities.OperationReinforceService(operation=self.get_operation())
 
 
 class OperationCloseView(OperationMixin, WorkflowFormView):
@@ -747,7 +734,7 @@ class OperationCloseView(OperationMixin, WorkflowFormView):
     success_message = 'Operation closed.'
 
     def perform_action(self, form):
-        OperationCloseService.call(operation=self.get_operation())
+        S.opportunities.OperationCloseService(operation=self.get_operation())
 
 
 class OperationLoseView(OperationMixin, WorkflowFormView):
@@ -755,7 +742,7 @@ class OperationLoseView(OperationMixin, WorkflowFormView):
     success_message = 'Operation marked as lost.'
 
     def perform_action(self, form):
-        OperationLoseService.call(operation=self.get_operation(), **form.cleaned_data)
+        S.opportunities.OperationLoseService(operation=self.get_operation(), **form.cleaned_data)
 
 
 class TokkoSyncRunView(LoginRequiredMixin, View):

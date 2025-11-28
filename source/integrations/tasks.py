@@ -18,7 +18,7 @@ from integrations.tokkobroker import (
     fetch_tokkobroker_properties,
 )
 from opportunities.models import MarketingPackage
-from opportunities.services.queries import MarketingPackageByIdQuery
+from utils.services import S
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +201,7 @@ def sync_marketing_package_publication_task(marketing_package_id: int) -> None:
     """Ensure Tokkobroker reflects the marketing package publication status."""
 
     try:
-        marketing_package = MarketingPackageByIdQuery.call(pk=marketing_package_id)
+        marketing_package = S.opportunities.MarketingPackageByIdQuery(pk=marketing_package_id)
     except MarketingPackage.DoesNotExist:
         logger.warning(
             "Marketing package %s not found while preparing Tokkobroker sync",

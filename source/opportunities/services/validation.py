@@ -6,7 +6,6 @@ from django_fsm import TransitionNotAllowed
 from opportunities.models import ProviderOpportunity, Validation
 
 from utils.services import BaseService
-from .opportunities import OpportunityPublishService
 
 
 class ValidationPresentService(BaseService):
@@ -53,5 +52,23 @@ class ValidationAcceptService(BaseService):
 
         opportunity = validation.opportunity
         if opportunity.state == ProviderOpportunity.State.VALIDATING:
-            OpportunityPublishService.call(opportunity=opportunity)
+            self.s.opportunities.OpportunityPublishService(opportunity=opportunity)
         return validation
+
+
+class ValidationEnsureService(BaseService):
+    """Ensure a Validation record exists for the given provider opportunity."""
+
+    atomic = False
+
+    def run(self, *, opportunity):
+        validation, _ = Validation.objects.get_or_create(opportunity=opportunity)
+        return validation
+
+
+__all__ = [
+    "ValidationPresentService",
+    "ValidationRejectService",
+    "ValidationAcceptService",
+    "ValidationEnsureService",
+]

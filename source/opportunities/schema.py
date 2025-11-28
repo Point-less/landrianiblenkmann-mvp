@@ -8,7 +8,7 @@ from strawberry import relay
 
 from opportunities.filters import ProviderOpportunityFilter, SeekerOpportunityFilter
 from opportunities.types import ProviderOpportunityType, SeekerOpportunityType
-from opportunities.services import ProviderOpportunitiesQuery, SeekerOpportunitiesQuery
+from utils.services import S
 
 
 def _resolve_provider_opportunities(
@@ -17,7 +17,7 @@ def _resolve_provider_opportunities(
     filters: ProviderOpportunityFilter | None,
 ) -> Iterable[ProviderOpportunityType]:
     request = info.context.request
-    return ProviderOpportunitiesQuery.call(actor=request.user)
+    return S.opportunities.ProviderOpportunitiesQuery(actor=request.user)
 
 
 def _resolve_seeker_opportunities(
@@ -26,7 +26,7 @@ def _resolve_seeker_opportunities(
     filters: SeekerOpportunityFilter | None,
 ) -> Iterable[SeekerOpportunityType]:
     request = info.context.request
-    return SeekerOpportunitiesQuery.call(actor=request.user)
+    return S.opportunities.SeekerOpportunitiesQuery(actor=request.user)
 
 
 @strawberry.type

@@ -13,10 +13,7 @@ from opportunities.models import (
     Validation,
     ValidationDocument,
 )
-from opportunities.services import (
-    AvailableProviderOpportunitiesForOperationsQuery,
-    AvailableSeekerOpportunitiesForOperationsQuery,
-)
+from utils.services import S
 
 
 class HTML5FormMixin:
@@ -64,12 +61,8 @@ class OperationForm(HTML5FormMixin, forms.ModelForm):
 
     def __init__(self, *args, actor=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["provider_opportunity"].queryset = (
-            AvailableProviderOpportunitiesForOperationsQuery.call(actor=actor)
-        )
-        self.fields["seeker_opportunity"].queryset = (
-            AvailableSeekerOpportunitiesForOperationsQuery.call(actor=actor)
-        )
+        self.fields["provider_opportunity"].queryset = S.opportunities.AvailableProviderOpportunitiesForOperationsQuery(actor=actor)
+        self.fields["seeker_opportunity"].queryset = S.opportunities.AvailableSeekerOpportunitiesForOperationsQuery(actor=actor)
         self.fields["currency"].queryset = Currency.objects.order_by("code")
 
 

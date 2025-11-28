@@ -10,6 +10,7 @@ from .opportunities import (  # noqa: F401
 )
 from .validation import (  # noqa: F401
     ValidationAcceptService,
+    ValidationEnsureService,
     ValidationPresentService,
     ValidationRejectService,
 )
@@ -55,6 +56,7 @@ __all__ = [
     "CreateSeekerOpportunityService",
     "ValidationPresentService",
     "ValidationRejectService",
+    "ValidationEnsureService",
     "ValidationAcceptService",
     "MarketingPackageActivateService",
     "MarketingPackageReleaseService",

@@ -9,6 +9,10 @@ from .registry import (
     iter_services,
     resolve_service,
 )
+from .proxy import service_proxy, ServiceProxy, for_actor as proxy_for_actor
+
+# Concise alias for the default proxy
+S = service_proxy
 
 __all__ = [
     'BaseService',
@@ -19,4 +23,8 @@ __all__ = [
     'resolve_service',
     'for_actor',
     'ServiceInvoker',
+    'service_proxy',
+    'ServiceProxy',
+    'proxy_for_actor',
+    'S',
 ]

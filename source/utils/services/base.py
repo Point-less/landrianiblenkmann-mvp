@@ -27,6 +27,7 @@ class BaseService:
 
     def __init__(self, *, actor=None):
         self.actor = actor
+        self._services_proxy: ServiceProxy | None = None
 
     def __call__(self, *args, **kwargs):
         call_actor = kwargs.pop("actor", None)
@@ -42,6 +43,20 @@ class BaseService:
 
     def run(self, *args, **kwargs):  # pragma: no cover - abstract
         raise NotImplementedError
+
+    @property
+    def services(self):
+        """Lazy service proxy bound to this service's actor."""
+
+        from utils.services.proxy import ServiceProxy  # inline import to avoid circular dependency
+
+        return ServiceProxy(actor=self.actor)
+
+    @property
+    def s(self):
+        """Alias for services (concise)."""
+
+        return self.services
 
     def _execute(self, *args, **kwargs):
         actor = kwargs.pop("actor", None)

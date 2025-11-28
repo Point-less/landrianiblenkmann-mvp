@@ -65,7 +65,7 @@
                             <span class="sr-only">Present validation</span>
                         </a>
                     {% endif %}
-                    {% if validation|can_transition:'accept' and validation.documents.filter(status='pending')|length == 0 and validation.documents.filter(status='rejected')|length == 0 %}
+                    {% if validation|can_transition:'accept' %}
                         <a class="icon-button" data-icon="✅" href="{% url 'validation-accept' validation.id %}?next={{ current_url|urlencode }}" title="Accept validation">
                             <span class="sr-only">Accept validation</span>
                         </a>

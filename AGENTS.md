@@ -2,6 +2,7 @@
 
 > [!IMPORTANT]
 > **Documentation Consistency**: This file must be kept in sync with the actual project structure. Every time any modification is made to the project architecture (new apps, services, URL patterns, models, or configuration changes), this document MUST be updated to reflect those changes.
+> **Execution Policy**: From the host, only `docker` (including `docker compose`) and `git` commands should be run. All other commands (tests, manage.py, tooling, scripts) must be executed inside the `frontend` container via `docker compose exec frontend ...`.
 
 ## Stack & Infrastructure
 
@@ -38,6 +39,7 @@ Shared domain models and dashboard views.
 - **Models**: `Agent`, `Contact`, `Property`, `Currency`, `ContactAgentRelationship`
 - **URLs** (`urls.py`): Dashboard views, health checks, entity CRUD (agents, contacts, properties), transition history
 - **Views** (`views.py`): Workflow dashboard, entity management forms, health/trigger endpoints
+- **Services** (`services/`): Command services plus query services (`services/queries.py`) for dashboard/form data (agents, contacts, properties, intentions, Tokkobroker props, currencies)
 - **Purpose**: Foundation entities used across the real estate workflow
 
 ### `integrations/`

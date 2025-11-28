@@ -10,6 +10,7 @@ from opportunities.models import (
     SeekerOpportunity,
     Validation,
 )
+from opportunities.services.queries import ProviderOpportunityByTokkobrokerPropertyQuery
 from intentions.models import SaleProviderIntention, SaleSeekerIntention
 
 from utils.services import BaseService
@@ -29,10 +30,9 @@ class CreateOpportunityService(BaseService):
     ) -> ProviderOpportunity:
         marketing_payload = dict(marketing_package_data or {})
 
-        if (
-            tokkobroker_property
-            and ProviderOpportunity.objects.filter(tokkobroker_property=tokkobroker_property).exists()
-        ):
+        if tokkobroker_property and ProviderOpportunityByTokkobrokerPropertyQuery.call(
+            tokkobroker_property=tokkobroker_property
+        ).exists():
             raise ValidationError("Tokkobroker property is already linked to another opportunity.")
 
         opportunity = ProviderOpportunity.objects.create(

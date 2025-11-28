@@ -27,6 +27,14 @@ from core.services import (
     CreateContactService,
     CreatePropertyService,
     LinkContactAgentService,
+    AgentsQuery,
+    ContactsQuery,
+    PropertiesQuery,
+    ProviderIntentionsQuery,
+    SeekerIntentionsQuery,
+    TokkobrokerPropertiesQuery,
+    AvailableTokkobrokerPropertiesQuery,
+    CurrenciesQuery,
 )
 from intentions.forms import (
     DeliverValuationForm,
@@ -79,6 +87,14 @@ from opportunities.services import (
     OperationCloseService,
     OperationLoseService,
     OperationReinforceService,
+    AvailableProviderOpportunitiesForOperationsQuery,
+    AvailableSeekerOpportunitiesForOperationsQuery,
+    DashboardProviderOpportunitiesQuery,
+    DashboardSeekerOpportunitiesQuery,
+    DashboardOperationsQuery,
+    DashboardProviderValidationsQuery,
+    DashboardMarketingPackagesQuery,
+    DashboardMarketingOpportunitiesWithoutPackagesQuery,
     OpportunityValidateService,
     ReviewValidationDocumentService,
     ValidationAcceptService,
@@ -197,97 +213,59 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
 
     def _context_agents(self):
         return {
-            'agents': Agent.objects.order_by('-created_at'),
+            'agents': AgentsQuery.call(actor=self.request.user),
         }
 
     def _context_contacts(self):
         return {
-            'contacts': Contact.objects.select_related().order_by('-created_at'),
+            'contacts': ContactsQuery.call(actor=self.request.user),
         }
 
     def _context_properties(self):
         return {
-            'properties': Property.objects.order_by('-created_at'),
+            'properties': PropertiesQuery.call(actor=self.request.user),
         }
 
     def _context_provider_intentions(self):
         return {
-            'provider_intentions': (
-                SaleProviderIntention.objects.select_related('owner', 'agent', 'property')
-                .prefetch_related('state_transitions')
-                .order_by('-created_at')
-            ),
+            'provider_intentions': ProviderIntentionsQuery.call(actor=self.request.user),
         }
 
     def _context_provider_opportunities(self):
         return {
-            'provider_opportunities': (
-                ProviderOpportunity.objects.select_related('source_intention__property', 'source_intention__owner')
-                .prefetch_related('state_transitions', 'validations')
-                .order_by('-created_at')
-            ),
+            'provider_opportunities': DashboardProviderOpportunitiesQuery.call(actor=self.request.user),
         }
 
     def _context_provider_validations(self):
         return {
-            'provider_validations': (
-                Validation.objects.select_related('opportunity__source_intention__property')
-                .prefetch_related('documents', 'state_transitions')
-                .order_by('-created_at')
-            ),
+            'provider_validations': DashboardProviderValidationsQuery.call(actor=self.request.user),
         }
 
     def _context_marketing_packages(self):
-        from opportunities.models import MarketingPackage
-
         return {
-            'marketing_packages': (
-                MarketingPackage.objects.select_related('opportunity__source_intention__property', 'opportunity__source_intention__owner')
-                .prefetch_related('state_transitions')
-                .filter(opportunity__state=ProviderOpportunity.State.MARKETING)
-                .order_by('-updated_at')
-            ),
-            'marketing_opportunities_without_packages': (
-                ProviderOpportunity.objects.filter(state=ProviderOpportunity.State.MARKETING, marketing_packages__isnull=True)
-                .select_related('source_intention__property')
-                .prefetch_related('state_transitions')
-            ),
+            'marketing_packages': DashboardMarketingPackagesQuery.call(actor=self.request.user),
+            'marketing_opportunities_without_packages': DashboardMarketingOpportunitiesWithoutPackagesQuery.call(actor=self.request.user),
         }
 
     def _context_seeker_intentions(self):
         return {
-            'seeker_intentions': (
-                SaleSeekerIntention.objects.select_related('contact', 'agent')
-                .prefetch_related('state_transitions')
-                .order_by('-created_at')
-            ),
+            'seeker_intentions': SeekerIntentionsQuery.call(actor=self.request.user),
         }
 
     def _context_seeker_opportunities(self):
         return {
-            'seeker_opportunities': (
-                SeekerOpportunity.objects.select_related('source_intention__contact', 'source_intention__agent')
-                .prefetch_related('state_transitions')
-                .order_by('-created_at')
-            ),
+            'seeker_opportunities': DashboardSeekerOpportunitiesQuery.call(actor=self.request.user),
         }
 
     def _context_operations(self):
         return {
-            'operations': (
-                Operation.objects.select_related(
-                    'provider_opportunity__source_intention__owner',
-                    'seeker_opportunity__source_intention__contact',
-                )
-                .prefetch_related('state_transitions')
-                .order_by('-created_at')
-            ),
+            'operations': DashboardOperationsQuery.call(actor=self.request.user),
         }
 
     def _context_integration_tokkobroker(self):
         return {
             'integration_name': 'Tokkobroker',
-            'tokko_properties': TokkobrokerProperty.objects.order_by('-created_at')[:20],
+            'tokko_properties': TokkobrokerPropertiesQuery.call(actor=self.request.user),
         }
 
     def _context_integration_zonaprop(self):
@@ -458,9 +436,7 @@ class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        from core.models import Currency
-
-        kwargs['currency_queryset'] = Currency.objects.order_by('code')
+        kwargs['currency_queryset'] = CurrenciesQuery.call(actor=self.request.user)
         return kwargs
 
     def perform_action(self, form):
@@ -481,12 +457,8 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        from core.models import Currency
-
-        kwargs['currency_queryset'] = Currency.objects.order_by('code')
-        kwargs['tokkobroker_property_queryset'] = TokkobrokerProperty.objects.filter(
-            provider_opportunity__isnull=True
-        ).order_by('-created_at')
+        kwargs['currency_queryset'] = CurrenciesQuery.call(actor=self.request.user)
+        kwargs['tokkobroker_property_queryset'] = AvailableTokkobrokerPropertiesQuery.call(actor=self.request.user)
         return kwargs
 
     def perform_action(self, form):

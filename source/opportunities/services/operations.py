@@ -6,6 +6,10 @@ from django_fsm import TransitionNotAllowed
 from core.models import Currency
 from opportunities.models import MarketingPackage, Operation, ProviderOpportunity, SeekerOpportunity
 from opportunities.services.marketing import MarketingPackagePauseService
+from opportunities.services.queries import (
+    ActiveOperationsBetweenOpportunitiesQuery,
+    SeekerActiveOperationsQuery,
+)
 
 from utils.services import BaseService
 
@@ -38,10 +42,9 @@ class CreateOperationService(BaseService):
                 "seeker_opportunity": "Seeker opportunity must be matching or negotiating.",
             })
 
-        if Operation.objects.filter(
+        if ActiveOperationsBetweenOpportunitiesQuery.call(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
-            state__in=self.active_states,
         ).exists():
             raise ValidationError("An active operation already exists for this pair.")
 
@@ -114,8 +117,7 @@ class OperationLoseService(BaseService):
         operation.save(update_fields=["state", "occurred_at", "lost_reason", "updated_at"])
 
         seeker = operation.seeker_opportunity
-        active_states = (Operation.State.OFFERED, Operation.State.REINFORCED)
-        has_other_active = seeker.operations.exclude(pk=operation.pk).filter(state__in=active_states).exists()
+        has_other_active = SeekerActiveOperationsQuery.call(seeker_opportunity=seeker).exclude(pk=operation.pk).exists()
 
         if seeker.state == SeekerOpportunity.State.NEGOTIATING and not has_other_active:
             try:

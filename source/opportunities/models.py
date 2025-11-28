@@ -472,7 +472,7 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
 
     @transition(field="state", source=State.PUBLISHED, target=State.PAUSED)
     def pause(self) -> "MarketingPackage":
-        if not self.opportunity.validations.filter(state=Validation.State.ACCEPTED).exists():
+        if not self.opportunity.validations.filter(state=Validation.State.APPROVED).exists():
             raise ValidationError("Cannot reserve marketing package before validation is accepted.")
         self.state = MarketingPackage.State.PAUSED
         self.save(update_fields=["state", "updated_at"])

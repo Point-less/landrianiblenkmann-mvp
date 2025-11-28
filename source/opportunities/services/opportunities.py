@@ -62,9 +62,6 @@ class OpportunityPublishService(BaseService):
             raise ValidationError(str(exc)) from exc
 
         opportunity.save(update_fields=["state", "updated_at"])
-        latest_package = opportunity.marketing_packages.order_by("-created_at").first()
-        if latest_package and latest_package.state == MarketingPackage.State.PREPARING:
-            self.s.opportunities.MarketingPackageActivateService(package=latest_package)
         return opportunity
 
 

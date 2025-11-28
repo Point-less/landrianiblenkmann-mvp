@@ -624,7 +624,7 @@ class ValidationPresentView(ValidationMixin, WorkflowFormView):
     submit_label = 'Present'
 
     def perform_action(self, form):
-        S.opportunities.ValidationPresentService(validation=self.get_validation(), reviewer=form.cleaned_data['reviewer'])
+        S.opportunities.ValidationPresentService(validation=self.get_validation())
 
 
 class ValidationRejectView(ValidationMixin, WorkflowFormView):

@@ -34,9 +34,6 @@
                                 <strong>{{ requirement.label }}</strong>
                                 {% if requirement.document %}
                                     <span class="pill status-{{ requirement.document.status }}">{{ requirement.document.get_status_display }}</span>
-                                    {% if validation.state == 'presented' %}
-                                        <a href="{% url 'validation-document-review' requirement.document.id %}?next={{ current_url|urlencode }}">Review</a>
-                                    {% endif %}
                                 {% else %}
                                     <span class="pill status-missing">Missing</span>
                                 {% endif %}
@@ -47,9 +44,6 @@
                             <li>
                                     {{ doc.document_type.label }}
                                     <span class="pill status-{{ doc.status }}">{{ doc.get_status_display }}</span>
-                                    {% if validation.state == 'presented' %}
-                                        <a href="{% url 'validation-document-review' doc.id %}?next={{ current_url|urlencode }}">Review</a>
-                                    {% endif %}
                                 </li>
                             {% endfor %}
                         {% endif %}
@@ -71,14 +65,14 @@
                             <span class="sr-only">Present validation</span>
                         </a>
                     {% endif %}
-                    {% if validation|can_transition:'accept' %}
+                    {% if validation|can_transition:'accept' and validation.documents.filter(status='pending')|length == 0 and validation.documents.filter(status='rejected')|length == 0 %}
                         <a class="icon-button" data-icon="✅" href="{% url 'validation-accept' validation.id %}?next={{ current_url|urlencode }}" title="Accept validation">
                             <span class="sr-only">Accept validation</span>
                         </a>
                     {% endif %}
                     {% if validation|can_transition:'revoke' %}
-                        <a class="icon-button" data-icon="↺" data-variant="warning" href="{% url 'validation-reject' validation.id %}?next={{ current_url|urlencode }}" title="Revoke to preparing">
-                            <span class="sr-only">Revoke validation to preparing</span>
+                        <a class="icon-button" data-icon="↺" data-variant="warning" href="{% url 'validation-reject' validation.id %}?next={{ current_url|urlencode }}" title="Revoke">
+                            <span class="sr-only">Revoke validation</span>
                         </a>
                     {% endif %}
                 </td>

@@ -37,7 +37,7 @@ class HTML5FormMixin:
 
 
 class ValidationPresentForm(HTML5FormMixin, forms.Form):
-    reviewer = forms.ModelChoiceField(queryset=Agent.objects.all())
+    pass
 
 
 class ValidationRejectForm(HTML5FormMixin, forms.Form):

@@ -11,10 +11,10 @@ from utils.services import BaseService
 class ValidationPresentService(BaseService):
     """Mark a validation as presented."""
 
-    def run(self, *, validation: Validation, reviewer) -> Validation:
+    def run(self, *, validation: Validation) -> Validation:
         validation.ensure_required_documents_uploaded()
         try:
-            validation.present(reviewer=reviewer)
+            validation.present(reviewer=None)
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
 

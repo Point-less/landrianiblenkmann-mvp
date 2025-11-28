@@ -11,7 +11,7 @@ from django.db import models
 from django.utils import timezone
 from django_fsm import FSMField, transition
 
-from core.models import Agent, Currency
+from core.models import Currency
 from integrations.models import TokkobrokerProperty
 from utils.mixins import FSMTrackingMixin, TimeStampedMixin
 
@@ -328,7 +328,7 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
         return self.state == self.State.PRESENTED
 
     @transition(field="state", source=State.PREPARING, target=State.PRESENTED)
-    def present(self, reviewer: Agent) -> None:  # noqa: ARG002 - retained for API compatibility
+    def present(self) -> None:
         self.presented_at = timezone.now()
 
     @transition(field="state", source=State.PRESENTED, target=State.PREPARING)

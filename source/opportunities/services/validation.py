@@ -14,7 +14,7 @@ class ValidationPresentService(BaseService):
     def run(self, *, validation: Validation) -> Validation:
         validation.ensure_required_documents_uploaded()
         try:
-            validation.present(reviewer=None)
+            validation.present()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
 

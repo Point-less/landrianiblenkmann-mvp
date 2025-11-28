@@ -34,29 +34,21 @@
                                 <strong>{{ requirement.label }}</strong>
                                 {% if requirement.document %}
                                     <span class="pill status-{{ requirement.document.status }}">{{ requirement.document.get_status_display }}</span>
-                                    <a href="{{ requirement.document.document.url }}" download>Download</a>
                                     {% if validation.state == 'presented' %}
                                         <a href="{% url 'validation-document-review' requirement.document.id %}?next={{ current_url|urlencode }}">Review</a>
                                     {% endif %}
                                 {% else %}
                                     <span class="pill status-missing">Missing</span>
                                 {% endif %}
-                                {% if validation.state == 'preparing' or validation.state == 'presented' %}
-                                    <a href="{% url 'validation-document-upload' validation.id %}?document_type={{ requirement.code }}&next={{ current_url|urlencode }}">Upload</a>
-                                {% endif %}
                             </li>
                         {% endfor %}
                         {% if validation.additional_documents %}
-                            {% for doc in validation.additional_documents %}
-                                <li>
-                                    {{ doc.name }}
+                        {% for doc in validation.additional_documents %}
+                            <li>
+                                    {{ doc.document_type.label }}
                                     <span class="pill status-{{ doc.status }}">{{ doc.get_status_display }}</span>
-                                    <a href="{{ doc.document.url }}" download>Download</a>
                                     {% if validation.state == 'presented' %}
                                         <a href="{% url 'validation-document-review' doc.id %}?next={{ current_url|urlencode }}">Review</a>
-                                    {% endif %}
-                                    {% if validation.state == 'preparing' or validation.state == 'presented' %}
-                                        <a href="{% url 'validation-document-upload' validation.id %}?document_type={{ doc.document_type }}&next={{ current_url|urlencode }}">Replace</a>
                                     {% endif %}
                                 </li>
                             {% endfor %}
@@ -67,23 +59,14 @@
                     <span class="pill">{{ validation.get_state_display }}</span>
                 </td>
                 <td class="latest-activity">
-                    <div class="transition-text">
-                        {% with latest=validation.state_transitions.all|first %}
-                            {% if latest %}
-                                <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
-                                <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
-                            {% else %}
-                                <span>No transitions yet.</span>
-                            {% endif %}
-                        {% endwith %}
-                    </div>
-                    <a class="history-link" href="{% url 'transition-history' 'opportunities' 'validation' validation.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
+                    {% url 'transition-history' 'opportunities' 'validation' validation.id as history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=validation.state_transitions.all history_url=history_url %}
                 </td>
                 <td class="actions-column">
                     <a class="icon-button" data-icon="🔍" href="{% url 'validation-detail' validation.id %}?next={{ current_url|urlencode }}" title="View validation detail">
                         <span class="sr-only">View details</span>
                     </a>
-                    {% if validation|can_transition:'present' %}
+                    {% if validation|can_transition:'present' and validation.missing_required_documents|length == 0 %}
                         <a class="icon-button" data-icon="📤" href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}" title="Present validation">
                             <span class="sr-only">Present validation</span>
                         </a>

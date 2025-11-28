@@ -60,6 +60,7 @@ from opportunities.models import (
     SeekerOpportunity,
     Validation,
     ValidationDocument,
+    ValidationDocumentType,
 )
 from opportunities.services import (  # noqa: F401  # retained for registry discovery
     MarketingPackageActivateService,
@@ -80,7 +81,6 @@ from opportunities.services import (  # noqa: F401  # retained for registry disc
     DashboardProviderValidationsQuery,
     DashboardMarketingPackagesQuery,
     DashboardMarketingOpportunitiesWithoutPackagesQuery,
-    OpportunityValidateService,
     ReviewValidationDocumentService,
     ValidationAcceptService,
     ValidationPresentService,
@@ -594,6 +594,14 @@ class ValidationDetailView(ValidationMixin, TemplateView):
         context['additional_documents'] = validation.additional_documents()
         context['summary'] = validation.document_status_summary()
         context.setdefault('current_url', self.request.get_full_path())
+        context.setdefault('nav_groups', DashboardSectionView.NAV_GROUPS)
+        context.setdefault('active_section', 'provider-validations')
+        context.setdefault('page_new_url', None)
+        next_url = self.request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={self.request.get_host()}):
+            context['back_url'] = next_url
+        else:
+            context['back_url'] = reverse('workflow-dashboard-section', kwargs={'section': 'provider-validations'})
         return context
 
 
@@ -607,14 +615,6 @@ class ValidationDocumentMixin:
         context = super().get_context_data(**kwargs)
         context['document'] = self.get_document()
         return context
-
-
-class OpportunityValidateView(ProviderOpportunityMixin, WorkflowFormView):
-    form_class = ConfirmationForm
-    success_message = 'Opportunity moved into validation.'
-
-    def perform_action(self, form):
-        S.opportunities.OpportunityValidateService(opportunity=self.get_opportunity())
 
 
 class ValidationPresentView(ValidationMixin, WorkflowFormView):
@@ -657,22 +657,24 @@ class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
     def get_initial(self):
         initial = super().get_initial()
         requested_type = self.request.GET.get('document_type')
-        valid_codes = {code for code, _ in Validation.required_document_choices()}
-        if requested_type in valid_codes:
-            initial['document_type'] = requested_type
+        if requested_type:
+            doc_type = ValidationDocumentType.objects.filter(code=requested_type).first()
+            if doc_type:
+                initial['document_type'] = doc_type
         return initial
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         doc_type = self.request.GET.get('document_type') or self.request.POST.get('document_type')
         kwargs['forced_document_type'] = doc_type
+        kwargs['validation'] = self.get_validation()
         return kwargs
 
     def perform_action(self, form):
         S.opportunities.CreateValidationDocumentService(
             validation=self.get_validation(),
             document_type=form.cleaned_data['document_type'],
-            name=form.cleaned_data.get('name') or None,
+            observations=form.cleaned_data.get('observations') or None,
             document=form.cleaned_data['document'],
             uploaded_by=self.request.user if self.request.user.is_authenticated else None,
         )

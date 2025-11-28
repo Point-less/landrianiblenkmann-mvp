@@ -1,0 +1,27 @@
+{% comment %}
+Reusable snippet to show the latest FSM transition with a history link.
+Inputs:
+- transitions: queryset or list ordered newest-first
+- history_url: optional link to full transition history
+{% endcomment %}
+<div class="transition-text">
+    {% with latest=transitions|first %}
+        {% if latest %}
+            <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+            <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+        {% else %}
+            <span>No transitions yet.</span>
+        {% endif %}
+    {% endwith %}
+</div>
+{% if history_url %}
+    {% with next_val=next_url|default:current_url %}
+        {% if next_val %}
+            {% with encoded_next=next_val|urlencode %}
+                <a class="history-link" href="{{ history_url }}?next={{ encoded_next }}" title="View history">↺</a>
+            {% endwith %}
+        {% else %}
+            <a class="history-link" href="{{ history_url }}" title="View history">↺</a>
+        {% endif %}
+    {% endwith %}
+{% endif %}

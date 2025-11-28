@@ -4,6 +4,9 @@
 <div class="page-header">
     <h2>Validation Detail</h2>
     <div class="table-subtext">Property: {{ validation.opportunity.source_intention.property }} · Owner: {{ validation.opportunity.source_intention.owner }}</div>
+    <div style="margin-left:auto;">
+        <a class="btn" href="{{ back_url }}">← Back to validations</a>
+    </div>
 </div>
 
 <div class="card">
@@ -19,56 +22,58 @@
 </div>
 
 <div class="card">
-    <h3 style="margin-top:0;">Required documents</h3>
-    <ul class="document-list">
+    <div class="table-header">
+        <h3 style="margin:0;">Required documents</h3>
+    </div>
+    <table>
+        <tr><th>Type</th><th>File</th><th>State</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for requirement in required_documents %}
-            <li>
-                <strong>{{ requirement.label }}</strong>
-                {% if requirement.document %}
-                    <span class="pill status-{{ requirement.document.status }}">{{ requirement.document.get_status_display }}</span>
-                    <a href="{{ requirement.document.document.url }}" download>Download</a>
-                    {% if validation.state == 'presented' %}
-                        <a href="{% url 'validation-document-review' requirement.document.id %}?next={{ current_url|urlencode }}">Review</a>
+            <tr>
+                <td>{{ requirement.label }}</td>
+                <td>
+                    {% if requirement.document %}
+                        <span class="pill">File uploaded</span>
+                    {% else %}
+                        <span class="pill status-missing">No file</span>
                     {% endif %}
-                    {% if requirement.document.reviewer_comment %}
-                        <small class="table-subtext">Comment: {{ requirement.document.reviewer_comment }}</small>
+                </td>
+                <td>
+                    <span class="pill status-{{ requirement.status }}">{{ requirement.status|capfirst }}</span>
+                    {% if requirement.document and requirement.document.reviewer_comment %}
+                        <div class="table-subtext">Comment: {{ requirement.document.reviewer_comment }}</div>
                     {% endif %}
-                {% else %}
-                    <span class="pill status-missing">Missing</span>
-                {% endif %}
-                {% if validation.state == 'preparing' or validation.state == 'presented' %}
-                    <a href="{% url 'validation-document-upload' validation.id %}?document_type={{ requirement.code }}&next={{ current_url|urlencode }}">
-                        {% if requirement.document %}Replace{% else %}Upload{% endif %}
-                    </a>
-                {% endif %}
-            </li>
+                    {% if requirement.document and requirement.document.observations %}
+                        <div class="table-subtext">Observations: {{ requirement.document.observations }}</div>
+                    {% endif %}
+                </td>
+                <td class="latest-activity">
+                    {% if requirement.document %}
+                        {% url 'transition-history' 'opportunities' 'validationdocument' requirement.document.id as doc_history_url %}
+                        {% include "workflow/partials/latest_transition.html" with transitions=requirement.document.state_transitions.all history_url=doc_history_url %}
+                    {% else %}
+                        <span class="muted">No transitions yet.</span>
+                    {% endif %}
+                </td>
+                <td class="actions-column">
+                    {% if requirement.document %}
+                        <a class="icon-button" data-icon="⬇" href="{{ requirement.document.document.url }}" download title="Download">
+                            <span class="sr-only">Download</span>
+                        </a>
+                        {% if validation.state == 'presented' %}
+                            <a class="icon-button" data-icon="✅" href="{% url 'validation-document-review' requirement.document.id %}?next={{ current_url|urlencode }}" title="Review">
+                                <span class="sr-only">Review</span>
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                    {% if validation.state == 'preparing' %}
+                        <a class="icon-button" data-icon="📤" href="{% url 'validation-document-upload' validation.id %}?document_type={{ requirement.code }}&next={{ current_url|urlencode }}" title="{% if requirement.document %}Replace document{% else %}Upload document{% endif %}">
+                            <span class="sr-only">{% if requirement.document %}Replace{% else %}Upload{% endif %}</span>
+                        </a>
+                    {% endif %}
+                </td>
+            </tr>
         {% endfor %}
-    </ul>
+    </table>
 </div>
 
-<div class="card">
-    <h3 style="margin-top:0;">Additional documents</h3>
-    {% if additional_documents %}
-        <ul class="document-list">
-            {% for doc in additional_documents %}
-                <li>
-                    {{ doc.name }}
-                    <span class="pill status-{{ doc.status }}">{{ doc.get_status_display }}</span>
-                    <a href="{{ doc.document.url }}" download>Download</a>
-                    {% if validation.state == 'presented' %}
-                        <a href="{% url 'validation-document-review' doc.id %}?next={{ current_url|urlencode }}">Review</a>
-                    {% endif %}
-                    {% if doc.reviewer_comment %}
-                        <small class="table-subtext">Comment: {{ doc.reviewer_comment }}</small>
-                    {% endif %}
-                    {% if validation.state == 'preparing' or validation.state == 'presented' %}
-                        <a href="{% url 'validation-document-upload' validation.id %}?document_type={{ doc.document_type }}&next={{ current_url|urlencode }}">Replace</a>
-                    {% endif %}
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <div class="table-subtext">No additional documents uploaded.</div>
-    {% endif %}
-</div>
 {% endblock %}

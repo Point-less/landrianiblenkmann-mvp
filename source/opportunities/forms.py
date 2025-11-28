@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django import forms
+from django.db import models
 
 from core.models import Agent, Currency
 from opportunities.models import (
@@ -12,6 +13,7 @@ from opportunities.models import (
     SeekerOpportunity,
     Validation,
     ValidationDocument,
+    ValidationDocumentType,
 )
 from utils.services import S
 
@@ -71,21 +73,40 @@ class OperationLoseForm(HTML5FormMixin, forms.Form):
 
 
 class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
-    document_type = forms.ChoiceField(choices=[], widget=forms.Select())
+    document_type = forms.ModelChoiceField(queryset=ValidationDocumentType.objects.none(), widget=forms.Select())
 
     class Meta:
         model = ValidationDocument
-        fields = ["document_type", "name", "document"]
+        fields = ["document_type", "observations", "document"]
+        widgets = {
+            "observations": forms.Textarea(attrs={'rows': 2}),
+        }
 
-    def __init__(self, *args, forced_document_type: str | None = None, **kwargs):
+    def __init__(self, *args, forced_document_type: str | None = None, validation=None, **kwargs):
         super().__init__(*args, **kwargs)
-        choices = Validation.required_document_choices(include_optional=True)
-        self.fields["document_type"].choices = choices
-        self.fields["name"].required = False
+        self.fields["observations"].required = False
+        op_type = validation.opportunity.source_intention.operation_type if validation else None
+        required_qs = validation.required_document_types() if validation else ValidationDocumentType.objects.filter(required=True)
+        optional_qs = ValidationDocumentType.objects.filter(required=False)
+        if op_type:
+            optional_qs = optional_qs.filter(models.Q(operation_type__isnull=True) | models.Q(operation_type=op_type))
+            required_qs = required_qs.filter(models.Q(operation_type__isnull=True) | models.Q(operation_type=op_type))
+        allowed_qs = (required_qs | optional_qs).distinct()
+        self.fields["document_type"].queryset = allowed_qs
         if forced_document_type:
-            self.fields["document_type"].initial = forced_document_type
-            self.fields["document_type"].widget = forms.HiddenInput()
-            self.fields["document_type"].choices = [(forced_document_type, forced_document_type)]
+            forced_obj = None
+            if isinstance(forced_document_type, ValidationDocumentType):
+                forced_obj = forced_document_type
+            else:
+                lookups = models.Q(code=forced_document_type)
+                # Only attempt PK lookup when the value looks numeric to avoid ValueError.
+                if str(forced_document_type).isdigit():
+                    lookups |= models.Q(pk=forced_document_type)
+                forced_obj = allowed_qs.filter(lookups).first()
+            if forced_obj:
+                self.fields["document_type"].initial = forced_obj
+                self.fields["document_type"].widget = forms.HiddenInput()
+                self.fields["document_type"].queryset = ValidationDocumentType.objects.filter(pk=forced_obj.pk)
 
 
 class ValidationDocumentReviewForm(HTML5FormMixin, forms.Form):

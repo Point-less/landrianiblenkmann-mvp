@@ -2,7 +2,7 @@ from pathlib import Path
 
 from django.core.exceptions import ValidationError
 
-from opportunities.models import Validation, ValidationDocument
+from opportunities.models import Validation, ValidationDocument, ValidationDocumentType
 from utils.services import BaseService
 
 
@@ -14,29 +14,37 @@ class CreateValidationDocumentService(BaseService):
         self,
         *,
         validation: Validation,
-        document_type: str,
+        document_type,
         document,
         uploaded_by=None,
-        name: str | None = None,
+        observations: str | None = None,
     ) -> ValidationDocument:
-        if validation.state not in {Validation.State.PREPARING, Validation.State.PRESENTED}:
+        if validation.state != Validation.State.PREPARING:
             raise ValidationError({
-                "validation": "Documents can only be uploaded while the validation is preparing or presented."
+                "validation": "Documents can only be uploaded while the validation is preparing."
             })
         if not document:
             raise ValidationError({"document": "Please attach a document."})
-        if document_type not in ValidationDocument.DocumentType.values:
-            raise ValidationError({"document_type": "Invalid document type."})
+        if isinstance(document_type, ValidationDocumentType):
+            doc_type = document_type
+        else:
+            try:
+                doc_type = ValidationDocumentType.objects.get(code=document_type)
+            except ValidationDocumentType.DoesNotExist:
+                raise ValidationError({"document_type": "Invalid document type."})
+        # Enforce operation type compatibility
+        op_type = validation.opportunity.source_intention.operation_type
+        if doc_type.operation_type_id and doc_type.operation_type_id != op_type.id:
+            raise ValidationError({"document_type": "Document type not allowed for this operation type."})
         suffix = Path(document.name or "").suffix.lower()
         if suffix not in ALLOWED_EXTENSIONS:
             allowed_display = ", ".join(ext.upper().lstrip(".") for ext in sorted(ALLOWED_EXTENSIONS))
             raise ValidationError({"document": f"Formato inválido. Usa archivos {allowed_display}."})
 
-        label_map = dict(ValidationDocument.DocumentType.choices)
         return ValidationDocument.objects.create(
             validation=validation,
-            document_type=document_type,
-            name=name or label_map.get(document_type, document_type.title()),
+            document_type=doc_type,
+            observations=observations or "",
             document=document,
             uploaded_by=uploaded_by,
         )

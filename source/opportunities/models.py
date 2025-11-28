@@ -15,10 +15,27 @@ from core.models import Agent, Currency
 from integrations.models import TokkobrokerProperty
 from utils.mixins import FSMTrackingMixin, TimeStampedMixin
 
+OPERATION_STATE_CHOICES = (
+    ("offered", "Offered"),
+    ("reinforced", "Reinforced"),
+    ("closed", "Closed"),
+    ("lost", "Lost"),
+)
+
+
+class OperationType(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    label = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ("code",)
+
+    def __str__(self) -> str:
+        return self.label
+
 
 class ProviderOpportunity(TimeStampedMixin, FSMTrackingMixin):
     class State(models.TextChoices):
-        CAPTURING = "capturing", "Capturing"
         VALIDATING = "validating", "Validating"
         MARKETING = "marketing", "Marketing"
         CLOSED = "closed", "Closed"
@@ -47,7 +64,7 @@ class ProviderOpportunity(TimeStampedMixin, FSMTrackingMixin):
     state = FSMField(
         max_length=20,
         choices=State.choices,
-        default=State.CAPTURING,
+        default=State.VALIDATING,
         protected=False,
     )
     notes = models.TextField(blank=True)
@@ -71,10 +88,6 @@ class ProviderOpportunity(TimeStampedMixin, FSMTrackingMixin):
     @builtin_property
     def owner(self):
         return self.source_intention.owner
-
-    @transition(field="state", source=State.CAPTURING, target=State.VALIDATING)
-    def start_validation(self) -> None:
-        """Move the opportunity into the validating stage."""
 
     @transition(field="state", source=State.VALIDATING, target=State.MARKETING)
     def start_marketing(self) -> None:
@@ -154,18 +167,31 @@ class SeekerOpportunity(TimeStampedMixin, FSMTrackingMixin):
         """Return the seeker to matching after a negotiation that did not close."""
 
 
+class ValidationDocumentType(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    label = models.CharField(max_length=150)
+    required = models.BooleanField(default=False)
+    operation_type = models.ForeignKey(
+        "OperationType",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="document_types",
+        help_text="Restrict this document requirement to a given operation type; leave blank to apply to all.",
+    )
+
+    class Meta:
+        ordering = ("code",)
+
+    def __str__(self) -> str:
+        return self.label
+
+
 class Validation(TimeStampedMixin, FSMTrackingMixin):
     class State(models.TextChoices):
         PREPARING = "preparing", "Preparing"
         PRESENTED = "presented", "Presented"
         ACCEPTED = "accepted", "Accepted"
-
-    REQUIRED_DOCUMENT_CODES: tuple[str, ...] = (
-        "owner_id",
-        "deed",
-        "sale_authorization",
-        "domain_report",
-    )
 
     opportunity = models.ForeignKey(
         ProviderOpportunity,
@@ -190,52 +216,51 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
     def __str__(self) -> str:
         return f"Validation for {self.opportunity}"
 
+    def required_document_types(self) -> models.QuerySet["ValidationDocumentType"]:
+        qs = ValidationDocumentType.objects.filter(required=True)
+        op_type = self.opportunity.source_intention.operation_type
+        return qs.filter(models.Q(operation_type__isnull=True) | models.Q(operation_type=op_type))
+
     @classmethod
     def required_document_choices(cls, include_optional: bool = True) -> list[tuple[str, str]]:
-        """Return the configured required documents with human labels."""
-
-        label_map = dict(ValidationDocument.DocumentType.choices)
-        choices = [(code, label_map.get(code, code.replace("_", " ").title())) for code in cls.REQUIRED_DOCUMENT_CODES]
+        qs = ValidationDocumentType.objects.filter(required=True)
+        choices = [(dt.code, dt.label) for dt in qs]
         if include_optional:
-            choices.append(
-                (
-                    ValidationDocument.DocumentType.OTHER,
-                    label_map.get(ValidationDocument.DocumentType.OTHER, "Other"),
-                )
-            )
+            for dt in ValidationDocumentType.objects.filter(required=False):
+                choices.append((dt.code, dt.label))
         return choices
 
     def _documents_by_type(self) -> dict[str, ValidationDocument]:
         docs = {}
-        for document in self.documents.all():
-            docs.setdefault(document.document_type, document)
+        for document in self.documents.select_related("document_type"):
+            docs.setdefault(document.document_type.code, document)
         return docs
 
     def document_status_summary(self) -> dict[str, int]:
         """Aggregate status counts for required documents plus additional count."""
 
+        required_types = list(self.required_document_types())
         status_counts = Counter(item["status"] for item in self.required_documents_status())
         return {
-            "required_total": len(self.REQUIRED_DOCUMENT_CODES),
+            "required_total": len(required_types),
             "accepted": status_counts.get(ValidationDocument.Status.ACCEPTED, 0),
             "pending": status_counts.get(ValidationDocument.Status.PENDING, 0),
             "rejected": status_counts.get(ValidationDocument.Status.REJECTED, 0),
             "missing": status_counts.get("missing", 0),
-            "additional": self.documents.exclude(document_type__in=self.REQUIRED_DOCUMENT_CODES).count(),
+            "additional": self.documents.exclude(document_type__in=required_types).count(),
         }
 
     def required_documents_status(self) -> list[dict[str, object]]:
         """Summarize required document readiness for UI consumption."""
 
-        label_map = dict(ValidationDocument.DocumentType.choices)
         docs = self._documents_by_type()
         summary: list[dict[str, object]] = []
-        for code in self.REQUIRED_DOCUMENT_CODES:
-            document = docs.get(code)
+        for dtype in self.required_document_types():
+            document = docs.get(dtype.code)
             summary.append(
                 {
-                    "code": code,
-                    "label": label_map.get(code, code.replace("_", " ").title()),
+                    "code": dtype.code,
+                    "label": dtype.label,
                     "document": document,
                     "status": document.status if document else "missing",
                 }
@@ -243,17 +268,18 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
         return summary
 
     def additional_documents(self) -> list["ValidationDocument"]:
-        return [doc for doc in self.documents.all() if doc.document_type not in self.REQUIRED_DOCUMENT_CODES]
+        return [doc for doc in self.documents.select_related("document_type") if not doc.document_type.required]
 
     def missing_required_documents(self) -> list[str]:
-        uploaded = set(self.documents.values_list("document_type", flat=True))
-        return [code for code in self.REQUIRED_DOCUMENT_CODES if code not in uploaded]
+        uploaded = set(self.documents.values_list("document_type__code", flat=True))
+        required_codes = set(self.required_document_types().values_list("code", flat=True))
+        return [code for code in required_codes if code not in uploaded]
 
     def ensure_required_documents_uploaded(self) -> None:
         missing = self.missing_required_documents()
         if not missing:
             return
-        label_map = dict(ValidationDocument.DocumentType.choices)
+        label_map = dict(ValidationDocumentType.objects.filter(code__in=missing).values_list("code", "label"))
         missing_labels = [label_map.get(code, code.replace("_", " ").title()) for code in missing]
         raise ValidationError(
             {
@@ -266,14 +292,15 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
 
     def ensure_documents_ready_for_acceptance(self) -> None:
         self.ensure_required_documents_uploaded()
+        required_codes = list(self.required_document_types().values_list("code", flat=True))
         pending = self.documents.filter(
-            document_type__in=self.REQUIRED_DOCUMENT_CODES,
+            document_type__code__in=required_codes,
             status=ValidationDocument.Status.PENDING,
         )
         if pending.exists():
             raise ValidationError("Review all required documents before accepting the validation.")
         rejected = self.documents.filter(
-            document_type__in=self.REQUIRED_DOCUMENT_CODES,
+            document_type__code__in=required_codes,
             status=ValidationDocument.Status.REJECTED,
         )
         if rejected.exists():
@@ -315,14 +342,7 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
         self.validated_at = timezone.now()
 
 
-class ValidationDocument(TimeStampedMixin):
-    class DocumentType(models.TextChoices):
-        OWNER_ID = "owner_id", "DNI PROPIETARIO"
-        DEED = "deed", "ESCRITURA"
-        SALE_AUTHORIZATION = "sale_authorization", "AUTORIZACIÓN DE VENTA"
-        DOMAIN_REPORT = "domain_report", "INFORME DE DOMINIO"
-        OTHER = "other", "OTRO DOCUMENTO"
-
+class ValidationDocument(TimeStampedMixin, FSMTrackingMixin):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         ACCEPTED = "accepted", "Accepted"
@@ -333,17 +353,18 @@ class ValidationDocument(TimeStampedMixin):
         on_delete=models.CASCADE,
         related_name="documents",
     )
-    document_type = models.CharField(
-        max_length=50,
-        choices=DocumentType.choices,
-        default=DocumentType.OTHER,
+    document_type = models.ForeignKey(
+        ValidationDocumentType,
+        on_delete=models.PROTECT,
+        related_name="documents",
     )
-    name = models.CharField(max_length=255)
+    observations = models.TextField(blank=True)
     document = models.FileField(upload_to="validation_documents/%Y/%m/")
-    status = models.CharField(
+    status = FSMField(
         max_length=20,
         choices=Status.choices,
         default=Status.PENDING,
+        protected=False,
     )
     reviewer_comment = models.TextField(blank=True)
     uploaded_by = models.ForeignKey(
@@ -368,22 +389,16 @@ class ValidationDocument(TimeStampedMixin):
         verbose_name_plural = "validation documents"
 
     def __str__(self) -> str:
-        return f"{self.name} ({self.get_status_display()})"
+        return f"{self.document_type.label} ({self.get_status_display()})"
 
-    def _ensure_pending(self):
-        if self.status != self.Status.PENDING:
-            raise ValidationError("Document has already been reviewed.")
-
+    @transition(field="status", source=Status.PENDING, target=Status.ACCEPTED)
     def accept(self, *, reviewer, comment: str | None = None):
-        self._ensure_pending()
-        self.status = self.Status.ACCEPTED
         self.reviewer_comment = comment or ""
         self.decided_by = reviewer
         self.decided_at = timezone.now()
 
+    @transition(field="status", source=Status.PENDING, target=Status.REJECTED)
     def reject(self, *, reviewer, comment: str | None = None):
-        self._ensure_pending()
-        self.status = self.Status.REJECTED
         self.reviewer_comment = comment or ""
         self.decided_by = reviewer
         self.decided_at = timezone.now()

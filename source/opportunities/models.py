@@ -11,10 +11,10 @@ from django_fsm import FSMField, transition
 
 from core.models import Agent, Currency
 from integrations.models import TokkobrokerProperty
-from utils.mixins import FSMLoggableMixin, TimeStampedMixin
+from utils.mixins import FSMTrackingMixin, TimeStampedMixin
 
 
-class ProviderOpportunity(TimeStampedMixin, FSMLoggableMixin):
+class ProviderOpportunity(TimeStampedMixin, FSMTrackingMixin):
     class State(models.TextChoices):
         CAPTURING = "capturing", "Capturing"
         VALIDATING = "validating", "Validating"
@@ -86,7 +86,7 @@ class ProviderOpportunity(TimeStampedMixin, FSMLoggableMixin):
             raise ValidationError("Provider opportunity cannot be closed without a closed operation.")
 
 
-class SeekerOpportunity(TimeStampedMixin, FSMLoggableMixin):
+class SeekerOpportunity(TimeStampedMixin, FSMTrackingMixin):
     class State(models.TextChoices):
         MATCHING = "matching", "Matching"
         NEGOTIATING = "negotiating", "Negotiating"
@@ -152,7 +152,7 @@ class SeekerOpportunity(TimeStampedMixin, FSMLoggableMixin):
         """Return the seeker to matching after a negotiation that did not close."""
 
 
-class Validation(TimeStampedMixin, FSMLoggableMixin):
+class Validation(TimeStampedMixin, FSMTrackingMixin):
     class State(models.TextChoices):
         PREPARING = "preparing", "Preparing"
         PRESENTED = "presented", "Presented"
@@ -282,7 +282,7 @@ class Validation(TimeStampedMixin, FSMLoggableMixin):
             return False
         return True
 
-    def can_reset(self) -> bool:
+    def can_revoke(self) -> bool:
         return self.state == self.State.PRESENTED
 
     @transition(field="state", source=State.PREPARING, target=State.PRESENTED)
@@ -290,7 +290,7 @@ class Validation(TimeStampedMixin, FSMLoggableMixin):
         self.presented_at = timezone.now()
 
     @transition(field="state", source=State.PRESENTED, target=State.PREPARING)
-    def reset(self, notes: str | None = None) -> None:
+    def revoke(self, notes: str | None = None) -> None:
         self.validated_at = None
         if notes is not None:
             self.notes = notes
@@ -376,13 +376,13 @@ class ValidationDocument(TimeStampedMixin):
 
 class MarketingPackageQuerySet(models.QuerySet):
     def active(self):
-        return self.filter(state=self.model.State.AVAILABLE)
+        return self.filter(state=self.model.State.PUBLISHED)
 
 
-class MarketingPackage(TimeStampedMixin, FSMLoggableMixin):
+class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
     class State(models.TextChoices):
         PREPARING = "preparing", "Preparing"
-        AVAILABLE = "available", "Available"
+        PUBLISHED = "published", "Published"
         PAUSED = "paused", "Paused"
 
     opportunity = models.ForeignKey(
@@ -426,22 +426,22 @@ class MarketingPackage(TimeStampedMixin, FSMLoggableMixin):
         base = self.headline or f"Marketing package for {self.opportunity}"
         return base
 
-    @transition(field="state", source=State.PREPARING, target=State.AVAILABLE)
+    @transition(field="state", source=State.PREPARING, target=State.PUBLISHED)
     def activate(self) -> "MarketingPackage":
-        self.state = MarketingPackage.State.AVAILABLE
+        self.state = MarketingPackage.State.PUBLISHED
         self.save(update_fields=["state", "updated_at"])
         return self
 
-    @transition(field="state", source=State.AVAILABLE, target=State.PAUSED)
-    def reserve(self) -> "MarketingPackage":
+    @transition(field="state", source=State.PUBLISHED, target=State.PAUSED)
+    def pause(self) -> "MarketingPackage":
         if not self.opportunity.validations.filter(state=Validation.State.ACCEPTED).exists():
             raise ValidationError("Cannot reserve marketing package before validation is accepted.")
         self.state = MarketingPackage.State.PAUSED
         self.save(update_fields=["state", "updated_at"])
         return self
 
-    @transition(field="state", source=State.PAUSED, target=State.AVAILABLE)
-    def release(self) -> "MarketingPackage":
+    @transition(field="state", source=State.PAUSED, target=State.PUBLISHED)
+    def publish(self) -> "MarketingPackage":
         has_active_operation = self.opportunity.operations.filter(
             state__in=[Operation.State.OFFERED, Operation.State.REINFORCED]
         ).exists()
@@ -449,12 +449,12 @@ class MarketingPackage(TimeStampedMixin, FSMLoggableMixin):
             raise ValidationError(
                 "Cannot publish the marketing package while there is an active operation."
             )
-        self.state = MarketingPackage.State.AVAILABLE
+        self.state = MarketingPackage.State.PUBLISHED
         self.save(update_fields=["state", "updated_at"])
         return self
 
 
-class Operation(TimeStampedMixin, FSMLoggableMixin):
+class Operation(TimeStampedMixin, FSMTrackingMixin):
     class State(models.TextChoices):
         OFFERED = "offered", "Offered"
         REINFORCED = "reinforced", "Reinforced"

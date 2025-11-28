@@ -19,7 +19,6 @@ from intentions.services import (
     DeliverSaleValuationService,
     MandateSaleSeekerIntentionService,
     PromoteSaleProviderIntentionService,
-    StartSaleProviderContractNegotiationService,
 )
 from opportunities.models import Operation, ProviderOpportunity, Validation, ValidationDocument
 from opportunities.services import (
@@ -66,7 +65,6 @@ class WorkflowViewSmokeTests(TestCase):
             amount=Decimal('950000'),
             currency=self.currency,
         )
-        StartSaleProviderContractNegotiationService.call(intention=self.provider_intention)
         self.provider_opportunity = PromoteSaleProviderIntentionService.call(
             intention=self.provider_intention,
             marketing_package_data={'currency': self.currency},
@@ -144,7 +142,6 @@ class WorkflowViewSmokeTests(TestCase):
             ('property-create', {}),
             ('provider-intention-create', {}),
             ('provider-deliver-valuation', {'intention_id': self.provider_intention.id}),
-            ('provider-start-contract', {'intention_id': self.provider_intention.id}),
             ('provider-promote', {'intention_id': self.provider_intention.id}),
             ('provider-withdraw', {'intention_id': self.provider_intention.id}),
             ('seeker-intention-create', {}),

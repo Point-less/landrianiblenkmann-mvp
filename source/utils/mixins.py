@@ -3,9 +3,26 @@ from copy import deepcopy
 from django.contrib.contenttypes.fields import GenericRelation
 from django.db import models, transaction
 from django.db.models import Max
+from django_fsm import can_proceed
 
 
-class FSMLoggableMixin(models.Model):
+class FSMTransitionMixin:
+    """Common helpers for FSM-managed models (transition checks)."""
+
+    def can_transition(self, transition_name: str, *, field: str = "state") -> bool:
+        method = getattr(self, transition_name, None)
+        if not callable(method):
+            return False
+        return can_proceed(method)
+
+    def available_transitions(self, *, field: str = "state"):
+        getter = getattr(self, f"get_available_{field}_transitions", None)
+        if callable(getter):
+            return getter()
+        return []
+
+
+class FSMAuditMixin(models.Model):
     """Attach django-fsm-log entries to a model instance."""
 
     state_logs = GenericRelation(
@@ -29,6 +46,13 @@ class FSMLoggableMixin(models.Model):
 
     def state_history(self):
         return self.state_logs.order_by("-timestamp")
+
+
+class FSMTrackingMixin(FSMTransitionMixin, FSMAuditMixin):
+    """Convenience mixin combining transition helpers with logging."""
+
+    class Meta:
+        abstract = True
 
 
 

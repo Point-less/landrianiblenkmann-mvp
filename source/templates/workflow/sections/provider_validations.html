@@ -64,19 +64,19 @@
                     <a class="history-link" href="{% url 'transition-history' 'opportunities' 'validation' validation.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
                 </td>
                 <td class="actions-column">
-                    {% if validation.can_present %}
+                    {% if validation|can_transition:'present' %}
                         <a class="icon-button" data-icon="📤" href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}" title="Present validation">
                             <span class="sr-only">Present validation</span>
                         </a>
                     {% endif %}
-                    {% if validation.can_accept %}
+                    {% if validation|can_transition:'accept' %}
                         <a class="icon-button" data-icon="✅" href="{% url 'validation-accept' validation.id %}?next={{ current_url|urlencode }}" title="Accept validation">
                             <span class="sr-only">Accept validation</span>
                         </a>
                     {% endif %}
-                    {% if validation.can_reset %}
-                        <a class="icon-button" data-icon="↺" data-variant="warning" href="{% url 'validation-reject' validation.id %}?next={{ current_url|urlencode }}" title="Reset to preparing">
-                            <span class="sr-only">Reset validation to preparing</span>
+                    {% if validation|can_transition:'revoke' %}
+                        <a class="icon-button" data-icon="↺" data-variant="warning" href="{% url 'validation-reject' validation.id %}?next={{ current_url|urlencode }}" title="Revoke to preparing">
+                            <span class="sr-only">Revoke validation to preparing</span>
                         </a>
                     {% endif %}
                 </td>

@@ -9,19 +9,18 @@ from django.utils import timezone
 from django_fsm import FSMField, transition
 
 from core.models import Agent, Contact, Currency, Property
-from utils.mixins import FSMLoggableMixin, TimeStampedMixin
+from utils.mixins import FSMTrackingMixin, TimeStampedMixin
 
 def _default_feature_map() -> dict:
     return {}
 
 
-class SaleProviderIntention(TimeStampedMixin, FSMLoggableMixin):
+class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
     """Represents a property owner’s desire to work with the agency prior to a contract."""
 
     class State(models.TextChoices):
         ASSESSING = "assessing", "Assessing"
         VALUATED = "valuated", "Valuated"
-        CONTRACT_NEGOTIATION = "contract_negotiation", "Contract Negotiation"
         CONVERTED = "converted", "Converted"
         WITHDRAWN = "withdrawn", "Withdrawn"
 
@@ -93,14 +92,13 @@ class SaleProviderIntention(TimeStampedMixin, FSMLoggableMixin):
         )
         self.valuation = valuation
 
-    @transition(field="state", source=State.VALUATED, target=State.CONTRACT_NEGOTIATION)
-    def start_contract_negotiation(self, signed_on=None) -> None:
-        self.contract_signed_on = signed_on or timezone.now().date()
-
-    @transition(field="state", source=State.CONTRACT_NEGOTIATION, target=State.CONVERTED)
-    def mark_converted(self, *, opportunity: "ProviderOpportunity") -> None:
+    @transition(field="state", source=State.VALUATED, target=State.CONVERTED)
+    def mark_converted(self, *, opportunity: "ProviderOpportunity", signed_on=None) -> None:
         if opportunity is None:
             raise ValidationError("An opportunity instance is required when converting an intention.")
+        # Preserve contract signature date for auditability even without an intermediate state.
+        if not self.contract_signed_on:
+            self.contract_signed_on = signed_on or timezone.now().date()
         self.converted_at = timezone.now()
 
     def can_withdraw(self) -> bool:
@@ -117,10 +115,10 @@ class SaleProviderIntention(TimeStampedMixin, FSMLoggableMixin):
             self.documentation_notes = (self.documentation_notes or "") + f"\nWithdrawn: {notes}"
 
     def is_promotable(self) -> bool:
-        return self.state == self.State.CONTRACT_NEGOTIATION and not hasattr(self, "provider_opportunity")
+        return self.state == self.State.VALUATED and not hasattr(self, "provider_opportunity")
 
 
-class SaleSeekerIntention(TimeStampedMixin, FSMLoggableMixin):
+class SaleSeekerIntention(TimeStampedMixin, FSMTrackingMixin):
     """Captures buyer-side interest prior to signing a representation agreement."""
 
     class State(models.TextChoices):

@@ -6,13 +6,13 @@ from django.dispatch import receiver
 from django_fsm.signals import post_transition
 
 from utils.actors import get_current_actor
-from utils.mixins import FSMLoggableMixin
+from utils.mixins import FSMTrackingMixin
 from utils.models import FSMStateTransition
 
 
 @receiver(post_transition)
 def record_fsm_transition(sender, instance, name, source, target, **kwargs):
-    if not isinstance(instance, FSMLoggableMixin):
+    if not isinstance(instance, FSMTrackingMixin):
         return
     if instance.pk is None:
         return

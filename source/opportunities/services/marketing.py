@@ -22,7 +22,7 @@ class MarketingPackageReleaseService(BaseService):
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
         try:
-            new_package = package.release()
+            new_package = package.publish()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
         return new_package
@@ -63,7 +63,7 @@ class MarketingPackagePauseService(BaseService):
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
         try:
-            new_package = package.reserve()
+            new_package = package.pause()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
         return new_package

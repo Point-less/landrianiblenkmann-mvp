@@ -25,7 +25,6 @@ from core.models import Agent, Contact, Property
 from utils.services import S
 from intentions.forms import (
     DeliverValuationForm,
-    ProviderContractForm,
     ProviderPromotionForm,
     ProviderWithdrawForm,
     SaleProviderIntentionForm,
@@ -42,7 +41,6 @@ from intentions.services import (  # noqa: F401  # retained for registry discove
     DeliverSaleValuationService,
     MandateSaleSeekerIntentionService,
     PromoteSaleProviderIntentionService,
-    StartSaleProviderContractNegotiationService,
     WithdrawSaleProviderIntentionService,
 )
 from opportunities.forms import (
@@ -284,7 +282,9 @@ class WorkflowFormView(LoginRequiredMixin, SuccessMessageMixin, FormView):
         context.setdefault('active_section', None)
         context.setdefault('current_url', self.request.get_full_path())
         context.setdefault('page_new_url', None)
-        context.setdefault('form_title', getattr(self, 'form_title', None))
+        context.setdefault('next_url', self.request.GET.get('next') or self.request.POST.get('next'))
+        default_title = getattr(self, 'form_title', None) or self.__class__.__name__.replace('View', ' ').strip().replace('_', ' ')
+        context.setdefault('form_title', default_title)
         context.setdefault('form_description', getattr(self, 'form_description', None))
         context.setdefault('submit_label', getattr(self, 'submit_label', 'Submit'))
         return context
@@ -322,6 +322,8 @@ class WorkflowFormView(LoginRequiredMixin, SuccessMessageMixin, FormView):
 class AgentCreateView(WorkflowFormView):
     form_class = AgentForm
     success_message = 'Agent registered successfully.'
+    form_title = 'Add agent'
+    submit_label = 'Create agent'
 
     def perform_action(self, form):
         S.core.CreateAgentService(**form.cleaned_data)
@@ -330,6 +332,8 @@ class AgentCreateView(WorkflowFormView):
 class ContactCreateView(WorkflowFormView):
     form_class = ContactForm
     success_message = 'Contact registered successfully.'
+    form_title = 'Add contact'
+    submit_label = 'Create contact'
 
     def perform_action(self, form):
         agent = form.cleaned_data.pop('agent')
@@ -340,6 +344,8 @@ class ContactCreateView(WorkflowFormView):
 class PropertyCreateView(WorkflowFormView):
     form_class = PropertyForm
     success_message = 'Property registered successfully.'
+    form_title = 'Add property'
+    submit_label = 'Create property'
 
     def perform_action(self, form):
         S.core.CreatePropertyService(**form.cleaned_data)
@@ -369,6 +375,8 @@ class AgentUpdateView(ModelUpdateView):
     form_class = AgentEditForm
     pk_url_kwarg = 'agent_id'
     success_message = 'Agent updated successfully.'
+    form_title = 'Edit agent'
+    submit_label = 'Save changes'
 
 
 class ContactUpdateView(ModelUpdateView):
@@ -376,6 +384,8 @@ class ContactUpdateView(ModelUpdateView):
     form_class = ContactEditForm
     pk_url_kwarg = 'contact_id'
     success_message = 'Contact updated successfully.'
+    form_title = 'Edit contact'
+    submit_label = 'Save changes'
 
 
 class PropertyUpdateView(ModelUpdateView):
@@ -383,6 +393,8 @@ class PropertyUpdateView(ModelUpdateView):
     form_class = PropertyEditForm
     pk_url_kwarg = 'property_id'
     success_message = 'Property updated successfully.'
+    form_title = 'Edit property'
+    submit_label = 'Save changes'
 
 
 class ProviderIntentionMixin:
@@ -412,6 +424,9 @@ class SeekerIntentionMixin:
 class ProviderIntentionCreateView(WorkflowFormView):
     form_class = SaleProviderIntentionForm
     success_message = 'Provider intention created.'
+    form_title = 'New provider intention'
+    form_description = 'Capture a seller lead before promoting to opportunity.'
+    submit_label = 'Create intention'
 
     def perform_action(self, form):
         S.intentions.CreateSaleProviderIntentionService(**form.cleaned_data)
@@ -420,6 +435,9 @@ class ProviderIntentionCreateView(WorkflowFormView):
 class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
     form_class = DeliverValuationForm
     success_message = 'Valuation delivered.'
+    form_title = 'Deliver valuation'
+    form_description = 'Provide the valuation amount and currency to advance the seller.'
+    submit_label = 'Deliver valuation'
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -429,18 +447,12 @@ class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
     def perform_action(self, form):
         S.intentions.DeliverSaleValuationService(intention=self.get_intention(), **form.cleaned_data)
 
-
-class ProviderContractView(ProviderIntentionMixin, WorkflowFormView):
-    form_class = ProviderContractForm
-    success_message = 'Contract negotiation started.'
-
-    def perform_action(self, form):
-        S.intentions.StartSaleProviderContractNegotiationService(intention=self.get_intention(), **form.cleaned_data)
-
-
 class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
     form_class = ProviderPromotionForm
     success_message = 'Provider intention promoted to opportunity.'
+    form_title = 'Promote to opportunity'
+    form_description = 'Create a provider opportunity and initial marketing package.'
+    submit_label = 'Promote'
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -471,6 +483,8 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
 class ProviderWithdrawView(ProviderIntentionMixin, WorkflowFormView):
     form_class = ProviderWithdrawForm
     success_message = 'Provider intention withdrawn.'
+    form_title = 'Withdraw provider intention'
+    submit_label = 'Withdraw'
 
     def perform_action(self, form):
         S.intentions.WithdrawSaleProviderIntentionService(intention=self.get_intention(), **form.cleaned_data)
@@ -479,6 +493,8 @@ class ProviderWithdrawView(ProviderIntentionMixin, WorkflowFormView):
 class SeekerIntentionCreateView(WorkflowFormView):
     form_class = SaleSeekerIntentionForm
     success_message = 'Seeker intention registered.'
+    form_title = 'New seeker intention'
+    submit_label = 'Create intention'
 
     def perform_action(self, form):
         S.intentions.CreateSaleSeekerIntentionService(**form.cleaned_data)
@@ -487,6 +503,8 @@ class SeekerIntentionCreateView(WorkflowFormView):
 class SeekerActivateView(SeekerIntentionMixin, WorkflowFormView):
     form_class = ConfirmationForm
     success_message = 'Seeker search activated.'
+    form_title = 'Activate seeker'
+    submit_label = 'Activate'
 
     def perform_action(self, form):
         S.intentions.ActivateSaleSeekerIntentionService(intention=self.get_intention())
@@ -495,6 +513,8 @@ class SeekerActivateView(SeekerIntentionMixin, WorkflowFormView):
 class SeekerMandateView(SeekerIntentionMixin, WorkflowFormView):
     form_class = SeekerMandateForm
     success_message = 'Seeker mandate captured.'
+    form_title = 'Capture mandate'
+    submit_label = 'Save mandate'
 
     def perform_action(self, form):
         S.intentions.MandateSaleSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
@@ -503,6 +523,8 @@ class SeekerMandateView(SeekerIntentionMixin, WorkflowFormView):
 class SeekerAbandonView(SeekerIntentionMixin, WorkflowFormView):
     form_class = SeekerAbandonForm
     success_message = 'Seeker intention abandoned.'
+    form_title = 'Abandon seeker intention'
+    submit_label = 'Abandon'
 
     def perform_action(self, form):
         S.intentions.AbandonSaleSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
@@ -511,6 +533,8 @@ class SeekerAbandonView(SeekerIntentionMixin, WorkflowFormView):
 class SeekerOpportunityCreateView(SeekerIntentionMixin, WorkflowFormView):
     form_class = SeekerOpportunityCreateForm
     success_message = 'Seeker opportunity created.'
+    form_title = 'Create seeker opportunity'
+    submit_label = 'Create opportunity'
 
     def perform_action(self, form):
         S.opportunities.CreateSeekerOpportunityService(intention=self.get_intention(), **form.cleaned_data)
@@ -583,6 +607,8 @@ class OpportunityValidateView(ProviderOpportunityMixin, WorkflowFormView):
 class ValidationPresentView(ValidationMixin, WorkflowFormView):
     form_class = ValidationPresentForm
     success_message = 'Validation presented.'
+    form_title = 'Present validation'
+    submit_label = 'Present'
 
     def perform_action(self, form):
         S.opportunities.ValidationPresentService(validation=self.get_validation(), reviewer=form.cleaned_data['reviewer'])
@@ -591,6 +617,9 @@ class ValidationPresentView(ValidationMixin, WorkflowFormView):
 class ValidationRejectView(ValidationMixin, WorkflowFormView):
     form_class = ValidationRejectForm
     success_message = 'Validation sent back to preparation.'
+    form_title = 'Revoke validation'
+    form_description = 'Send the validation back to preparing and optionally add notes.'
+    submit_label = 'Revoke'
 
     def perform_action(self, form):
         S.opportunities.ValidationRejectService(validation=self.get_validation(), notes=form.cleaned_data.get('notes'))
@@ -599,6 +628,8 @@ class ValidationRejectView(ValidationMixin, WorkflowFormView):
 class ValidationAcceptView(ValidationMixin, WorkflowFormView):
     form_class = ConfirmationForm
     success_message = 'Validation accepted and opportunity published.'
+    form_title = 'Accept validation'
+    submit_label = 'Accept'
 
     def perform_action(self, form):
         S.opportunities.ValidationAcceptService(validation=self.get_validation())
@@ -607,6 +638,8 @@ class ValidationAcceptView(ValidationMixin, WorkflowFormView):
 class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
     form_class = ValidationDocumentUploadForm
     success_message = 'Validation document uploaded.'
+    form_title = 'Upload document'
+    submit_label = 'Upload'
 
     def get_initial(self):
         initial = super().get_initial()
@@ -635,6 +668,8 @@ class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
 class ValidationDocumentReviewView(ValidationDocumentMixin, WorkflowFormView):
     form_class = ValidationDocumentReviewForm
     success_message = 'Validation document reviewed.'
+    form_title = 'Review document'
+    submit_label = 'Submit review'
 
     def perform_action(self, form):
         S.opportunities.ReviewValidationDocumentService(
@@ -649,6 +684,8 @@ class MarketingPackageCreateView(MarketingOpportunityMixin, WorkflowFormView):
     form_class = MarketingPackageForm
     success_message = 'Marketing package created.'
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
+    form_title = 'Create marketing package'
+    submit_label = 'Create package'
 
     def perform_action(self, form):
         S.opportunities.MarketingPackageCreateService(opportunity=self.get_opportunity(), **form.cleaned_data)
@@ -658,6 +695,8 @@ class MarketingPackageUpdateView(MarketingPackageMixin, WorkflowFormView):
     form_class = MarketingPackageForm
     success_message = 'Marketing package updated.'
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
+    form_title = 'Update marketing package'
+    submit_label = 'Save changes'
 
     def get_initial(self):
         package = self.get_package()
@@ -683,22 +722,31 @@ class MarketingPackageActionView(MarketingPackageMixin, WorkflowFormView):
 
 class MarketingPackageActivateView(MarketingPackageActionView):
     success_message = 'Marketing package activated.'
+    form_title = 'Publish package'
+    submit_label = 'Publish'
     service_class = MarketingPackageActivateService
 
 
 class MarketingPackageReleaseView(MarketingPackageActionView):
     success_message = 'Marketing package resumed.'
+    form_title = 'Publish package'
+    submit_label = 'Publish'
     service_class = MarketingPackageReleaseService
 
 
 class MarketingPackagePauseView(MarketingPackageActionView):
     success_message = 'Marketing package paused.'
+    form_title = 'Pause package'
+    submit_label = 'Pause'
     service_class = MarketingPackagePauseService
 
 
 class OperationCreateView(WorkflowFormView):
     form_class = OperationForm
     success_message = 'Operation created.'
+    form_title = 'Create operation'
+    form_description = 'Link a provider and seeker opportunity to start negotiation.'
+    submit_label = 'Create operation'
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -724,6 +772,8 @@ class OperationMixin:
 class OperationReinforceView(OperationMixin, WorkflowFormView):
     form_class = ConfirmationForm
     success_message = 'Operation reinforced.'
+    form_title = 'Reinforce operation'
+    submit_label = 'Reinforce'
 
     def perform_action(self, form):
         S.opportunities.OperationReinforceService(operation=self.get_operation())
@@ -732,6 +782,8 @@ class OperationReinforceView(OperationMixin, WorkflowFormView):
 class OperationCloseView(OperationMixin, WorkflowFormView):
     form_class = ConfirmationForm
     success_message = 'Operation closed.'
+    form_title = 'Close operation'
+    submit_label = 'Close'
 
     def perform_action(self, form):
         S.opportunities.OperationCloseService(operation=self.get_operation())
@@ -740,6 +792,8 @@ class OperationCloseView(OperationMixin, WorkflowFormView):
 class OperationLoseView(OperationMixin, WorkflowFormView):
     form_class = OperationLoseForm
     success_message = 'Operation marked as lost.'
+    form_title = 'Mark operation as lost'
+    submit_label = 'Mark lost'
 
     def perform_action(self, form):
         S.opportunities.OperationLoseService(operation=self.get_operation(), **form.cleaned_data)

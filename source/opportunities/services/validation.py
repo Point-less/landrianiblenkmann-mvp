@@ -27,7 +27,7 @@ class ValidationRejectService(BaseService):
 
     def run(self, *, validation: Validation, notes: Optional[str] = None) -> Validation:
         try:
-            validation.reset(notes=notes)
+            validation.revoke(notes=notes)
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
 

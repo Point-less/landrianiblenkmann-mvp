@@ -176,6 +176,44 @@
             clip: rect(0, 0, 0, 0);
             border: 0;
         }
+        /* Toast messages */
+        .toast-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 9999;
+            pointer-events: none;
+        }
+        .toast {
+            min-width: 240px;
+            max-width: 360px;
+            padding: 0.65rem 0.85rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            background: var(--white);
+            color: var(--text-main);
+            border: 1px solid var(--border-soft);
+            font-weight: 600;
+            pointer-events: auto;
+            opacity: 0;
+            transform: translateY(-6px);
+            animation: toast-in 150ms ease-out forwards, toast-out 200ms ease-in forwards;
+            animation-delay: 0s, 4.5s;
+        }
+        .toast.info { border-color: rgba(35,88,58,0.25); }
+        .toast.success { border-color: rgba(46, 125, 50, 0.35); background: #eef9f0; }
+        .toast.warning { border-color: rgba(214,181,73,0.6); background: #fff8e6; }
+        .toast.error { border-color: rgba(181,58,43,0.5); background: #fce9e6; }
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes toast-out {
+            to { opacity: 0; transform: translateY(-10px) scale(0.98); }
+        }
         .form-layout {
             display: flex;
             flex-direction: column;
@@ -293,17 +331,29 @@
         </div>
     </aside>
     <main class="content">
-        {% if messages %}
-            <div class="card">
-                <ul>
-                    {% for message in messages %}
-                        <li>{{ message }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
-        {% endif %}
         {% block content %}{% endblock %}
     </main>
+
+    {% if messages %}
+    <div class="toast-container" aria-live="polite" aria-atomic="true">
+        {% for message in messages %}
+            {% with tag=message.tags|default:'info' %}
+            <div class="toast {{ tag }}" role="status">
+                {{ message }}
+            </div>
+            {% endwith %}
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
+<script>
+  // Auto-remove toasts when animations finish
+  document.addEventListener('animationend', (event) => {
+    if (event.animationName === 'toast-out') {
+      const toast = event.target;
+      if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+    }
+  });
+</script>
 </body>
 </html>

@@ -40,11 +40,6 @@
                             <span class="sr-only">Deliver valuation</span>
                         </a>
                     {% endif %}
-                    {% if intention|can_transition:'start_contract_negotiation' %}
-                        <a class="icon-button" data-icon="📑" href="{% url 'provider-start-contract' intention.id %}?next={{ current_url|urlencode }}" title="Start contract negotiation">
-                            <span class="sr-only">Start contract negotiation</span>
-                        </a>
-                    {% endif %}
                     {% if intention.is_promotable %}
                         <a class="icon-button" data-icon="🚀" href="{% url 'provider-promote' intention.id %}?next={{ current_url|urlencode }}" title="Promote to opportunity">
                             <span class="sr-only">Promote to opportunity</span>

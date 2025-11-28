@@ -15,11 +15,9 @@
     {{ form.media }}
     <form class="form-layout" method="post" enctype="{% if form.is_multipart %}multipart/form-data{% else %}application/x-www-form-urlencoded{% endif %}">
         {% csrf_token %}
-        {% with next_url=request.POST.next|default:request.GET.next %}
-            {% if next_url %}
-                <input type="hidden" name="next" value="{{ next_url }}">
-            {% endif %}
-        {% endwith %}
+        {% if next_url %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+        {% endif %}
         {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
         {% if form.non_field_errors %}
             <div class="form-errors">

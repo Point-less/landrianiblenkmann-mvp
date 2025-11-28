@@ -43,7 +43,7 @@
                         </a>
                     {% endif %}
                     {% with validation=opportunity.validations.first %}
-                        {% if validation and validation.can_present %}
+                        {% if validation and validation|can_transition:'present' %}
                             <a class="icon-button" data-icon="📤" href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}" title="Present validation">
                                 <span class="sr-only">Present validation</span>
                             </a>

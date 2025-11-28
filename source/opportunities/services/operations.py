@@ -71,7 +71,7 @@ class CreateOperationService(BaseService):
 
     def _reserve_marketing_packages(self, provider_opportunity: ProviderOpportunity) -> None:
         packages = provider_opportunity.marketing_packages.filter(
-            state=MarketingPackage.State.AVAILABLE
+            state=MarketingPackage.State.PUBLISHED
         ).order_by('-created_at')
         for package in packages:
             try:

@@ -43,12 +43,6 @@ class DeliverValuationForm(HTML5WidgetMixin, forms.Form):
         super().__init__(*args, **kwargs)
         queryset = currency_queryset if currency_queryset is not None else []
         self.fields["currency"].queryset = queryset
-
-
-class ProviderContractForm(HTML5WidgetMixin, forms.Form):
-    signed_on = forms.DateField(required=False, help_text="Defaults to today when omitted.")
-
-
 class ProviderPromotionForm(HTML5WidgetMixin, forms.Form):
     opportunity_notes = forms.CharField(required=False, widget=forms.Textarea)
     headline = forms.CharField(required=False)
@@ -105,7 +99,6 @@ class SeekerAbandonForm(HTML5WidgetMixin, forms.Form):
 __all__ = [
     "SaleProviderIntentionForm",
     "DeliverValuationForm",
-    "ProviderContractForm",
     "ProviderPromotionForm",
     "ProviderWithdrawForm",
     "SaleSeekerIntentionForm",

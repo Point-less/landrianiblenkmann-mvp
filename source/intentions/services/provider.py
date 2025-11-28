@@ -46,20 +46,6 @@ class DeliverSaleValuationService(BaseService):
         return intention.valuation  # type: ignore[return-value]
 
 
-class StartSaleProviderContractNegotiationService(BaseService):
-    """Move the intention into contract negotiation."""
-
-    def run(
-        self,
-        *,
-        intention: SaleProviderIntention,
-        signed_on=None,
-    ) -> SaleProviderIntention:
-        intention.start_contract_negotiation(signed_on=signed_on)
-        intention.save(update_fields=["state", "contract_signed_on", "updated_at"])
-        return intention
-
-
 class WithdrawSaleProviderIntentionService(BaseService):
     """Withdraw an intention that will no longer move forward."""
 
@@ -91,7 +77,7 @@ class PromoteSaleProviderIntentionService(BaseService):
     ):
         if not intention.is_promotable():
             raise ValidationError(
-                "Intention must be under contract and not converted before promotion."
+                "Intention must be valuated and not converted before promotion."
             )
 
         opportunity = CreateOpportunityService.call(
@@ -115,7 +101,6 @@ class PromoteSaleProviderIntentionService(BaseService):
 __all__ = [
     "CreateSaleProviderIntentionService",
     "DeliverSaleValuationService",
-    "StartSaleProviderContractNegotiationService",
     "WithdrawSaleProviderIntentionService",
     "PromoteSaleProviderIntentionService",
 ]

@@ -25,7 +25,6 @@ from intentions.services import (
     DeliverSaleValuationService,
     MandateSaleSeekerIntentionService,
     PromoteSaleProviderIntentionService,
-    StartSaleProviderContractNegotiationService,
 )
 from opportunities.models import (
     MarketingPackage,
@@ -84,7 +83,6 @@ class SaleFlowServiceTests(TestCase):
             currency=self.currency,
             notes="Comparable units closed last quarter",
         )
-        StartSaleProviderContractNegotiationService.call(intention=provider_intention)
         provider_opportunity = PromoteSaleProviderIntentionService.call(
             intention=provider_intention,
             marketing_package_data={"currency": self.currency, "price": Decimal("975000")},
@@ -172,7 +170,7 @@ class SaleFlowServiceTests(TestCase):
         validation.refresh_from_db()
         self.assertEqual(provider_opportunity.state, ProviderOpportunity.State.MARKETING)
         marketing_package.refresh_from_db()
-        self.assertEqual(marketing_package.state, MarketingPackage.State.AVAILABLE)
+        self.assertEqual(marketing_package.state, MarketingPackage.State.PUBLISHED)
 
         seeker_intention = CreateSaleSeekerIntentionService.call(
             contact=self.seeker_contact,
@@ -314,7 +312,6 @@ class SaleFlowServiceTests(TestCase):
             currency=self.currency,
             notes="Downtown comps",
         )
-        StartSaleProviderContractNegotiationService.call(intention=second_intention)
         second_provider_opportunity = PromoteSaleProviderIntentionService.call(
             intention=second_intention,
             marketing_package_data={"currency": self.currency, "price": Decimal("875000")},
@@ -454,7 +451,6 @@ class SaleFlowServiceTests(TestCase):
             amount=Decimal("750000"),
             currency=self.currency,
         )
-        StartSaleProviderContractNegotiationService.call(intention=second_intention)
 
         with self.assertRaises(ValidationError):
             PromoteSaleProviderIntentionService.call(

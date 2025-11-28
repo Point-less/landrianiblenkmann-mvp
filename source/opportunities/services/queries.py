@@ -14,7 +14,7 @@ class AvailableProviderOpportunitiesForOperationsQuery(BaseService):
 
     def run(self, *, actor=None):  # actor kept for parity with other services
         queryset = ProviderOpportunity.objects.filter(
-            state=ProviderOpportunity.State.MARKETING
+            state=ProviderOpportunity.State.MARKETING,
         ).order_by("-created_at")
         return queryset
 

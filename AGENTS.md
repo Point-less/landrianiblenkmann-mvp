@@ -52,7 +52,7 @@ External service integrations.
 ### `intentions/`
 Pre-contract intent tracking with FSM state management.
 - **Models**:
-  - `SaleProviderIntention`: Property owner's pre-contract engagement (states: assessing → valuated → contract_negotiation → converted/withdrawn)
+  - `SaleProviderIntention`: Property owner's pre-contract engagement (states: assessing → valuated → converted/withdrawn)
   - `SaleSeekerIntention`: Buyer's pre-representation interest (states: qualifying → active → mandated → converted/abandoned)
   - `SaleValuation`: Valuation records delivered to providers
 - **Purpose**: Capture and qualify leads before formal contracts

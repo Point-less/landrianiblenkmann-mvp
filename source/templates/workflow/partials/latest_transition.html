@@ -15,5 +15,9 @@ Inputs:
     {% endwith %}
 </div>
 {% if history_url %}
-    <a class="history-link" href="{{ history_url }}" title="View history">↺</a>
+    {% if next_url %}
+        <a class="history-link" href="{{ history_url }}?next={{ next_url|urlencode }}" title="View history">↺</a>
+    {% else %}
+        <a class="history-link" href="{{ history_url }}" title="View history">↺</a>
+    {% endif %}
 {% endif %}

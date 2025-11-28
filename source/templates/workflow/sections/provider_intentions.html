@@ -23,7 +23,7 @@
                 </td>
                 <td class="latest-activity">
                     {% url 'transition-history' 'intentions' 'saleproviderintention' intention.id as history_url %}
-                    {% include "workflow/partials/latest_transition.html" with transitions=intention.state_transitions.all history_url=history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=intention.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
                     {% if intention|can_transition:'deliver_valuation' %}

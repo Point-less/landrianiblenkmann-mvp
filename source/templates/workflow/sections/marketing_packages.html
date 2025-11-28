@@ -31,7 +31,7 @@
                 </td>
                 <td class="latest-activity">
                     {% url 'transition-history' 'opportunities' 'marketingpackage' package.id as history_url %}
-                    {% include "workflow/partials/latest_transition.html" with transitions=package.state_transitions.all history_url=history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=package.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
                     <a class="icon-button" data-icon="✏" href="{% url 'marketing-package-edit' package.id %}?next={{ current_url|urlencode }}" title="Edit package">

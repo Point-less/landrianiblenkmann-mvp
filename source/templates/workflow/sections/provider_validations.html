@@ -54,7 +54,7 @@
                 </td>
                 <td class="latest-activity">
                     {% url 'transition-history' 'opportunities' 'validation' validation.id as history_url %}
-                    {% include "workflow/partials/latest_transition.html" with transitions=validation.state_transitions.all history_url=history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=validation.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
                     <a class="icon-button" data-icon="🔍" href="{% url 'validation-detail' validation.id %}?next={{ current_url|urlencode }}" title="View validation detail">
@@ -65,9 +65,9 @@
                             <span class="sr-only">Present validation</span>
                         </a>
                     {% endif %}
-                    {% if validation|can_transition:'accept' %}
-                        <a class="icon-button" data-icon="✅" href="{% url 'validation-accept' validation.id %}?next={{ current_url|urlencode }}" title="Accept validation">
-                            <span class="sr-only">Accept validation</span>
+                    {% if validation.ready_for_approval and validation|can_transition:'approve' %}
+                        <a class="icon-button" data-icon="✅" href="{% url 'validation-accept' validation.id %}?next={{ current_url|urlencode }}" title="Approve">
+                            <span class="sr-only">Approve validation</span>
                         </a>
                     {% endif %}
                     {% if validation|can_transition:'revoke' %}

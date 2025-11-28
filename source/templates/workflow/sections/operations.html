@@ -27,7 +27,7 @@
                 </td>
                 <td class="latest-activity">
                     {% url 'transition-history' 'opportunities' 'operation' operation.id as history_url %}
-                    {% include "workflow/partials/latest_transition.html" with transitions=operation.state_transitions.all history_url=history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=operation.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
                     {% if operation|can_transition:'reinforce' %}

@@ -12,6 +12,9 @@
 <div class="card">
     <div class="table-subtext">
         Status: <span class="pill">{{ validation.get_state_display }}</span>
+        {% if validation.notes %}
+            <div class="table-subtext">Notes: {{ validation.notes }}</div>
+        {% endif %}
     </div>
     {% if summary %}
         <div class="table-subtext" style="margin-top:6px;">
@@ -48,7 +51,7 @@
                 </td>
                 <td class="latest-activity">
                     {% url 'transition-history' 'opportunities' 'validationdocument' requirement.document.id as doc_history_url %}
-                    {% include "workflow/partials/latest_transition.html" with transitions=requirement.document.state_transitions.all history_url=doc_history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=requirement.document.state_transitions.all history_url=doc_history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
                     {% if requirement.document %}

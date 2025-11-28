@@ -20,7 +20,7 @@
                 </td>
                 <td class="latest-activity">
                     {% url 'transition-history' 'opportunities' 'seekeropportunity' opportunity.id as history_url %}
-                    {% include "workflow/partials/latest_transition.html" with transitions=opportunity.state_transitions.all history_url=history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=opportunity.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column"></td>
             </tr>

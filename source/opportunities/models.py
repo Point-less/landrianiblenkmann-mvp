@@ -399,7 +399,7 @@ class ValidationDocument(TimeStampedMixin, FSMTrackingMixin):
     def __str__(self) -> str:
         return f"{self.document_type.label} ({self.get_status_display()})"
 
-    @transition(field="status", source=Status.PENDING, target=Status.ACCEPTED)
+    @transition(field="status", source=[Status.PENDING, Status.REJECTED], target=Status.ACCEPTED)
     def accept(self, *, reviewer, comment: str | None = None):
         self.reviewer_comment = comment or ""
         self.decided_by = reviewer

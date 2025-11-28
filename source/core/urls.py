@@ -6,10 +6,7 @@ from django.views.generic import RedirectView
 from core import views
 
 urlpatterns = [
-    # Dashboard and system endpoints
-    path('', RedirectView.as_view(pattern_name='workflow-dashboard', permanent=False)),
-    path('dashboard/', views.DashboardSectionView.as_view(), name='workflow-dashboard'),
-    path('dashboard/<str:section>/', views.DashboardSectionView.as_view(), name='workflow-dashboard-section'),
+    # System endpoints
     path('health/', views.health_check, name='health-check'),
     path('trigger-log/', views.trigger_log, name='trigger-log'),
     path(

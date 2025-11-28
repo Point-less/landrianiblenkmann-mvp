@@ -5,6 +5,7 @@ from django_fsm import TransitionNotAllowed
 
 from core.models import Currency
 from opportunities.models import MarketingPackage, Operation, ProviderOpportunity, SeekerOpportunity
+from opportunities.services.marketing import MarketingPackagePauseService
 
 from utils.services import BaseService
 
@@ -71,7 +72,7 @@ class CreateOperationService(BaseService):
         ).order_by('-created_at')
         for package in packages:
             try:
-                package.reserve()
+                MarketingPackagePauseService.call(package=package)
             except ValidationError:
                 continue
 

@@ -7,15 +7,12 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Property</th><th>Status</th><th>Documents</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
+        <tr><th>Property</th><th>Documents</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for validation in provider_validations %}
             <tr>
                 <td>
                     <div class="table-title">{{ validation.opportunity.source_intention.property }}</div>
                     <div class="table-subtext">Owner: {{ validation.opportunity.source_intention.owner }}</div>
-                </td>
-                <td>
-                    <span class="pill">{{ validation.get_state_display }}</span>
                 </td>
                 <td>
                     <ul class="document-list">
@@ -49,6 +46,9 @@
                             {% endfor %}
                         {% endif %}
                     </ul>
+                </td>
+                <td>
+                    <span class="pill">{{ validation.get_state_display }}</span>
                 </td>
                 <td class="latest-activity">
                     <div class="transition-text">

@@ -7,18 +7,12 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Property</th><th>Status</th><th>Details</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
+        <tr><th>Property</th><th>Details</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for package in marketing_packages %}
             <tr>
                 <td>
                     <div class="table-title">{{ package.opportunity.source_intention.property }}</div>
                     <div class="table-subtext">Owner: {{ package.opportunity.source_intention.owner }}</div>
-                </td>
-                <td>
-                    <span class="pill">{{ package.get_state_display }}</span>
-                    {% if package.price %}
-                        <div class="table-subtext">{{ package.price }} {{ package.currency }}</div>
-                    {% endif %}
                 </td>
                 <td>
                     <div class="table-title">{{ package.headline|default:"Unnamed package" }}</div>
@@ -27,6 +21,12 @@
                     {% endif %}
                     {% if package.features %}
                         <div class="table-subtext">Features: {{ package.features }}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="pill">{{ package.get_state_display }}</span>
+                    {% if package.price %}
+                        <div class="table-subtext">{{ package.price }} {{ package.currency }}</div>
                     {% endif %}
                 </td>
                 <td class="latest-activity">

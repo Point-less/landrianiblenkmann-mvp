@@ -153,6 +153,7 @@ class WorkflowViewSmokeTests(TestCase):
             ('validation-present', {'validation_id': self.validation.id}),
             ('validation-reject', {'validation_id': self.validation.id}),
             ('validation-accept', {'validation_id': self.validation.id}),
+            ('validation-detail', {'validation_id': self.validation.id}),
             ('validation-document-upload', {'validation_id': self.validation.id}),
             ('validation-document-review', {'document_id': self.validation_document.id}),
             ('marketing-package-create', {'opportunity_id': self.provider_opportunity.id}),

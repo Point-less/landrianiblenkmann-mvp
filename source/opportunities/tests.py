@@ -423,13 +423,13 @@ class SaleFlowServiceTests(TestCase):
         provider_opportunity, validation, _ = self._create_provider_opportunity()
         self._upload_required_documents(validation)
         ValidationPresentService.call(validation=validation, reviewer=self.agent)
-        with self.assertRaises(ValidationError):
-            CreateValidationDocumentService.call(
-                validation=validation,
-                document_type=Validation.required_document_choices(include_optional=False)[0][0],
-                document=SimpleUploadedFile("late.pdf", b"data"),
-                uploaded_by=self.reviewer,
-            )
+        doc = CreateValidationDocumentService.call(
+            validation=validation,
+            document_type=Validation.required_document_choices(include_optional=False)[0][0],
+            document=SimpleUploadedFile("late.pdf", b"data"),
+            uploaded_by=self.reviewer,
+        )
+        self.assertEqual(doc.status, ValidationDocument.Status.PENDING)
 
     def test_promote_with_tokkobroker_property_and_uniqueness(self):
         tokko_property = TokkobrokerProperty.objects.create(tokko_id=12345, ref_code="REF-12345")

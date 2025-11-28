@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Validation Detail | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Validation Detail</h2>
+    <div class="table-subtext">Property: {{ validation.opportunity.source_intention.property }} · Owner: {{ validation.opportunity.source_intention.owner }}</div>
+</div>
+
+<div class="card">
+    <div class="table-subtext">
+        Status: <span class="pill">{{ validation.get_state_display }}</span>
+    </div>
+    {% if summary %}
+        <div class="table-subtext" style="margin-top:6px;">
+            {{ summary.accepted }}/{{ summary.required_total }} accepted · {{ summary.pending }} pending · {{ summary.rejected }} rejected · {{ summary.missing }} missing
+            {% if summary.additional %} · Additional docs: {{ summary.additional }}{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">Required documents</h3>
+    <ul class="document-list">
+        {% for requirement in required_documents %}
+            <li>
+                <strong>{{ requirement.label }}</strong>
+                {% if requirement.document %}
+                    <span class="pill status-{{ requirement.document.status }}">{{ requirement.document.get_status_display }}</span>
+                    <a href="{{ requirement.document.document.url }}" download>Download</a>
+                    {% if validation.state == 'presented' %}
+                        <a href="{% url 'validation-document-review' requirement.document.id %}?next={{ current_url|urlencode }}">Review</a>
+                    {% endif %}
+                    {% if requirement.document.reviewer_comment %}
+                        <small class="table-subtext">Comment: {{ requirement.document.reviewer_comment }}</small>
+                    {% endif %}
+                {% else %}
+                    <span class="pill status-missing">Missing</span>
+                {% endif %}
+                {% if validation.state == 'preparing' or validation.state == 'presented' %}
+                    <a href="{% url 'validation-document-upload' validation.id %}?document_type={{ requirement.code }}&next={{ current_url|urlencode }}">
+                        {% if requirement.document %}Replace{% else %}Upload{% endif %}
+                    </a>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">Additional documents</h3>
+    {% if additional_documents %}
+        <ul class="document-list">
+            {% for doc in additional_documents %}
+                <li>
+                    {{ doc.name }}
+                    <span class="pill status-{{ doc.status }}">{{ doc.get_status_display }}</span>
+                    <a href="{{ doc.document.url }}" download>Download</a>
+                    {% if validation.state == 'presented' %}
+                        <a href="{% url 'validation-document-review' doc.id %}?next={{ current_url|urlencode }}">Review</a>
+                    {% endif %}
+                    {% if doc.reviewer_comment %}
+                        <small class="table-subtext">Comment: {{ doc.reviewer_comment }}</small>
+                    {% endif %}
+                    {% if validation.state == 'preparing' or validation.state == 'presented' %}
+                        <a href="{% url 'validation-document-upload' validation.id %}?document_type={{ doc.document_type }}&next={{ current_url|urlencode }}">Replace</a>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <div class="table-subtext">No additional documents uploaded.</div>
+    {% endif %}
+</div>
+{% endblock %}

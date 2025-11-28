@@ -19,9 +19,9 @@ class CreateValidationDocumentService(BaseService):
         uploaded_by=None,
         name: str | None = None,
     ) -> ValidationDocument:
-        if validation.state != Validation.State.PREPARING:
+        if validation.state not in {Validation.State.PREPARING, Validation.State.PRESENTED}:
             raise ValidationError({
-                "validation": "Documents can only be uploaded while the validation is preparing."
+                "validation": "Documents can only be uploaded while the validation is preparing or presented."
             })
         if not document:
             raise ValidationError({"document": "Please attach a document."})

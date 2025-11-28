@@ -584,6 +584,19 @@ class ValidationMixin:
         return context
 
 
+class ValidationDetailView(ValidationMixin, TemplateView):
+    template_name = 'workflow/validation_detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        validation = context['validation']
+        context['required_documents'] = validation.required_documents_status()
+        context['additional_documents'] = validation.additional_documents()
+        context['summary'] = validation.document_status_summary()
+        context.setdefault('current_url', self.request.get_full_path())
+        return context
+
+
 class ValidationDocumentMixin:
     pk_url_kwarg = 'document_id'
 

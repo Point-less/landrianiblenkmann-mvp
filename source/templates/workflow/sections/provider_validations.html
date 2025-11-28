@@ -7,12 +7,25 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Property</th><th>Documents</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
+        <tr><th>Property</th><th>Summary</th><th>Documents</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for validation in provider_validations %}
             <tr>
                 <td>
                     <div class="table-title">{{ validation.opportunity.source_intention.property }}</div>
                     <div class="table-subtext">Owner: {{ validation.opportunity.source_intention.owner }}</div>
+                </td>
+                <td>
+                    {% with summary=validation.document_status_summary %}
+                        <div class="table-subtext">
+                            {{ summary.accepted }}/{{ summary.required_total }} accepted ·
+                            {{ summary.pending }} pending ·
+                            {{ summary.rejected }} rejected ·
+                            {{ summary.missing }} missing
+                        </div>
+                        {% if summary.additional %}
+                            <div class="table-subtext">Additional docs: {{ summary.additional }}</div>
+                        {% endif %}
+                    {% endwith %}
                 </td>
                 <td>
                     <ul class="document-list">
@@ -22,13 +35,13 @@
                                 {% if requirement.document %}
                                     <span class="pill status-{{ requirement.document.status }}">{{ requirement.document.get_status_display }}</span>
                                     <a href="{{ requirement.document.document.url }}" download>Download</a>
-                                    {% if requirement.document.status == 'pending' and validation.state == 'presented' %}
+                                    {% if validation.state == 'presented' %}
                                         <a href="{% url 'validation-document-review' requirement.document.id %}?next={{ current_url|urlencode }}">Review</a>
                                     {% endif %}
                                 {% else %}
                                     <span class="pill status-missing">Missing</span>
                                 {% endif %}
-                                {% if validation.state == 'preparing' %}
+                                {% if validation.state == 'preparing' or validation.state == 'presented' %}
                                     <a href="{% url 'validation-document-upload' validation.id %}?document_type={{ requirement.code }}&next={{ current_url|urlencode }}">Upload</a>
                                 {% endif %}
                             </li>
@@ -39,8 +52,11 @@
                                     {{ doc.name }}
                                     <span class="pill status-{{ doc.status }}">{{ doc.get_status_display }}</span>
                                     <a href="{{ doc.document.url }}" download>Download</a>
-                                    {% if doc.status == 'pending' and validation.state == 'presented' %}
+                                    {% if validation.state == 'presented' %}
                                         <a href="{% url 'validation-document-review' doc.id %}?next={{ current_url|urlencode }}">Review</a>
+                                    {% endif %}
+                                    {% if validation.state == 'preparing' or validation.state == 'presented' %}
+                                        <a href="{% url 'validation-document-upload' validation.id %}?document_type={{ doc.document_type }}&next={{ current_url|urlencode }}">Replace</a>
                                     {% endif %}
                                 </li>
                             {% endfor %}
@@ -64,6 +80,9 @@
                     <a class="history-link" href="{% url 'transition-history' 'opportunities' 'validation' validation.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
                 </td>
                 <td class="actions-column">
+                    <a class="icon-button" data-icon="🔍" href="{% url 'validation-detail' validation.id %}?next={{ current_url|urlencode }}" title="View validation detail">
+                        <span class="sr-only">View details</span>
+                    </a>
                     {% if validation|can_transition:'present' %}
                         <a class="icon-button" data-icon="📤" href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}" title="Present validation">
                             <span class="sr-only">Present validation</span>
@@ -82,7 +101,7 @@
                 </td>
             </tr>
         {% empty %}
-            <tr><td colspan="5">No validations yet.</td></tr>
+            <tr><td colspan="6">No validations yet.</td></tr>
         {% endfor %}
     </table>
 </div>

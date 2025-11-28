@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from builtins import property as builtin_property
 
+from collections import Counter
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
@@ -208,6 +210,19 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
         for document in self.documents.all():
             docs.setdefault(document.document_type, document)
         return docs
+
+    def document_status_summary(self) -> dict[str, int]:
+        """Aggregate status counts for required documents plus additional count."""
+
+        status_counts = Counter(item["status"] for item in self.required_documents_status())
+        return {
+            "required_total": len(self.REQUIRED_DOCUMENT_CODES),
+            "accepted": status_counts.get(ValidationDocument.Status.ACCEPTED, 0),
+            "pending": status_counts.get(ValidationDocument.Status.PENDING, 0),
+            "rejected": status_counts.get(ValidationDocument.Status.REJECTED, 0),
+            "missing": status_counts.get("missing", 0),
+            "additional": self.documents.exclude(document_type__in=self.REQUIRED_DOCUMENT_CODES).count(),
+        }
 
     def required_documents_status(self) -> list[dict[str, object]]:
         """Summarize required document readiness for UI consumption."""

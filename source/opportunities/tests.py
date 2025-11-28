@@ -40,6 +40,7 @@ from opportunities.services import (
     CreateOperationService,
     CreateSeekerOpportunityService,
     OperationCloseService,
+    OperationLoseService,
     OperationReinforceService,
     ReviewValidationDocumentService,
     OpportunityValidateService,
@@ -249,6 +250,126 @@ class SaleFlowServiceTests(TestCase):
         with self.subTest("abandon seeker intention"):
             AbandonSaleSeekerIntentionService.call(intention=abandon_intention, reason="Shifted priorities")
             self.assertEqual(abandon_intention.state, abandon_intention.State.ABANDONED)
+
+    def test_operation_loss_resets_seeker_to_matching(self):
+        provider_opportunity, validation, _ = self._create_provider_opportunity()
+
+        self._upload_required_documents(validation)
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        self._review_required_documents(validation)
+        ValidationAcceptService.call(validation=validation)
+        provider_opportunity.refresh_from_db()
+
+        seeker_intention = CreateSaleSeekerIntentionService.call(
+            contact=self.seeker_contact,
+            agent=self.agent,
+            budget_min=Decimal("900000"),
+            budget_max=Decimal("980000"),
+            currency=self.currency,
+            desired_features={"bedrooms": 3},
+            notes="Looking for turnkey units",
+        )
+        ActivateSaleSeekerIntentionService.call(intention=seeker_intention)
+        MandateSaleSeekerIntentionService.call(intention=seeker_intention)
+
+        seeker_opportunity = CreateSeekerOpportunityService.call(intention=seeker_intention)
+
+        operation = CreateOperationService.call(
+            provider_opportunity=provider_opportunity,
+            seeker_opportunity=seeker_opportunity,
+            offered_amount=Decimal("930000"),
+            reserve_amount=Decimal("20000"),
+            reinforcement_amount=Decimal("15000"),
+            currency=self.currency,
+            notes="Initial reservation",
+        )
+
+        OperationLoseService.call(operation=operation, lost_reason="Price too high")
+
+        operation.refresh_from_db()
+        seeker_opportunity.refresh_from_db()
+
+        self.assertEqual(operation.state, Operation.State.LOST)
+        self.assertEqual(seeker_opportunity.state, SeekerOpportunity.State.MATCHING)
+        self.assertEqual(operation.lost_reason, "Price too high")
+
+    def test_operation_loss_keeps_negotiating_if_other_active_operations_exist(self):
+        provider_opportunity, validation, _ = self._create_provider_opportunity()
+        self._upload_required_documents(validation)
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        self._review_required_documents(validation)
+        ValidationAcceptService.call(validation=validation)
+        provider_opportunity.refresh_from_db()
+
+        second_property = CreatePropertyService.call(name="Skyline Loft", reference_code="PROP-002")
+        second_intention = CreateSaleProviderIntentionService.call(
+            owner=self.owner,
+            agent=self.agent,
+            property=second_property,
+            documentation_notes="Second listing",
+        )
+        DeliverSaleValuationService.call(
+            intention=second_intention,
+            amount=Decimal("850000"),
+            currency=self.currency,
+            notes="Downtown comps",
+        )
+        StartSaleProviderContractNegotiationService.call(intention=second_intention)
+        second_provider_opportunity = PromoteSaleProviderIntentionService.call(
+            intention=second_intention,
+            marketing_package_data={"currency": self.currency, "price": Decimal("875000")},
+        )
+        OpportunityValidateService.call(opportunity=second_provider_opportunity)
+        second_validation = Validation.objects.get(opportunity=second_provider_opportunity)
+        self._upload_required_documents(second_validation)
+        ValidationPresentService.call(validation=second_validation, reviewer=self.agent)
+        self._review_required_documents(second_validation)
+        ValidationAcceptService.call(validation=second_validation)
+        second_provider_opportunity.refresh_from_db()
+
+        seeker_intention = CreateSaleSeekerIntentionService.call(
+            contact=self.seeker_contact,
+            agent=self.agent,
+            budget_min=Decimal("900000"),
+            budget_max=Decimal("980000"),
+            currency=self.currency,
+            desired_features={"bedrooms": 3},
+            notes="Looking for turnkey units",
+        )
+        ActivateSaleSeekerIntentionService.call(intention=seeker_intention)
+        MandateSaleSeekerIntentionService.call(intention=seeker_intention)
+
+        seeker_opportunity = CreateSeekerOpportunityService.call(intention=seeker_intention)
+
+        primary_operation = CreateOperationService.call(
+            provider_opportunity=provider_opportunity,
+            seeker_opportunity=seeker_opportunity,
+            offered_amount=Decimal("930000"),
+            reserve_amount=Decimal("20000"),
+            reinforcement_amount=Decimal("15000"),
+            currency=self.currency,
+            notes="Initial reservation",
+        )
+
+        secondary_operation = CreateOperationService.call(
+            provider_opportunity=second_provider_opportunity,
+            seeker_opportunity=seeker_opportunity,
+            offered_amount=Decimal("910000"),
+            reserve_amount=Decimal("15000"),
+            reinforcement_amount=Decimal("12000"),
+            currency=self.currency,
+            notes="Backup offer",
+        )
+
+        OperationLoseService.call(operation=primary_operation, lost_reason="Negotiations failed")
+
+        seeker_opportunity.refresh_from_db()
+        primary_operation.refresh_from_db()
+        secondary_operation.refresh_from_db()
+
+        self.assertEqual(primary_operation.state, Operation.State.LOST)
+        self.assertEqual(seeker_opportunity.state, SeekerOpportunity.State.NEGOTIATING)
+        self.assertIn(secondary_operation.state, [Operation.State.OFFERED, Operation.State.REINFORCED])
 
     def test_validation_present_requires_documents(self):
         provider_opportunity, validation, _ = self._create_provider_opportunity()

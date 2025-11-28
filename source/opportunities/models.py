@@ -105,7 +105,6 @@ class SeekerOpportunity(TimeStampedMixin, FSMLoggableMixin):
         default=State.MATCHING,
         protected=False,
     )
-
     class Meta:
         ordering = ("-created_at",)
         verbose_name = "seeker opportunity"
@@ -147,6 +146,10 @@ class SeekerOpportunity(TimeStampedMixin, FSMLoggableMixin):
     def mark_lost(self, reason: str | None = None) -> None:
         if reason:
             self.notes = (self.notes or "") + f"\nLost: {reason}"
+
+    @transition(field="state", source=State.NEGOTIATING, target=State.MATCHING)
+    def resume_matching(self) -> None:
+        """Return the seeker to matching after a negotiation that did not close."""
 
 
 class Validation(TimeStampedMixin, FSMLoggableMixin):

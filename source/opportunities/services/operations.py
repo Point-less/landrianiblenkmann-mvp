@@ -112,4 +112,16 @@ class OperationLoseService(BaseService):
             raise ValidationError(str(exc)) from exc
 
         operation.save(update_fields=["state", "occurred_at", "lost_reason", "updated_at"])
+
+        seeker = operation.seeker_opportunity
+        active_states = (Operation.State.OFFERED, Operation.State.REINFORCED)
+        has_other_active = seeker.operations.exclude(pk=operation.pk).filter(state__in=active_states).exists()
+
+        if seeker.state == SeekerOpportunity.State.NEGOTIATING and not has_other_active:
+            try:
+                seeker.resume_matching()
+            except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
+                raise ValidationError(str(exc)) from exc
+
+            seeker.save(update_fields=["state", "updated_at"])
         return operation

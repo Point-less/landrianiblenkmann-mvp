@@ -741,6 +741,11 @@ class OperationCreateView(WorkflowFormView):
     form_class = OperationForm
     success_message = 'Operation created.'
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["actor"] = self.request.user
+        return kwargs
+
     def perform_action(self, form):
         CreateOperationService.call(**form.cleaned_data)
 

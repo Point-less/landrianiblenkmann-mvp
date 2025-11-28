@@ -26,6 +26,10 @@ from .operations import (  # noqa: F401
     OperationLoseService,
     OperationReinforceService,
 )
+from .queries import (  # noqa: F401
+    AvailableProviderOpportunitiesForOperationsQuery,
+    AvailableSeekerOpportunitiesForOperationsQuery,
+)
 from .validation_docs import (  # noqa: F401
     CreateValidationDocumentService,
     ReviewValidationDocumentService,
@@ -51,6 +55,8 @@ __all__ = [
     "OperationReinforceService",
     "OperationCloseService",
     "OperationLoseService",
+    "AvailableProviderOpportunitiesForOperationsQuery",
+    "AvailableSeekerOpportunitiesForOperationsQuery",
     "CreateValidationDocumentService",
     "ReviewValidationDocumentService",
     "discover_services",

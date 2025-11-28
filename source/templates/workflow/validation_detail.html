@@ -47,12 +47,8 @@
                     {% endif %}
                 </td>
                 <td class="latest-activity">
-                    {% if requirement.document %}
-                        {% url 'transition-history' 'opportunities' 'validationdocument' requirement.document.id as doc_history_url %}
-                        {% include "workflow/partials/latest_transition.html" with transitions=requirement.document.state_transitions.all history_url=doc_history_url %}
-                    {% else %}
-                        <span class="muted">No transitions yet.</span>
-                    {% endif %}
+                    {% url 'transition-history' 'opportunities' 'validationdocument' requirement.document.id as doc_history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=requirement.document.state_transitions.all history_url=doc_history_url %}
                 </td>
                 <td class="actions-column">
                     {% if requirement.document %}

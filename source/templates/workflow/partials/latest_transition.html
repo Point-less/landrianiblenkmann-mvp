@@ -15,13 +15,5 @@ Inputs:
     {% endwith %}
 </div>
 {% if history_url %}
-    {% with next_val=next_url|default:current_url %}
-        {% if next_val %}
-            {% with encoded_next=next_val|urlencode %}
-                <a class="history-link" href="{{ history_url }}?next={{ encoded_next }}" title="View history">↺</a>
-            {% endwith %}
-        {% else %}
-            <a class="history-link" href="{{ history_url }}" title="View history">↺</a>
-        {% endif %}
-    {% endwith %}
+    <a class="history-link" href="{{ history_url }}" title="View history">↺</a>
 {% endif %}

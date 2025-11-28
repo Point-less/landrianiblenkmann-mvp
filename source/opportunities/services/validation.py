@@ -39,12 +39,12 @@ class ValidationRejectService(BaseService):
 
 
 class ValidationAcceptService(BaseService):
-    """Accept a presented validation and advance the opportunity."""
+    """Approve a presented validation and advance the opportunity."""
 
     def run(self, *, validation: Validation) -> Validation:
         validation.ensure_documents_ready_for_acceptance()
         try:
-            validation.accept()
+            validation.approve()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
 

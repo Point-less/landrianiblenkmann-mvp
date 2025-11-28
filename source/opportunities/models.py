@@ -191,7 +191,7 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
     class State(models.TextChoices):
         PREPARING = "preparing", "Preparing"
         PRESENTED = "presented", "Presented"
-        ACCEPTED = "accepted", "Accepted"
+        APPROVED = "approved", "Approved"
 
     opportunity = models.ForeignKey(
         ProviderOpportunity,
@@ -324,6 +324,14 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
             return False
         return True
 
+    @property
+    def ready_for_approval(self) -> bool:
+        try:
+            self.ensure_documents_ready_for_acceptance()
+            return True
+        except ValidationError:
+            return False
+
     def can_revoke(self) -> bool:
         return self.state == self.State.PRESENTED
 
@@ -337,8 +345,8 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
         if notes is not None:
             self.notes = notes
 
-    @transition(field="state", source=State.PRESENTED, target=State.ACCEPTED)
-    def accept(self) -> None:
+    @transition(field="state", source=State.PRESENTED, target=State.APPROVED)
+    def approve(self) -> None:
         self.validated_at = timezone.now()
 
 

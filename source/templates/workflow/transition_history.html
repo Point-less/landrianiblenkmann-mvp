@@ -7,7 +7,7 @@
     <h2>State History</h2>
     <p><strong>Object:</strong> {{ object }}</p>
     <table>
-        <tr><th>#</th><th>Transition</th><th>States</th><th>Timestamp</th></tr>
+        <tr><th>#</th><th>Transition</th><th>States</th><th>Actor</th><th>Timestamp</th></tr>
         {% for transition in transitions %}
             <tr>
                 <td>{{ forloop.counter }}</td>
@@ -16,10 +16,11 @@
                     <div class="table-title">{{ transition.from_state|default:'—' }} → {{ transition.to_state }}</div>
                     <div class="table-subtext">Field: {{ transition.state_field }}</div>
                 </td>
+                <td>{% if transition.actor %}{{ transition.actor }}{% else %}—{% endif %}</td>
                 <td>{{ transition.occurred_at|date:"Y-m-d H:i:s" }}</td>
             </tr>
         {% empty %}
-            <tr><td colspan="4">No transitions recorded.</td></tr>
+            <tr><td colspan="5">No transitions recorded.</td></tr>
         {% endfor %}
     </table>
     <div style="margin-top:1rem;">

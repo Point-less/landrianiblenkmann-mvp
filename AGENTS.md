@@ -83,6 +83,8 @@ Authentication and user management with passwordless login.
 ### `utils/`
 Shared utilities and mixins.
 - **Mixins**: `TimeStampedMixin` (created_at/updated_at), `FSMLoggableMixin` (django-fsm-log integration)
+- **Audit helpers**: `FSMStateTransition` now stores `actor` (user responsible for each FSM transition); context helpers in `utils/actors.py`
+- **Middleware**: `ActorContextMiddleware` binds the authenticated user to the transition logging context
 - **Purpose**: DRY helpers used across all apps
 
 ## Domain Workflow

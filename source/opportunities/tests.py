@@ -93,6 +93,30 @@ class SaleFlowServiceTests(TestCase):
         OpportunityValidateService.call(opportunity=provider_opportunity)
         return provider_opportunity, validation, provider_intention
 
+    def test_transition_records_actor_from_service_context(self):
+        intention = CreateSaleProviderIntentionService.call(
+            owner=self.owner,
+            agent=self.agent,
+            property=self.property,
+            documentation_notes="Actor tracing",
+        )
+
+        DeliverSaleValuationService.call(
+            intention=intention,
+            amount=Decimal("950000"),
+            currency=self.currency,
+            notes="With actor",
+            actor=self.reviewer,
+        )
+
+        transition = intention.state_transitions.filter(
+            to_state=intention.State.VALUATED,
+            state_field="state",
+        ).order_by("-occurred_at", "-id").first()
+
+        self.assertIsNotNone(transition, "transition should be recorded")
+        self.assertEqual(transition.actor, self.reviewer)
+
     def _upload_required_documents(self, validation: Validation):
         documents = []
         for code, _ in Validation.required_document_choices(include_optional=False):

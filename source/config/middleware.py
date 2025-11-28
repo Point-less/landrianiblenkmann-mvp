@@ -6,6 +6,20 @@ from django.conf import settings
 from django.contrib.auth.views import redirect_to_login
 from django.http import HttpRequest, HttpResponse, JsonResponse
 
+from utils.actors import actor_context
+
+
+class ActorContextMiddleware:
+    """Bind the authenticated user to the execution context for auditing."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        actor = request.user if getattr(request, "user", None) and request.user.is_authenticated else None
+        with actor_context(actor):
+            return self.get_response(request)
+
 
 class RequireLoginMiddleware:
     """Enforce authenticated access for every request unless explicitly exempted."""

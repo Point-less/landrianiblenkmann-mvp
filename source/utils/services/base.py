@@ -3,6 +3,7 @@ import inspect
 
 from django.db import DEFAULT_DB_ALIAS, transaction
 
+from utils.actors import actor_context
 
 @contextmanager
 def service_atomic(using: str | None = None):
@@ -57,10 +58,12 @@ class BaseService:
             use_atomic = self.atomic
 
         if not use_atomic:
-            return self.run(*args, **kwargs)
+            with actor_context(actor):
+                return self.run(*args, **kwargs)
 
-        with service_atomic(self.using):
-            return self.run(*args, **kwargs)
+        with actor_context(actor):
+            with service_atomic(self.using):
+                return self.run(*args, **kwargs)
 
 
 __all__ = ["BaseService", "service_atomic"]

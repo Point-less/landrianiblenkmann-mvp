@@ -16,6 +16,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('graphql/', graphql_view(), name='graphql'),
     # App-specific routes
+    path('auth/', include('users.urls')),
     path('core/', include('core.urls')),
     path('intentions/', include('intentions.urls')),
     path('opportunities/', include('opportunities.urls')),

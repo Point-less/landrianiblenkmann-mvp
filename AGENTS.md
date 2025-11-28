@@ -70,12 +70,15 @@ Sales pipeline management with FSM workflows.
 - **Services** (`services/`): Business logic for opportunity lifecycle
 
 ### `users/`
-Custom user model and GraphQL infrastructure.
+Authentication and user management with passwordless login.
 - **Models**: Custom `User` model (AUTH_USER_MODEL)
+- **Views** (`views.py`): Custom login view with password and passwordless options, magic link request handler, logout
+- **URLs** (`urls.py`): Login (`/auth/login/`), request magic link (`/auth/request-magic-link/`), sesame login endpoint (`/auth/sesame/login/`), logout
 - **Schema** (`schema.py`): `UsersQuery` mixin for GraphQL
 - **Types** (`types.py`): Strawberry types for GraphQL
 - **Filters** (`filters.py`): GraphQL filter definitions
-- **Purpose**: Authentication and user-specific GraphQL patterns
+- **Templates**: Dual-mode login page (password + passwordless tabs), magic link request page
+- **Purpose**: Authentication with both password and magic link (passwordless) login options
 
 ### `utils/`
 Shared utilities and mixins.
@@ -110,6 +113,10 @@ State transitions use **django-fsm** with **django-fsm-log** for audit trails.
 | `/health/`, `/trigger-log/` | core | Health check and Dramatiq trigger endpoints |
 | `/agents/`, `/contacts/`, `/properties/` | core | Entity CRUD |
 | `/transitions/...` | core | FSM transition history |
+| `/auth/login/` | users | Dual-mode login (password + passwordless) |
+| `/auth/request-magic-link/` | users | Request passwordless login link |
+| `/auth/sesame/login/` | users | Sesame magic link login endpoint |
+| `/auth/logout/` | users | Logout endpoint |
 | _App-specific patterns_ | intentions, opportunities, integrations | Modular routing per app |
 
 ## Bootstrap & Development
@@ -130,9 +137,17 @@ Environment variables (see `config/settings.py`):
 - **Tokkobroker**: `TOKKO_BASE_URL`, `TOKKO_USERNAME`, `TOKKO_PASSWORD`, `TOKKO_OTP_TOKEN`, `TOKKO_TIMEOUT`
 - **Django**: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `TZ`
 
+**Authentication Configuration**:
+- **AUTHENTICATION_BACKENDS**: Sesame token backend (for magic links) + Django ModelBackend (for password login)
+- **SESAME_MAX_AGE**: 300 seconds (5 minutes) - token expiration time
+- **SESAME_ONE_TIME**: True - tokens can only be used once
+- **EMAIL_BACKEND**: Console backend for development (prints emails to console)
+- **LOGIN_URL**: `/auth/login/` - custom dual-mode login page
+
 ## Key Technologies
 
 - **django-fsm** + **django-fsm-log**: State machine workflows with audit logging
+- **django-sesame**: Passwordless authentication via one-time magic links (5-minute expiration)
 - **Strawberry GraphQL**: Type-safe GraphQL with Relay pagination
 - **Dramatiq**: Background task processing
 - **Redis**: Caching layer and Dramatiq result backend

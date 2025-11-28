@@ -1,0 +1,35 @@
+{% extends "users/auth_base.html" %}
+
+{% block title %}Magic Link | Marketview{% endblock %}
+
+{% block body %}
+<div class="auth-card">
+    <a class="logo" href="{% url 'login' %}">
+        <img src="https://static.tokkobroker.com/tfw_images/6354_Landriani%20Blenkmann/Logo_Web_1100x160_3.png" alt="Landriani Blenkmann">
+    </a>
+    <div class="messages {% if messages %}has-messages{% endif %}" aria-live="polite">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <h1>Passwordless Login</h1>
+    <p class="subtitle">Request a one-time link to enter Marketview without a password.</p>
+
+    <div class="info-box">
+        Enter the email associated with your account. We'll send a secure link that expires in 5 minutes and works once.
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <label for="{{ form.email.id_for_label }}">Email address</label>
+        {{ form.email }}
+        {{ form.email.errors }}
+        <button type="submit" class="btn">Send Magic Link</button>
+    </form>
+
+    <a href="{% url 'login' %}" class="back-link">← Back to login</a>
+</div>
+{% endblock %}

@@ -34,6 +34,8 @@
             background: var(--brand-primary);
             color: var(--white);
             padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
         }
         .sidebar-logo {
             margin-bottom: 1rem;
@@ -63,6 +65,26 @@
         .content {
             flex: 1;
             padding: 1.5rem;
+        }
+        .sidebar-nav-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 1.5rem;
+        }
+        .sidebar-footer a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: var(--white);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .sidebar-footer a:hover {
+            color: var(--brand-secondary);
         }
         .card {
             background: var(--white);
@@ -122,20 +144,25 @@
                 <img src="https://static.tokkobroker.com/tfw_images/6354_Landriani%20Blenkmann/Logo_Web_1100x160_3.png" alt="Landriani Blenkmann" loading="lazy">
             </a>
         </div>
-        {% with active=active_section navs=nav_groups %}
-        <nav>
-            {% for group, items in navs %}
-                <div class="nav-group">
-                    <span>{{ group }}</span>
-                    <div class="nav-links">
-                        {% for slug, label in items %}
-                            <a class="{% if active == slug %}active{% endif %}" href="{% url 'workflow-dashboard-section' slug %}">{{ label }}</a>
-                        {% endfor %}
+        <div class="sidebar-nav-wrapper">
+            {% with active=active_section navs=nav_groups %}
+            <nav>
+                {% for group, items in navs %}
+                    <div class="nav-group">
+                        <span>{{ group }}</span>
+                        <div class="nav-links">
+                            {% for slug, label in items %}
+                                <a class="{% if active == slug %}active{% endif %}" href="{% url 'workflow-dashboard-section' slug %}">{{ label }}</a>
+                            {% endfor %}
+                        </div>
                     </div>
-                </div>
-            {% endfor %}
-        </nav>
-        {% endwith %}
+                {% endfor %}
+            </nav>
+            {% endwith %}
+        </div>
+        <div class="sidebar-footer">
+            <a href="{% url 'logout' %}">⎋ Logout</a>
+        </div>
     </aside>
     <main class="content">
         {% if messages %}

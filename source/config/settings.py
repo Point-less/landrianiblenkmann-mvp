@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'sesame',
     'django_dramatiq',
     'django_fsm_log',
     'users.apps.UsersConfig',
@@ -93,6 +94,11 @@ CACHES = {
     }
 }
 
+AUTHENTICATION_BACKENDS = [
+    'sesame.backends.ModelBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -122,10 +128,20 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.User'
 
-LOGIN_URL = '/admin/login/'
+# Sesame settings
+SESAME_MAX_AGE = 300  # 5 minutes
+SESAME_ONE_TIME = True  # One-time use tokens
+
+# Email backend (console for development)
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+LOGIN_URL = '/auth/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGIN_REQUIRED_EXEMPT_URLS = [
     LOGIN_URL,
+    '/auth/login/',
+    '/auth/request-magic-link/',
+    '/auth/sesame/login/',
     '/health/',
     '/trigger-log/',
 ]
@@ -163,3 +179,13 @@ DRAMATIQ_RESULT_BACKEND_ENABLED = True
 CSRF_TRUSTED_ORIGINS = [
     "https://*.marketview.com.ar",
 ]
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+}

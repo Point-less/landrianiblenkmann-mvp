@@ -243,12 +243,14 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
         return {
             'marketing_packages': (
                 MarketingPackage.objects.select_related('opportunity__source_intention__property', 'opportunity__source_intention__owner')
+                .prefetch_related('state_transitions')
                 .filter(opportunity__state=ProviderOpportunity.State.MARKETING)
                 .order_by('-updated_at')
             ),
             'marketing_opportunities_without_packages': (
                 ProviderOpportunity.objects.filter(state=ProviderOpportunity.State.MARKETING, marketing_packages__isnull=True)
                 .select_related('source_intention__property')
+                .prefetch_related('state_transitions')
             ),
         }
 
@@ -317,6 +319,9 @@ class WorkflowFormView(LoginRequiredMixin, SuccessMessageMixin, FormView):
         context.setdefault('active_section', None)
         context.setdefault('current_url', self.request.get_full_path())
         context.setdefault('page_new_url', None)
+        context.setdefault('form_title', getattr(self, 'form_title', None))
+        context.setdefault('form_description', getattr(self, 'form_description', None))
+        context.setdefault('submit_label', getattr(self, 'submit_label', 'Submit'))
         return context
 
     def form_valid(self, form):

@@ -3,16 +3,51 @@
 {% block title %}Action | {{ block.super }}{% endblock %}
 
 {% block content %}
-<div class="card">
-    <form method="post" enctype="{% if form.is_multipart %}multipart/form-data{% else %}application/x-www-form-urlencoded{% endif %}">
-        {% csrf_token %}
-        {% if request.GET.next %}
-            <input type="hidden" name="next" value="{{ request.GET.next }}">
-        {% elif request.POST.next %}
-            <input type="hidden" name="next" value="{{ request.POST.next }}">
+<div class="page-header">
+    <div>
+        <h2>{{ form_title|default:"Complete Action" }}</h2>
+        {% if form_description %}
+            <p class="table-subtext" style="margin:0;">{{ form_description }}</p>
         {% endif %}
-        {{ form.as_p }}
-        <button type="submit">Submit</button>
+    </div>
+</div>
+<div class="card">
+    {{ form.media }}
+    <form class="form-layout" method="post" enctype="{% if form.is_multipart %}multipart/form-data{% else %}application/x-www-form-urlencoded{% endif %}">
+        {% csrf_token %}
+        {% with next_url=request.POST.next|default:request.GET.next %}
+            {% if next_url %}
+                <input type="hidden" name="next" value="{{ next_url }}">
+            {% endif %}
+        {% endwith %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+        {% if form.non_field_errors %}
+            <div class="form-errors">
+                {% for error in form.non_field_errors %}
+                    <div>{{ error }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% for field in form.visible_fields %}
+            <div class="form-field {% if field.errors %}has-error{% endif %}">
+                <label for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                    {% if field.field.required %}
+                        <span class="required-indicator">Required</span>
+                    {% endif %}
+                </label>
+                {{ field }}
+                {% if field.help_text %}
+                    <small class="help-text">{{ field.help_text }}</small>
+                {% endif %}
+                {% for error in field.errors %}
+                    <div class="error-message">{{ error }}</div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <div class="form-actions">
+            <button type="submit">{{ submit_label|default:"Submit" }}</button>
+        </div>
     </form>
 </div>
 {% endblock %}

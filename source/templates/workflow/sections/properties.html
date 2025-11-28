@@ -9,7 +9,7 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Property</th><th>Details</th><th>Actions</th></tr>
+        <tr><th>Property</th><th>Details</th><th class="actions-column">Actions</th></tr>
         {% for property in properties %}
             <tr>
                 <td>
@@ -19,7 +19,11 @@
                 <td>
                     <div class="table-title">Ref: {{ property.reference_code|default:"No reference" }}</div>
                 </td>
-                <td><a href="{% url 'property-edit' property.id %}?next={{ current_url|urlencode }}">Edit</a></td>
+                <td class="actions-column">
+                    <a class="icon-button" data-icon="✏" href="{% url 'property-edit' property.id %}?next={{ current_url|urlencode }}" title="Edit property">
+                        <span class="sr-only">Edit {{ property.name }}</span>
+                    </a>
+                </td>
             </tr>
         {% empty %}
             <tr><td colspan="3">No properties yet.</td></tr>

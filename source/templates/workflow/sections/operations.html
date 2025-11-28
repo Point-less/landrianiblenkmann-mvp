@@ -10,7 +10,7 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Provider</th><th>Seeker</th><th>Status</th><th>Latest Activity</th><th>Actions</th></tr>
+        <tr><th>Provider</th><th>Seeker</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for operation in operations %}
             <tr>
                 <td>
@@ -25,26 +25,34 @@
                     <span class="pill">{{ operation.get_state_display }}</span>
                     <div class="table-subtext">Currency: {{ operation.currency|default:"—" }}</div>
                 </td>
-                <td>
-                    {% with latest=operation.state_transitions.all|first %}
-                        {% if latest %}
-                            {{ latest.from_state|default:'—' }} → {{ latest.to_state }}
-                            <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
-                        {% else %}
-                            <span>No transitions yet.</span>
-                        {% endif %}
-                    {% endwith %}
-                    <a class="history-link" href="{% url 'transition-history' 'opportunities' 'operation' operation.id %}?next={{ current_url|urlencode }}">↺</a>
+                <td class="latest-activity">
+                    <div class="transition-text">
+                        {% with latest=operation.state_transitions.all|first %}
+                            {% if latest %}
+                                <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+                                <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                            {% else %}
+                                <span>No transitions yet.</span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                    <a class="history-link" href="{% url 'transition-history' 'opportunities' 'operation' operation.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
                 </td>
-                <td class="actions">
+                <td class="actions-column">
                     {% if operation|can_transition:'reinforce' %}
-                        <a href="{% url 'operation-reinforce' operation.id %}?next={{ current_url|urlencode }}">Reinforce</a>
+                        <a class="icon-button" data-icon="🛠" href="{% url 'operation-reinforce' operation.id %}?next={{ current_url|urlencode }}" title="Reinforce operation">
+                            <span class="sr-only">Reinforce operation</span>
+                        </a>
                     {% endif %}
                     {% if operation|can_transition:'close' %}
-                        <a href="{% url 'operation-close' operation.id %}?next={{ current_url|urlencode }}">Close</a>
+                        <a class="icon-button" data-icon="✅" href="{% url 'operation-close' operation.id %}?next={{ current_url|urlencode }}" title="Close operation">
+                            <span class="sr-only">Close operation</span>
+                        </a>
                     {% endif %}
                     {% if operation|can_transition:'lose' %}
-                        <a href="{% url 'operation-lose' operation.id %}?next={{ current_url|urlencode }}">Lose</a>
+                        <a class="icon-button" data-icon="✖" data-variant="danger" href="{% url 'operation-lose' operation.id %}?next={{ current_url|urlencode }}" title="Mark as lost">
+                            <span class="sr-only">Mark operation as lost</span>
+                        </a>
                     {% endif %}
                 </td>
             </tr>

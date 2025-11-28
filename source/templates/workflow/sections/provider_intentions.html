@@ -10,7 +10,7 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Property</th><th>Status</th><th>Latest Activity</th><th>Actions</th></tr>
+        <tr><th>Property</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for intention in provider_intentions %}
             <tr>
                 <td>
@@ -22,28 +22,38 @@
                     <div class="table-subtext">Agent: {{ intention.agent }}</div>
                 </td>
                 <td class="latest-activity">
-                    {% with latest=intention.state_transitions.all|first %}
-                        {% if latest %}
-                            <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
-                            <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
-                        {% else %}
-                            <span>No transitions yet.</span>
-                        {% endif %}
-                    {% endwith %}
+                    <div class="transition-text">
+                        {% with latest=intention.state_transitions.all|first %}
+                            {% if latest %}
+                                <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+                                <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                            {% else %}
+                                <span>No transitions yet.</span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
                     <a class="history-link" href="{% url 'transition-history' 'intentions' 'saleproviderintention' intention.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
                 </td>
-                <td class="actions">
+                <td class="actions-column">
                     {% if intention|can_transition:'deliver_valuation' %}
-                        <a href="{% url 'provider-deliver-valuation' intention.id %}?next={{ current_url|urlencode }}">Deliver valuation</a>
+                        <a class="icon-button" data-icon="📈" href="{% url 'provider-deliver-valuation' intention.id %}?next={{ current_url|urlencode }}" title="Deliver valuation">
+                            <span class="sr-only">Deliver valuation</span>
+                        </a>
                     {% endif %}
                     {% if intention|can_transition:'start_contract_negotiation' %}
-                        <a href="{% url 'provider-start-contract' intention.id %}?next={{ current_url|urlencode }}">Start contract</a>
+                        <a class="icon-button" data-icon="📑" href="{% url 'provider-start-contract' intention.id %}?next={{ current_url|urlencode }}" title="Start contract negotiation">
+                            <span class="sr-only">Start contract negotiation</span>
+                        </a>
                     {% endif %}
                     {% if intention.is_promotable %}
-                        <a href="{% url 'provider-promote' intention.id %}?next={{ current_url|urlencode }}">Promote</a>
+                        <a class="icon-button" data-icon="🚀" href="{% url 'provider-promote' intention.id %}?next={{ current_url|urlencode }}" title="Promote to opportunity">
+                            <span class="sr-only">Promote to opportunity</span>
+                        </a>
                     {% endif %}
                     {% if intention|can_transition:'withdraw' %}
-                        <a href="{% url 'provider-withdraw' intention.id %}?next={{ current_url|urlencode }}">Withdraw</a>
+                        <a class="icon-button" data-icon="✖" data-variant="danger" href="{% url 'provider-withdraw' intention.id %}?next={{ current_url|urlencode }}" title="Withdraw intention">
+                            <span class="sr-only">Withdraw intention</span>
+                        </a>
                     {% endif %}
                 </td>
             </tr>

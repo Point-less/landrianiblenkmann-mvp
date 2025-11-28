@@ -10,7 +10,7 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Contact</th><th>Status</th><th>Latest Activity</th><th>Actions</th></tr>
+        <tr><th>Contact</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for intention in seeker_intentions %}
             <tr>
                 <td>
@@ -27,29 +27,39 @@
                         {% endif %}
                     </div>
                 </td>
-                <td>
-                    {% with latest=intention.state_transitions.all|first %}
-                        {% if latest %}
-                            {{ latest.from_state|default:'—' }} → {{ latest.to_state }}
-                            <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
-                        {% else %}
-                            <span>No transitions yet.</span>
-                        {% endif %}
-                    {% endwith %}
-                    <a class="history-link" href="{% url 'transition-history' 'intentions' 'saleseekerintention' intention.id %}?next={{ current_url|urlencode }}">↺</a>
+                <td class="latest-activity">
+                    <div class="transition-text">
+                        {% with latest=intention.state_transitions.all|first %}
+                            {% if latest %}
+                                <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+                                <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                            {% else %}
+                                <span>No transitions yet.</span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                    <a class="history-link" href="{% url 'transition-history' 'intentions' 'saleseekerintention' intention.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
                 </td>
-                <td class="actions">
+                <td class="actions-column">
                     {% if intention|can_transition:'activate_search' %}
-                        <a href="{% url 'seeker-activate' intention.id %}?next={{ current_url|urlencode }}">Activate</a>
+                        <a class="icon-button" data-icon="▶" href="{% url 'seeker-activate' intention.id %}?next={{ current_url|urlencode }}" title="Activate search">
+                            <span class="sr-only">Activate search</span>
+                        </a>
                     {% endif %}
                     {% if intention|can_transition:'sign_mandate' %}
-                        <a href="{% url 'seeker-mandate' intention.id %}?next={{ current_url|urlencode }}">Mandate</a>
+                        <a class="icon-button" data-icon="📜" href="{% url 'seeker-mandate' intention.id %}?next={{ current_url|urlencode }}" title="Sign mandate">
+                            <span class="sr-only">Sign mandate</span>
+                        </a>
                     {% endif %}
                     {% if intention.can_create_opportunity %}
-                        <a href="{% url 'seeker-create-opportunity' intention.id %}?next={{ current_url|urlencode }}">Create opportunity</a>
+                        <a class="icon-button" data-icon="➕" href="{% url 'seeker-create-opportunity' intention.id %}?next={{ current_url|urlencode }}" title="Create opportunity">
+                            <span class="sr-only">Create seeker opportunity</span>
+                        </a>
                     {% endif %}
                     {% if intention|can_transition:'abandon' %}
-                        <a href="{% url 'seeker-abandon' intention.id %}?next={{ current_url|urlencode }}">Abandon</a>
+                        <a class="icon-button" data-icon="✖" data-variant="danger" href="{% url 'seeker-abandon' intention.id %}?next={{ current_url|urlencode }}" title="Abandon intention">
+                            <span class="sr-only">Abandon seeker intention</span>
+                        </a>
                     {% endif %}
                 </td>
             </tr>

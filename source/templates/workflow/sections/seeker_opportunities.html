@@ -7,7 +7,7 @@
 </div>
 <div class="card">
     <table>
-        <tr><th>Contact</th><th>Status</th><th>Latest Activity</th></tr>
+        <tr><th>Contact</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for opportunity in seeker_opportunities %}
             <tr>
                 <td>
@@ -18,20 +18,23 @@
                     <span class="pill">{{ opportunity.get_state_display }}</span>
                     <div class="table-subtext">Currency: {{ opportunity.currency|default:"—" }}</div>
                 </td>
-                <td>
-                    {% with latest=opportunity.state_transitions.all|first %}
-                        {% if latest %}
-                            {{ latest.from_state|default:'—' }} → {{ latest.to_state }}
-                            <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
-                        {% else %}
-                            <span>No transitions yet.</span>
-                        {% endif %}
-                    {% endwith %}
-                    <a class="history-link" href="{% url 'transition-history' 'opportunities' 'seekeropportunity' opportunity.id %}?next={{ current_url|urlencode }}">↺</a>
+                <td class="latest-activity">
+                    <div class="transition-text">
+                        {% with latest=opportunity.state_transitions.all|first %}
+                            {% if latest %}
+                                <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
+                                <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
+                            {% else %}
+                                <span>No transitions yet.</span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                    <a class="history-link" href="{% url 'transition-history' 'opportunities' 'seekeropportunity' opportunity.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
                 </td>
+                <td class="actions-column"></td>
             </tr>
         {% empty %}
-            <tr><td colspan="3">No seeker opportunities.</td></tr>
+            <tr><td colspan="4">No seeker opportunities.</td></tr>
         {% endfor %}
     </table>
 </div>

@@ -6,7 +6,6 @@ from .opportunities import (  # noqa: F401
     CreateSeekerOpportunityService,
     OpportunityCloseService,
     OpportunityPublishService,
-    OpportunityValidateService,
 )
 from .validation import (  # noqa: F401
     ValidationAcceptService,
@@ -50,7 +49,6 @@ __all__ = [
     "BaseService",
     "service_atomic",
     "CreateOpportunityService",
-    "OpportunityValidateService",
     "OpportunityPublishService",
     "OpportunityCloseService",
     "CreateSeekerOpportunityService",

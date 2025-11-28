@@ -31,7 +31,12 @@ class HTML5WidgetMixin:
 class SaleProviderIntentionForm(HTML5WidgetMixin, forms.ModelForm):
     class Meta:
         model = SaleProviderIntention
-        fields = ["owner", "agent", "property", "documentation_notes"]
+        fields = ["owner", "agent", "property", "operation_type", "documentation_notes"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from opportunities.models import OperationType
+        self.fields["operation_type"].queryset = OperationType.objects.all()
 
 
 class DeliverValuationForm(HTML5WidgetMixin, forms.Form):
@@ -76,6 +81,7 @@ class SaleSeekerIntentionForm(HTML5WidgetMixin, forms.ModelForm):
         fields = [
             "contact",
             "agent",
+            "operation_type",
             "budget_min",
             "budget_max",
             "currency",
@@ -86,6 +92,11 @@ class SaleSeekerIntentionForm(HTML5WidgetMixin, forms.ModelForm):
             "desired_features": forms.Textarea(attrs={'rows': 3, 'placeholder': 'JSON, e.g. {"bedrooms": 3}'}),
             "notes": forms.Textarea(attrs={'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from opportunities.models import OperationType
+        self.fields["operation_type"].queryset = OperationType.objects.all()
 
 
 class SeekerMandateForm(HTML5WidgetMixin, forms.Form):

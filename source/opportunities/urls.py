@@ -6,7 +6,6 @@ from core import views as workflow_views
 
 urlpatterns = [
     # Provider opportunities & validations
-    path('provider/<int:opportunity_id>/validate/', workflow_views.OpportunityValidateView.as_view(), name='provider-opportunity-validate'),
     path('validations/<int:validation_id>/', workflow_views.ValidationDetailView.as_view(), name='validation-detail'),
     path('validations/<int:validation_id>/present/', workflow_views.ValidationPresentView.as_view(), name='validation-present'),
     path('validations/<int:validation_id>/reject/', workflow_views.ValidationRejectView.as_view(), name='validation-reject'),

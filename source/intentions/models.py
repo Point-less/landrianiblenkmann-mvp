@@ -43,6 +43,11 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
         on_delete=models.PROTECT,
         related_name="sale_provider_intentions",
     )
+    operation_type = models.ForeignKey(
+        "opportunities.OperationType",
+        on_delete=models.PROTECT,
+        related_name="provider_intentions",
+    )
     state = FSMField(
         max_length=32,
         choices=State.choices,
@@ -137,6 +142,11 @@ class SaleSeekerIntention(TimeStampedMixin, FSMTrackingMixin):
         Agent,
         on_delete=models.PROTECT,
         related_name="sale_seeker_intentions",
+    )
+    operation_type = models.ForeignKey(
+        "opportunities.OperationType",
+        on_delete=models.PROTECT,
+        related_name="seeker_intentions",
     )
     state = FSMField(
         max_length=32,

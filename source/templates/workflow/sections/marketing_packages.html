@@ -30,17 +30,8 @@
                     {% endif %}
                 </td>
                 <td class="latest-activity">
-                    <div class="transition-text">
-                        {% with latest=package.state_transitions.all|first %}
-                            {% if latest %}
-                                <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
-                                <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
-                            {% else %}
-                                <span>No transitions yet.</span>
-                            {% endif %}
-                        {% endwith %}
-                    </div>
-                    <a class="history-link" href="{% url 'transition-history' 'opportunities' 'marketingpackage' package.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
+                    {% url 'transition-history' 'opportunities' 'marketingpackage' package.id as history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=package.state_transitions.all history_url=history_url %}
                 </td>
                 <td class="actions-column">
                     <a class="icon-button" data-icon="✏" href="{% url 'marketing-package-edit' package.id %}?next={{ current_url|urlencode }}" title="Edit package">

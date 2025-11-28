@@ -20,12 +20,14 @@ class CreateSaleProviderIntentionService(BaseService):
         owner: Contact,
         agent: Agent,
         property: Property,
+        operation_type,
         documentation_notes: str | None = None,
     ) -> SaleProviderIntention:
         return SaleProviderIntention.objects.create(
             owner=owner,
             agent=agent,
             property=property,
+            operation_type=operation_type,
             documentation_notes=documentation_notes or "",
         )
 

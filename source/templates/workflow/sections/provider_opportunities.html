@@ -24,28 +24,14 @@
                     <div class="table-subtext">{{ opportunity.get_listing_kind_display }}</div>
                 </td>
                 <td class="latest-activity">
-                    <div class="transition-text">
-                        {% with latest=opportunity.state_transitions.all|first %}
-                            {% if latest %}
-                                <span>{{ latest.from_state|default:'—' }} → {{ latest.to_state }}</span>
-                                <small class="muted">{{ latest.occurred_at|date:"m/d H:i" }}</small>
-                            {% else %}
-                                <span>No transitions yet.</span>
-                            {% endif %}
-                        {% endwith %}
-                    </div>
-                    <a class="history-link" href="{% url 'transition-history' 'opportunities' 'provideropportunity' opportunity.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
+                    {% url 'transition-history' 'opportunities' 'provideropportunity' opportunity.id as history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=opportunity.state_transitions.all history_url=history_url %}
                 </td>
                 <td class="actions-column">
-                    {% if opportunity|can_transition:'start_validation' %}
-                        <a class="icon-button" data-icon="⚙" href="{% url 'provider-opportunity-validate' opportunity.id %}?next={{ current_url|urlencode }}" title="Move to validation">
-                            <span class="sr-only">Move opportunity into validation</span>
-                        </a>
-                    {% endif %}
                     {% with validation=opportunity.validations.first %}
-                        {% if validation and validation|can_transition:'present' %}
-                            <a class="icon-button" data-icon="📤" href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}" title="Present validation">
-                                <span class="sr-only">Present validation</span>
+                        {% if validation %}
+                            <a class="icon-button" data-icon="📄" href="{% url 'validation-detail' validation.id %}?next={{ current_url|urlencode }}" title="Open validation">
+                                <span class="sr-only">Open validation</span>
                             </a>
                         {% endif %}
                     {% endwith %}

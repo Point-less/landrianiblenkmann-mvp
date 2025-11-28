@@ -48,6 +48,13 @@ class CreateOperationService(BaseService):
         ).exists():
             raise ValidationError("An active operation already exists for this pair.")
 
+        p_type = provider_opportunity.source_intention.operation_type_id
+        s_type = seeker_opportunity.source_intention.operation_type_id
+        if not p_type or not s_type:
+            raise ValidationError("Both intentions must specify an operation type before pairing.")
+        if p_type != s_type:
+            raise ValidationError("Provider and seeker operation types must match before pairing.")
+
         operation = Operation.objects.create(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,

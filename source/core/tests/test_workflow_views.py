@@ -20,12 +20,11 @@ from intentions.services import (
     MandateSaleSeekerIntentionService,
     PromoteSaleProviderIntentionService,
 )
-from opportunities.models import Operation, ProviderOpportunity, Validation, ValidationDocument
+from opportunities.models import Operation, ProviderOpportunity, Validation, ValidationDocument, ValidationDocumentType
 from opportunities.services import (
     CreateValidationDocumentService,
     CreateOperationService,
     CreateSeekerOpportunityService,
-    OpportunityValidateService,
     ReviewValidationDocumentService,
     ValidationAcceptService,
     ValidationPresentService,
@@ -52,12 +51,15 @@ class WorkflowViewSmokeTests(TestCase):
         self.owner = Contact.objects.create(first_name='Owner', last_name='One')
         self.seeker_contact = Contact.objects.create(first_name='Buyer', last_name='Beta')
         self.property = Property.objects.create(name='Ocean View Loft', reference_code='PROP-001')
+        from opportunities.models import OperationType
+        self.operation_type = OperationType.objects.get(code="sale")
         self.file = SimpleUploadedFile('doc.pdf', b'content')
 
         self.provider_intention = CreateSaleProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
             property=self.property,
+            operation_type=self.operation_type,
             documentation_notes='Initial notes',
         )
         DeliverSaleValuationService.call(
@@ -70,7 +72,6 @@ class WorkflowViewSmokeTests(TestCase):
             marketing_package_data={'currency': self.currency},
         )
         self.validation = Validation.objects.get(opportunity=self.provider_opportunity)
-        OpportunityValidateService.call(opportunity=self.provider_opportunity)
         docs = []
         for code, _ in Validation.required_document_choices(include_optional=False):
             docs.append(
@@ -94,8 +95,8 @@ class WorkflowViewSmokeTests(TestCase):
         self.marketing_package = self.provider_opportunity.marketing_packages.get()
         self.validation_document = ValidationDocument.objects.create(
             validation=self.validation,
-            document_type=ValidationDocument.DocumentType.OTHER,
-            name='ID Copy',
+            document_type=ValidationDocumentType.objects.get(code="other"),
+            observations='ID Copy',
             document=self.file,
             uploaded_by=self.admin,
         )
@@ -103,6 +104,7 @@ class WorkflowViewSmokeTests(TestCase):
         self.seeker_intention = CreateSaleSeekerIntentionService.call(
             contact=self.seeker_contact,
             agent=self.agent,
+            operation_type=self.operation_type,
             budget_min=Decimal('900000'),
             budget_max=Decimal('980000'),
             currency=self.currency,
@@ -149,7 +151,6 @@ class WorkflowViewSmokeTests(TestCase):
             ('seeker-mandate', {'intention_id': self.seeker_intention.id}),
             ('seeker-abandon', {'intention_id': self.seeker_intention.id}),
             ('seeker-create-opportunity', {'intention_id': self.seeker_intention.id}),
-            ('provider-opportunity-validate', {'opportunity_id': self.provider_opportunity.id}),
             ('validation-present', {'validation_id': self.validation.id}),
             ('validation-reject', {'validation_id': self.validation.id}),
             ('validation-accept', {'validation_id': self.validation.id}),

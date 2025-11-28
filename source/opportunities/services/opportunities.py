@@ -54,18 +54,6 @@ class CreateOpportunityService(BaseService):
         return opportunity
 
 
-class OpportunityValidateService(BaseService):
-    def run(self, *, opportunity: ProviderOpportunity, actor: Optional[Any] = None) -> ProviderOpportunity:
-        try:
-            opportunity.start_validation()
-        except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
-            raise ValidationError(str(exc)) from exc
-
-        opportunity.save(update_fields=["state", "updated_at"])
-        self.s.opportunities.ValidationEnsureService(opportunity=opportunity)
-        return opportunity
-
-
 class OpportunityPublishService(BaseService):
     def run(self, *, opportunity: ProviderOpportunity, actor: Optional[Any] = None) -> ProviderOpportunity:
         try:

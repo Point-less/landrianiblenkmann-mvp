@@ -3,6 +3,7 @@
 > [!IMPORTANT]
 > **Documentation Consistency**: This file must be kept in sync with the actual project structure. Every time any modification is made to the project architecture (new apps, services, URL patterns, models, or configuration changes), this document MUST be updated to reflect those changes.
 > **Execution Policy**: From the host, only `docker` (including `docker compose`) and `git` commands should be run. All other commands (tests, manage.py, tooling, scripts) must be executed inside the `frontend` container via `docker compose exec frontend ...`.
+> **Engineering Stance**: We code for correct states, not silent fallbacks. Required domain data (like operation types) must be present; missing prerequisites should raise errors loudly rather than defaulting or masking issues.
 
 ## Stack & Infrastructure
 
@@ -52,8 +53,8 @@ External service integrations.
 ### `intentions/`
 Pre-contract intent tracking with FSM state management.
 - **Models**:
-  - `SaleProviderIntention`: Property owner's pre-contract engagement (states: assessing → valuated → converted/withdrawn)
-  - `SaleSeekerIntention`: Buyer's pre-representation interest (states: qualifying → active → mandated → converted/abandoned)
+  - `SaleProviderIntention`: Property owner's pre-contract engagement (states: assessing → valuated → converted/withdrawn) with `operation_type` (Sale/Rent)
+  - `SaleSeekerIntention`: Buyer's pre-representation interest (states: qualifying → active → mandated → converted/abandoned) with `operation_type`
   - `SaleValuation`: Valuation records delivered to providers
 - **Purpose**: Capture and qualify leads before formal contracts
 - **FSM States**: Uses django-fsm for state transitions with validation rules
@@ -62,10 +63,10 @@ Pre-contract intent tracking with FSM state management.
 ### `opportunities/`
 Sales pipeline management with FSM workflows.
 - **Models**:
-  - `ProviderOpportunity`: Property sale opportunities (states: capturing → validating → marketing → closed)
+  - `ProviderOpportunity`: Property opportunities (states: validating → marketing → closed)
   - `SeekerOpportunity`: Buyer opportunities (states: matching → negotiating → closed/lost)
   - `Validation`: Document validation workflow (states: preparing → presented → accepted)
-  - Supporting models: `ValidationDocument`, `Match`, `Operation`
+  - Supporting models: `ValidationDocument`, `ValidationDocumentType` (configurable per operation type), `Match`, `Operation`, `OperationType` (Sale/Rent)
 - **Schema** (`schema.py`, `types.py`, `filters.py`): GraphQL queries, types, and filtering for opportunities
 - **Purpose**: Manage active sales pipeline from contract to close
 - **URLs** (`urls.py`): Opportunity and validation management endpoints

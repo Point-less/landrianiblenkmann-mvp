@@ -42,7 +42,6 @@ from opportunities.services import (
     OperationLoseService,
     OperationReinforceService,
     ReviewValidationDocumentService,
-    OpportunityValidateService,
     ValidationAcceptService,
     ValidationPresentService,
     MarketingPackageReleaseService,
@@ -66,6 +65,8 @@ class SaleFlowServiceTests(TestCase):
         self.seeker_contact = CreateContactService.call(
             first_name="Stella", last_name="Seeker", email="stella@example.com"
         )
+        from opportunities.models import OperationType
+        self.operation_type = OperationType.objects.get(code="sale")
         self.property = CreatePropertyService.call(name="Ocean View Loft", reference_code="PROP-001")
         LinkContactAgentService.call(contact=self.owner, agent=self.agent)
         LinkContactAgentService.call(contact=self.seeker_contact, agent=self.agent)
@@ -75,6 +76,7 @@ class SaleFlowServiceTests(TestCase):
             owner=self.owner,
             agent=self.agent,
             property=self.property,
+            operation_type=self.operation_type,
             documentation_notes="Initial walkthrough pending",
         )
         DeliverSaleValuationService.call(
@@ -89,7 +91,6 @@ class SaleFlowServiceTests(TestCase):
             tokkobroker_property=tokkobroker_property,
         )
         validation = Validation.objects.get(opportunity=provider_opportunity)
-        OpportunityValidateService.call(opportunity=provider_opportunity)
         return provider_opportunity, validation, provider_intention
 
     def test_transition_records_actor_from_service_context(self):
@@ -97,6 +98,7 @@ class SaleFlowServiceTests(TestCase):
             owner=self.owner,
             agent=self.agent,
             property=self.property,
+            operation_type=self.operation_type,
             documentation_notes="Actor tracing",
         )
 
@@ -129,7 +131,8 @@ class SaleFlowServiceTests(TestCase):
         return documents
 
     def _review_required_documents(self, validation: Validation):
-        for document in validation.documents.filter(document_type__in=Validation.REQUIRED_DOCUMENT_CODES, status=ValidationDocument.Status.PENDING):
+        required_types = validation.required_document_types().values_list("id", flat=True)
+        for document in validation.documents.filter(document_type_id__in=required_types, status=ValidationDocument.Status.PENDING):
             ReviewValidationDocumentService.call(
                 document=document,
                 action="accept",
@@ -148,8 +151,8 @@ class SaleFlowServiceTests(TestCase):
 
         extra_document = CreateValidationDocumentService.call(
             validation=validation,
-            document_type=ValidationDocument.DocumentType.OTHER,
-            name="Mandate",
+            document_type="other",
+            observations="Mandate",
             document=SimpleUploadedFile("mandate.pdf", b"pdf"),
             uploaded_by=self.reviewer,
         )
@@ -175,6 +178,7 @@ class SaleFlowServiceTests(TestCase):
         seeker_intention = CreateSaleSeekerIntentionService.call(
             contact=self.seeker_contact,
             agent=self.agent,
+            operation_type=self.operation_type,
             budget_min=Decimal("900000"),
             budget_max=Decimal("980000"),
             currency=self.currency,
@@ -241,6 +245,7 @@ class SaleFlowServiceTests(TestCase):
         abandon_intention = CreateSaleSeekerIntentionService.call(
             contact=self.seeker_contact,
             agent=self.agent,
+            operation_type=self.operation_type,
             currency=self.currency,
             budget_min=Decimal("500000"),
             budget_max=Decimal("550000"),
@@ -261,6 +266,7 @@ class SaleFlowServiceTests(TestCase):
         seeker_intention = CreateSaleSeekerIntentionService.call(
             contact=self.seeker_contact,
             agent=self.agent,
+            operation_type=self.operation_type,
             budget_min=Decimal("900000"),
             budget_max=Decimal("980000"),
             currency=self.currency,
@@ -304,6 +310,7 @@ class SaleFlowServiceTests(TestCase):
             owner=self.owner,
             agent=self.agent,
             property=second_property,
+            operation_type=self.operation_type,
             documentation_notes="Second listing",
         )
         DeliverSaleValuationService.call(
@@ -316,7 +323,6 @@ class SaleFlowServiceTests(TestCase):
             intention=second_intention,
             marketing_package_data={"currency": self.currency, "price": Decimal("875000")},
         )
-        OpportunityValidateService.call(opportunity=second_provider_opportunity)
         second_validation = Validation.objects.get(opportunity=second_provider_opportunity)
         self._upload_required_documents(second_validation)
         ValidationPresentService.call(validation=second_validation, reviewer=self.agent)
@@ -327,6 +333,7 @@ class SaleFlowServiceTests(TestCase):
         seeker_intention = CreateSaleSeekerIntentionService.call(
             contact=self.seeker_contact,
             agent=self.agent,
+            operation_type=self.operation_type,
             budget_min=Decimal("900000"),
             budget_max=Decimal("980000"),
             currency=self.currency,
@@ -423,13 +430,13 @@ class SaleFlowServiceTests(TestCase):
         provider_opportunity, validation, _ = self._create_provider_opportunity()
         self._upload_required_documents(validation)
         ValidationPresentService.call(validation=validation, reviewer=self.agent)
-        doc = CreateValidationDocumentService.call(
-            validation=validation,
-            document_type=Validation.required_document_choices(include_optional=False)[0][0],
-            document=SimpleUploadedFile("late.pdf", b"data"),
-            uploaded_by=self.reviewer,
-        )
-        self.assertEqual(doc.status, ValidationDocument.Status.PENDING)
+        with self.assertRaises(ValidationError):
+            CreateValidationDocumentService.call(
+                validation=validation,
+                document_type=Validation.required_document_choices(include_optional=False)[0][0],
+                document=SimpleUploadedFile("late.pdf", b"data"),
+                uploaded_by=self.reviewer,
+            )
 
     def test_promote_with_tokkobroker_property_and_uniqueness(self):
         tokko_property = TokkobrokerProperty.objects.create(tokko_id=12345, ref_code="REF-12345")
@@ -445,6 +452,7 @@ class SaleFlowServiceTests(TestCase):
             owner=self.owner,
             agent=self.agent,
             property=secondary_property,
+            operation_type=self.operation_type,
         )
         DeliverSaleValuationService.call(
             intention=second_intention,

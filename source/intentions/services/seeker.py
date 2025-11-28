@@ -15,6 +15,7 @@ class CreateSaleSeekerIntentionService(BaseService):
         *,
         contact: Contact,
         agent: Agent,
+        operation_type,
         budget_min=None,
         budget_max=None,
         currency: Currency | None = None,
@@ -24,6 +25,7 @@ class CreateSaleSeekerIntentionService(BaseService):
         return SaleSeekerIntention.objects.create(
             contact=contact,
             agent=agent,
+            operation_type=operation_type,
             budget_min=budget_min,
             budget_max=budget_max,
             currency=currency,

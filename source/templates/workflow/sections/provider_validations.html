@@ -5,9 +5,9 @@
 <div class="page-header">
     <h2>Documental Validations</h2>
 </div>
-<div class="card">
+    <div class="card">
     <table>
-        <tr><th>Property</th><th>Summary</th><th>Documents</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
+        <tr><th>Property</th><th>Summary</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for validation in provider_validations %}
             <tr>
                 <td>
@@ -26,28 +26,6 @@
                             <div class="table-subtext">Additional docs: {{ summary.additional }}</div>
                         {% endif %}
                     {% endwith %}
-                </td>
-                <td>
-                    <ul class="document-list">
-                        {% for requirement in validation.required_documents_status %}
-                            <li>
-                                <strong>{{ requirement.label }}</strong>
-                                {% if requirement.document %}
-                                    <span class="pill status-{{ requirement.document.status }}">{{ requirement.document.get_status_display }}</span>
-                                {% else %}
-                                    <span class="pill status-missing">Missing</span>
-                                {% endif %}
-                            </li>
-                        {% endfor %}
-                        {% if validation.additional_documents %}
-                        {% for doc in validation.additional_documents %}
-                            <li>
-                                    {{ doc.document_type.label }}
-                                    <span class="pill status-{{ doc.status }}">{{ doc.get_status_display }}</span>
-                                </li>
-                            {% endfor %}
-                        {% endif %}
-                    </ul>
                 </td>
                 <td>
                     <span class="pill">{{ validation.get_state_display }}</span>

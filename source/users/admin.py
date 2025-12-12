@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
 from .models import ObjectGrant, Permission, Role, RoleMembership, RolePermission
 
@@ -7,7 +8,8 @@ User = get_user_model()
 
 
 @admin.register(User)
-class UserAdmin(admin.ModelAdmin):
+class UserAdmin(DjangoUserAdmin):
+    # Keep familiar columns while retaining Django's built-in password change functionality.
     list_display = ('username', 'email', 'is_staff', 'is_active')
     search_fields = ('username', 'email')
     list_filter = ('is_staff', 'is_superuser', 'is_active')

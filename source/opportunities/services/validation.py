@@ -6,10 +6,13 @@ from django_fsm import TransitionNotAllowed
 from opportunities.models import ProviderOpportunity, Validation
 
 from utils.services import BaseService
+from utils.authorization import PROVIDER_OPPORTUNITY_PUBLISH
 
 
 class ValidationPresentService(BaseService):
     """Mark a validation as presented."""
+
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, validation: Validation, reviewer=None) -> Validation:
         # reviewer is accepted for compatibility with callers/tests; currently unused.
@@ -26,6 +29,8 @@ class ValidationPresentService(BaseService):
 class ValidationRejectService(BaseService):
     """Return a presented validation back to preparation."""
 
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
+
     def run(self, *, validation: Validation, notes: Optional[str] = None) -> Validation:
         try:
             validation.revoke(notes=notes)
@@ -41,6 +46,8 @@ class ValidationRejectService(BaseService):
 
 class ValidationAcceptService(BaseService):
     """Approve a presented validation and advance the opportunity."""
+
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, validation: Validation) -> Validation:
         validation.ensure_documents_ready_for_acceptance()

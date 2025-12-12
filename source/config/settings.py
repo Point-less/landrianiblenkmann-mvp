@@ -20,6 +20,9 @@ TOKKO_TIMEOUT = int(os.environ.get('TOKKO_TIMEOUT', '30'))
 # Default gross commission (fraction). Override with env DEFAULT_GROSS_COMMISSION_PCT (e.g., 0.04 for 4%).
 DEFAULT_GROSS_COMMISSION_PCT = Decimal(os.environ.get('DEFAULT_GROSS_COMMISSION_PCT', '0.04'))
 
+# Test-only: bypass service-level authorization checks when True
+BYPASS_SERVICE_AUTH_FOR_TESTS = False
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',

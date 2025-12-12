@@ -2,6 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django.conf.urls import handler403
 from django.views.generic import RedirectView
 
 from core import views as core_views
@@ -22,3 +23,6 @@ urlpatterns = [
     path('opportunities/', include('opportunities.urls')),
     path('integrations/', include('integrations.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+
+handler403 = 'config.views.permission_denied'

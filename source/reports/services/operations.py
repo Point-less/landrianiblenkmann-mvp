@@ -5,23 +5,39 @@ from django.db.models import F
 
 from opportunities.models import Operation
 from utils.services import BaseService
+from utils.authorization import REPORT_VIEW, OPERATION_VIEW_ALL, get_role_profile, check
 
 
 class ClosedOperationsFinancialReportQuery(BaseService):
     """Return financial/tax report rows for closed operations (both sides)."""
 
-    def run(self) -> List[dict]:
-        operations = (
-            Operation.objects.filter(state=Operation.State.CLOSED)
-            .select_related(
-                "currency",
-                "agreement__provider_opportunity__source_intention__owner",
-                "agreement__provider_opportunity__source_intention__property",
-                "agreement__provider_opportunity__source_intention__agent",
-                "agreement__seeker_opportunity__source_intention__contact",
-                "agreement__seeker_opportunity__source_intention__agent",
-            )
+    required_action = REPORT_VIEW
+
+    def run(self, *, actor=None) -> List[dict]:
+        check(actor, REPORT_VIEW)
+
+        operations = Operation.objects.filter(state=Operation.State.CLOSED).select_related(
+            "currency",
+            "agreement__provider_opportunity__source_intention__owner",
+            "agreement__provider_opportunity__source_intention__property",
+            "agreement__provider_opportunity__source_intention__agent",
+            "agreement__seeker_opportunity__source_intention__contact",
+            "agreement__seeker_opportunity__source_intention__agent",
         )
+
+        try:
+            check(actor, OPERATION_VIEW_ALL)
+        except Exception:
+            from django.db.models import Q
+
+            owner = get_role_profile(actor, "agent") if actor else None
+            if owner is not None:
+                operations = operations.filter(
+                    Q(agreement__provider_opportunity__source_intention__agent=owner)
+                    | Q(agreement__seeker_opportunity__source_intention__agent=owner)
+                )
+            else:
+                operations = operations.none()
 
         rows: List[dict] = []
         for op in operations:

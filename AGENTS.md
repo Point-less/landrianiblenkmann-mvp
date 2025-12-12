@@ -99,6 +99,12 @@ Authentication and user management with passwordless login.
 - **Templates**: Dual-mode login page (password + passwordless tabs), magic link request page
 - **Purpose**: Authentication with both password and magic link (passwordless) login options
 
+### `authorization` (lives inside `users` + `utils`)
+- **Models** (`users.models`): `Role`, `Permission`, `RolePermission`, `RoleMembership` (user ↔ role ↔ existing profile like `core.Agent`, enforced one-per-role), `ObjectGrant` (optional per-object allow/deny).
+- **Policy helpers** (`utils/authorization.py`): Single-source `Action` constants, `check`, `filter_queryset`, `get_role_profile`, `explain`; superusers bypass.
+- **Template tags** (`core/templatetags/authorization_tags.py`): `{% can "action.code" obj %}` uses the same `check`.
+- **Seed command**: `docker compose exec frontend python manage.py seed_permissions` seeds canonical roles (admin/manager/agent/viewer) and permissions; admin/manager get ALL, agent all except user-listing, viewer only reports.
+
 ### `utils/`
 Shared utilities and mixins.
 - **Mixins**: `TimeStampedMixin` (created_at/updated_at), `FSMLoggableMixin` (django-fsm-log integration)

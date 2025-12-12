@@ -9,10 +9,18 @@ from integrations.models import TokkobrokerProperty
 from intentions.models import SaleProviderIntention, SaleValuation
 from opportunities.services import CreateOpportunityService
 from utils.services import BaseService
+from utils.authorization import (
+    PROVIDER_INTENTION_CREATE,
+    PROVIDER_INTENTION_VALUATE,
+    PROVIDER_INTENTION_WITHDRAW,
+    PROVIDER_INTENTION_PROMOTE,
+)
 
 
 class CreateSaleProviderIntentionService(BaseService):
     """Register a new provider intention before it becomes an opportunity."""
+
+    required_action = PROVIDER_INTENTION_CREATE
 
     def run(
         self,
@@ -34,6 +42,8 @@ class CreateSaleProviderIntentionService(BaseService):
 
 class DeliverSaleValuationService(BaseService):
     """Attach a valuation and advance the provider intention FSM."""
+
+    required_action = PROVIDER_INTENTION_VALUATE
 
     def run(
         self,
@@ -61,6 +71,8 @@ class DeliverSaleValuationService(BaseService):
 class WithdrawSaleProviderIntentionService(BaseService):
     """Withdraw an intention that will no longer move forward."""
 
+    required_action = PROVIDER_INTENTION_WITHDRAW
+
     def run(
         self,
         *,
@@ -78,6 +90,8 @@ class WithdrawSaleProviderIntentionService(BaseService):
 
 class PromoteSaleProviderIntentionService(BaseService):
     """Promote a provider intention into a fully managed opportunity."""
+
+    required_action = PROVIDER_INTENTION_PROMOTE
 
     def run(
         self,

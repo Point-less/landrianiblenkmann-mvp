@@ -4,10 +4,13 @@ from django_fsm import TransitionNotAllowed
 from opportunities.models import MarketingPackage, ProviderOpportunity
 
 from utils.services import BaseService
+from utils.authorization import PROVIDER_OPPORTUNITY_PUBLISH
 
 
 class MarketingPackageActivateService(BaseService):
     """Move a package from preparing to available."""
+
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
         try:
@@ -20,6 +23,8 @@ class MarketingPackageActivateService(BaseService):
 class MarketingPackageReleaseService(BaseService):
     """Release a paused package back to available."""
 
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
+
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
         try:
             new_package = package.publish()
@@ -31,6 +36,8 @@ class MarketingPackageReleaseService(BaseService):
 class MarketingPackageCreateService(BaseService):
     """Create a new marketing package for an opportunity in marketing stage."""
 
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
+
     def run(self, *, opportunity: ProviderOpportunity, **attrs) -> MarketingPackage:
         if opportunity.state != ProviderOpportunity.State.MARKETING:
             raise ValidationError("Opportunity must be in marketing stage to add packages.")
@@ -40,6 +47,8 @@ class MarketingPackageCreateService(BaseService):
 
 class MarketingPackageUpdateService(BaseService):
     """Update editable fields on a marketing package."""
+
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, package: MarketingPackage, **attrs) -> MarketingPackage:
         updatable = {key: value for key, value in attrs.items() if key in {
@@ -60,6 +69,8 @@ class MarketingPackageUpdateService(BaseService):
 
 class MarketingPackagePauseService(BaseService):
     """Pause an available package (available -> paused)."""
+
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
         try:

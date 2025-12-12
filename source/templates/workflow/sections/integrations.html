@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load authorization_tags %}
 {% block title %}{{ integration_name }} | {{ block.super }}{% endblock %}
 {% block content %}
 <div class="page-header">
@@ -6,6 +7,8 @@
 </div>
 <div class="card">
     <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+{% can "integration.manage" as can_manage %}
+{% if can_manage %}
         <form method="post" action="{% url 'integration-tokko-sync-now' %}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ current_url }}">
@@ -21,6 +24,9 @@
             <input type="hidden" name="next" value="{{ current_url }}">
             <button type="submit" class="btn-danger">Clear properties</button>
         </form>
+        {% else %}
+        <p style="color: var(--text-muted); margin: 0;">View-only access to Tokkobroker data.</p>
+        {% endif %}
     </div>
     <h4 style="margin-top:1.5rem;">Recent Imports</h4>
     <table>

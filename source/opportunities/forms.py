@@ -17,6 +17,7 @@ from opportunities.models import (
     ValidationDocumentType,
 )
 from utils.services import S
+from utils.authorization import get_role_profile
 
 
 class HTML5FormMixin:
@@ -79,17 +80,41 @@ class OperationReinforceForm(HTML5FormMixin, forms.Form):
 
 
 class OperationAgreementCreateForm(HTML5FormMixin, forms.ModelForm):
+    initial_offered_amount = forms.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=True)
+
     class Meta:
         model = OperationAgreement
         fields = [
             "provider_opportunity",
             "seeker_opportunity",
+            "initial_offered_amount",
         ]
 
     def __init__(self, *args, actor=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["provider_opportunity"].queryset = S.opportunities.AvailableProviderOpportunitiesForOperationsQuery(actor=actor)
-        self.fields["seeker_opportunity"].queryset = S.opportunities.AvailableSeekerOpportunitiesForOperationsQuery(actor=actor)
+        self.actor = actor
+        self.actor_agent = get_role_profile(actor, "agent") if actor else None
+
+        seeker_qs = S.opportunities.AvailableSeekerOpportunitiesForOperationsQuery(actor=actor, only_actor=True)
+        if self.actor_agent:
+            seeker_qs = seeker_qs.filter(source_intention__agent=self.actor_agent)
+        self.fields["seeker_opportunity"].queryset = seeker_qs
+
+        provider_qs = S.opportunities.AvailableProviderOpportunitiesForOperationsQuery(actor=actor, exclude_agent=True)
+        if self.actor_agent:
+            provider_qs = provider_qs.exclude(source_intention__agent=self.actor_agent)
+
+        if self.is_bound and "seeker_opportunity" in self.data:
+            try:
+                seeker_id = int(self.data.get("seeker_opportunity"))
+                seeker = seeker_qs.filter(pk=seeker_id).select_related("source_intention__operation_type", "source_intention__agent").first()
+                if seeker:
+                    op_type = seeker.source_intention.operation_type
+                    provider_qs = provider_qs.filter(source_intention__operation_type=op_type)
+            except (TypeError, ValueError):
+                pass
+
+        self.fields["provider_opportunity"].queryset = provider_qs
 
 
 class CancelOperationAgreementForm(HTML5FormMixin, forms.Form):
@@ -99,7 +124,6 @@ class CancelOperationAgreementForm(HTML5FormMixin, forms.Form):
 class SignOperationAgreementForm(HTML5FormMixin, forms.ModelForm):
     # Additional fields required for automatic Operation creation
     signed_document = forms.FileField(required=True)
-    initial_offered_amount = forms.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=True)
     reserve_amount = forms.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=True)
     reserve_deadline = forms.DateField(required=True, widget=forms.DateInput(attrs={'type': 'date'}))
     currency = forms.ModelChoiceField(queryset=Currency.objects.all())

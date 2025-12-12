@@ -54,6 +54,7 @@ from opportunities.services import (
 from utils.models import FSMStateTransition
 
 
+@override_settings(BYPASS_SERVICE_AUTH_FOR_TESTS=True)
 class SaleFlowServiceTests(TestCase):
     maxDiff = None
 

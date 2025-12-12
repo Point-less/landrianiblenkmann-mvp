@@ -6,10 +6,13 @@ from django.core.exceptions import ValidationError
 
 from core.models import Contact
 from utils.services import BaseService
+from utils.authorization import CONTACT_CREATE, CONTACT_UPDATE
 
 
 class CreateContactService(BaseService):
     """Create a contact record with the basic profile data."""
+
+    required_action = CONTACT_CREATE
 
     def run(
         self,
@@ -37,6 +40,8 @@ class CreateContactService(BaseService):
 
 class UpdateContactService(BaseService):
     """Patch the mutable fields of a contact."""
+
+    required_action = CONTACT_UPDATE
 
     editable_fields = {"first_name", "last_name", "email", "phone_number", "notes", "full_address", "tax_id", "tax_condition"}
 

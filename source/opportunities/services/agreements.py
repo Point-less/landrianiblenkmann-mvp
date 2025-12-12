@@ -6,22 +6,40 @@ from django_fsm import TransitionNotAllowed
 from core.models import Currency
 from opportunities.models import Operation, OperationAgreement, ProviderOpportunity, SeekerOpportunity
 from utils.services import BaseService
+from utils.authorization import (
+    AGREEMENT_CREATE,
+    AGREEMENT_AGREE,
+    AGREEMENT_SIGN,
+    AGREEMENT_REVOKE,
+    AGREEMENT_CANCEL,
+    get_role_profile,
+)
 
 
 class CreateOperationAgreementService(BaseService):
     """Create a new operation agreement between provider and seeker opportunities."""
+
+    required_action = AGREEMENT_CREATE
 
     def run(
         self,
         *,
         provider_opportunity: ProviderOpportunity,
         seeker_opportunity: SeekerOpportunity,
+        initial_offered_amount,
         notes: str | None = None,
     ) -> OperationAgreement:
         """Create a new agreement in PENDING state with validations."""
+        actor_agent = get_role_profile(self.actor, "agent") if self.actor else None
+        if actor_agent is None or seeker_opportunity.source_intention.agent_id != getattr(actor_agent, "id", None):
+            raise ValidationError({"seeker_opportunity": "You must represent the seeker to create an agreement."})
+        if provider_opportunity.source_intention.agent_id == getattr(actor_agent, "id", None):
+            raise ValidationError({"provider_opportunity": "Select a provider represented by a different agent."})
+
         agreement = OperationAgreement(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
+            initial_offered_amount=initial_offered_amount,
             notes=notes or "",
         )
         
@@ -55,6 +73,8 @@ class CreateOperationAgreementService(BaseService):
 class AgreeOperationAgreementService(BaseService):
     """Transition an agreement from PENDING to AGREED state."""
 
+    required_action = AGREEMENT_AGREE
+
     def run(self, *, agreement: OperationAgreement) -> OperationAgreement:
         try:
             agreement.agree()
@@ -68,12 +88,13 @@ class AgreeOperationAgreementService(BaseService):
 class SignOperationAgreementService(BaseService):
     """Sign an agreement and automatically create the corresponding operation."""
 
+    required_action = AGREEMENT_SIGN
+
     def run(
         self,
         *,
         agreement: OperationAgreement,
         signed_document,
-        initial_offered_amount,
         reserve_amount,
         reserve_deadline,
         currency: Currency,
@@ -91,7 +112,7 @@ class SignOperationAgreementService(BaseService):
         operation = self.s.opportunities.CreateOperationService(
             agreement=agreement,
             signed_document=signed_document,
-            initial_offered_amount=initial_offered_amount,
+            initial_offered_amount=agreement.initial_offered_amount,
             reserve_amount=reserve_amount,
             reserve_deadline=reserve_deadline,
             currency=currency,
@@ -103,6 +124,8 @@ class SignOperationAgreementService(BaseService):
 
 class RevokeOperationAgreementService(BaseService):
     """Revoke an agreement back to PENDING state."""
+
+    required_action = AGREEMENT_REVOKE
 
     def run(self, *, agreement: OperationAgreement) -> OperationAgreement:
         if agreement.state == OperationAgreement.State.SIGNED:
@@ -119,6 +142,8 @@ class RevokeOperationAgreementService(BaseService):
 
 class CancelOperationAgreementService(BaseService):
     """Cancel an agreement from PENDING or AGREED state."""
+
+    required_action = AGREEMENT_CANCEL
 
     def run(self, *, agreement: OperationAgreement, reason: str | None = None) -> OperationAgreement:
         if agreement.state == OperationAgreement.State.SIGNED:

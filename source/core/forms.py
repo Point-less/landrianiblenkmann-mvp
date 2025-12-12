@@ -81,6 +81,16 @@ class ContactForm(TypedFormMixin, forms.ModelForm):
             "notes",
         ]
 
+    def __init__(self, *args, actor=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if actor and not getattr(actor, "is_superuser", False):
+            from utils.authorization import get_role_profile
+
+            actor_agent = get_role_profile(actor, "agent")
+            if actor_agent:
+                self.fields["agent"].queryset = Agent.objects.filter(pk=actor_agent.pk)
+                self.fields["agent"].initial = actor_agent
+
 
 class PropertyForm(TypedFormMixin, forms.ModelForm):
     class Meta:

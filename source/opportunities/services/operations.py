@@ -12,10 +12,18 @@ from opportunities.services.queries import (
 )
 
 from utils.services import BaseService
+from utils.authorization import (
+    OPERATION_CREATE,
+    OPERATION_REINFORCE,
+    OPERATION_CLOSE,
+    OPERATION_LOSE,
+)
 
 
 class CreateOperationService(BaseService):
     """Start an operation linking a provider and seeker opportunity."""
+
+    required_action = OPERATION_CREATE
 
     active_states = (Operation.State.OFFERED, Operation.State.REINFORCED)
 
@@ -81,6 +89,8 @@ class CreateOperationService(BaseService):
 class OperationReinforceService(BaseService):
     """Transition an offered operation into reinforced."""
 
+    required_action = OPERATION_REINFORCE
+
     def run(self, *, operation: Operation, offered_amount=None, reinforcement_amount=None, declared_deed_value=None) -> Operation:
         try:
             operation.reinforce()
@@ -103,6 +113,8 @@ class OperationReinforceService(BaseService):
 class OperationCloseService(BaseService):
     """Close a reinforced operation and update linked opportunities."""
 
+    required_action = OPERATION_CLOSE
+
     def run(self, *, operation: Operation, opportunity=None) -> Operation:  # opportunity kept for backward compat
         try:
             operation.close()
@@ -114,6 +126,8 @@ class OperationCloseService(BaseService):
 
 class OperationLoseService(BaseService):
     """Mark a reinforced operation as lost (closed outcome)."""
+
+    required_action = OPERATION_LOSE
 
     def run(self, *, operation: Operation, lost_reason: Optional[str] = None) -> Operation:
         try:

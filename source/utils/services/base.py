@@ -24,6 +24,7 @@ class BaseService:
 
     atomic = True
     using = DEFAULT_DB_ALIAS
+    required_action = None  # Optional utils.authorization.Action for coarse-grain authorization
 
     def __init__(self, *, actor=None):
         self.actor = actor
@@ -62,6 +63,17 @@ class BaseService:
         actor = kwargs.pop("actor", None)
         if actor is None:
             actor = self.actor
+
+        # Authorization check (single source of truth)
+        if self.required_action is not None:
+            from django.conf import settings
+            bypass = getattr(settings, "BYPASS_SERVICE_AUTH_FOR_TESTS", False)
+            try:
+                from utils.authorization import check  # local import avoids cycles
+            except Exception:  # pragma: no cover - defensive: authorization not ready
+                check = None
+            if check is not None and not bypass:
+                check(actor, self.required_action)
 
         if actor is not None:
             run_signature = inspect.signature(self.run)

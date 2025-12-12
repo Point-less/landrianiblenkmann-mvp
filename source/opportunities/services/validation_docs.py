@@ -10,12 +10,14 @@ from opportunities.models import (
     ValidationDocumentType,
 )
 from utils.services import BaseService
+from utils.authorization import PROVIDER_OPPORTUNITY_PUBLISH
 
 
 DEFAULT_ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".pdf", ".png"}
 
 
 class CreateValidationDocumentService(BaseService):
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
     def run(
         self,
         *,
@@ -65,6 +67,7 @@ class CreateValidationDocumentService(BaseService):
 
 
 class ReviewValidationDocumentService(BaseService):
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
     def run(self, *, document: ValidationDocument, action: str, reviewer, comment: str | None = None) -> ValidationDocument:
         if action not in {"accept", "reject"}:
             raise ValidationError({"action": "Invalid review action."})
@@ -82,6 +85,7 @@ class ReviewValidationDocumentService(BaseService):
 
 
 class CreateAdditionalValidationDocumentService(BaseService):
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
     def run(
         self,
         *,

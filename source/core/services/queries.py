@@ -5,39 +5,66 @@ from __future__ import annotations
 from core.models import Agent, Contact, Property, Currency
 from intentions.models import SaleProviderIntention, SaleSeekerIntention
 from integrations.models import TokkobrokerProperty
+from utils.authorization import (
+    AGENT_VIEW,
+    CONTACT_VIEW,
+    CONTACT_VIEW_ALL,
+    PROPERTY_VIEW,
+    PROVIDER_INTENTION_VIEW,
+    PROVIDER_INTENTION_VIEW_ALL,
+    SEEKER_INTENTION_VIEW,
+    SEEKER_INTENTION_VIEW_ALL,
+    check,
+    filter_queryset,
+)
 from utils.services import BaseService
 
 
 class AgentsQuery(BaseService):
     def run(self, *, actor=None):
+        check(actor, AGENT_VIEW)
         return Agent.objects.order_by('-created_at')
 
 
 class ContactsQuery(BaseService):
     def run(self, *, actor=None):
-        return Contact.objects.select_related().order_by('-created_at')
+        queryset = Contact.objects.select_related().order_by('-created_at')
+        return filter_queryset(
+            actor,
+            CONTACT_VIEW,
+            queryset,
+            owner_field='agents',
+            view_all_action=CONTACT_VIEW_ALL,
+        )
 
 
 class PropertiesQuery(BaseService):
     def run(self, *, actor=None):
+        check(actor, PROPERTY_VIEW)
         return Property.objects.order_by('-created_at')
 
 
 class ProviderIntentionsQuery(BaseService):
     def run(self, *, actor=None):
-        return (
-            SaleProviderIntention.objects.select_related('owner', 'agent', 'property')
-            .prefetch_related('state_transitions')
-            .order_by('-created_at')
+        queryset = SaleProviderIntention.objects.select_related('owner', 'agent', 'property').prefetch_related('state_transitions').order_by('-created_at')
+        return filter_queryset(
+            actor,
+            PROVIDER_INTENTION_VIEW,
+            queryset,
+            owner_field='agent',
+            view_all_action=PROVIDER_INTENTION_VIEW_ALL,
         )
 
 
 class SeekerIntentionsQuery(BaseService):
     def run(self, *, actor=None):
-        return (
-            SaleSeekerIntention.objects.select_related('contact', 'agent')
-            .prefetch_related('state_transitions')
-            .order_by('-created_at')
+        queryset = SaleSeekerIntention.objects.select_related('contact', 'agent').prefetch_related('state_transitions').order_by('-created_at')
+        return filter_queryset(
+            actor,
+            SEEKER_INTENTION_VIEW,
+            queryset,
+            owner_field='agent',
+            view_all_action=SEEKER_INTENTION_VIEW_ALL,
         )
 
 

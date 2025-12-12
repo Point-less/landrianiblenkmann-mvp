@@ -15,11 +15,19 @@ from opportunities.services.queries import ProviderOpportunityByTokkobrokerPrope
 from intentions.models import SaleProviderIntention, SaleSeekerIntention
 
 from utils.services import BaseService
+from utils.authorization import (
+    PROVIDER_OPPORTUNITY_CREATE,
+    PROVIDER_OPPORTUNITY_PUBLISH,
+    PROVIDER_OPPORTUNITY_CLOSE,
+    SEEKER_OPPORTUNITY_CREATE,
+)
 from .marketing import MarketingPackageActivateService
 
 
 class CreateOpportunityService(BaseService):
     """Create a provider opportunity with an optional initial marketing package."""
+
+    required_action = PROVIDER_OPPORTUNITY_CREATE
 
     def run(
         self,
@@ -76,6 +84,8 @@ class OpportunityPublishService(BaseService):
         opportunity.save(update_fields=["state", "updated_at"])
         return opportunity
 
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
+
 
 class OpportunityCloseService(BaseService):
     def run(self, *, opportunity: ProviderOpportunity, actor: Optional[Any] = None) -> ProviderOpportunity:
@@ -87,9 +97,13 @@ class OpportunityCloseService(BaseService):
         opportunity.save(update_fields=["state", "updated_at"])
         return opportunity
 
+    required_action = PROVIDER_OPPORTUNITY_CLOSE
+
 
 class CreateSeekerOpportunityService(BaseService):
     """Convert a seeker intention into an actionable opportunity."""
+
+    required_action = SEEKER_OPPORTUNITY_CREATE
 
     def run(
         self,

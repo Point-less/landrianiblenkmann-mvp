@@ -5,10 +5,13 @@ from django.core.exceptions import ValidationError
 from core.models import Agent, Contact, Currency
 from intentions.models import SaleSeekerIntention
 from utils.services import BaseService
+from utils.authorization import SEEKER_INTENTION_CREATE, SEEKER_INTENTION_ABANDON
 
 
 class CreateSaleSeekerIntentionService(BaseService):
     """Capture an inbound buyer inquiry before it becomes an opportunity."""
+
+    required_action = SEEKER_INTENTION_CREATE
 
     def run(
         self,
@@ -36,6 +39,8 @@ class CreateSaleSeekerIntentionService(BaseService):
 
 class AbandonSaleSeekerIntentionService(BaseService):
     """Mark a seeker intention as abandoned."""
+
+    required_action = SEEKER_INTENTION_ABANDON
 
     def run(self, *, intention: SaleSeekerIntention, reason: str | None = None) -> SaleSeekerIntention:
         intention.abandon(reason=reason)

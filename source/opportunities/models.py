@@ -513,6 +513,13 @@ class OperationAgreement(TimeStampedMixin, FSMTrackingMixin):
     )
 
     notes = models.TextField(blank=True)
+    initial_offered_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        default=0,
+        help_text="Initial offer proposed with this agreement (currency of seeker).",
+    )
     agreed_at = models.DateTimeField(null=True, blank=True)
     signed_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)

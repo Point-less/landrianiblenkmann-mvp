@@ -5,10 +5,13 @@ from datetime import date
 from core.models import Property
 from integrations.models import TokkobrokerProperty
 from utils.services import BaseService
+from utils.authorization import PROPERTY_CREATE
 
 
 class CreatePropertyService(BaseService):
     """Create a property shell that can later receive marketing data."""
+
+    required_action = PROPERTY_CREATE
 
     def run(
         self,

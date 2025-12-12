@@ -6,10 +6,13 @@ from django.core.exceptions import ValidationError
 
 from core.models import Agent
 from utils.services import BaseService
+from utils.authorization import AGENT_CREATE, AGENT_UPDATE
 
 
 class CreateAgentService(BaseService):
     """Register a new sales agent."""
+
+    required_action = AGENT_CREATE
 
     def run(
         self,
@@ -34,6 +37,8 @@ class CreateAgentService(BaseService):
 
 class UpdateAgentService(BaseService):
     """Patch mutable agent fields."""
+
+    required_action = AGENT_UPDATE
 
     editable_fields = {"first_name", "last_name", "email", "phone_number", "commission_split"}
 

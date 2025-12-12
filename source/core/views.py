@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
@@ -23,6 +23,43 @@ from core.forms import (
 )
 from core.models import Agent, Contact, Property
 from utils.services import S
+from utils.authorization import (
+    AGENT_VIEW,
+    AGENT_CREATE,
+    AGENT_UPDATE,
+    CONTACT_VIEW,
+    CONTACT_CREATE,
+    CONTACT_UPDATE,
+    PROPERTY_VIEW,
+    PROPERTY_CREATE,
+    PROPERTY_UPDATE,
+    PROVIDER_INTENTION_VIEW,
+    PROVIDER_INTENTION_CREATE,
+    PROVIDER_INTENTION_VALUATE,
+    PROVIDER_INTENTION_WITHDRAW,
+    PROVIDER_INTENTION_PROMOTE,
+    SEEKER_INTENTION_VIEW,
+    SEEKER_INTENTION_CREATE,
+    SEEKER_INTENTION_ABANDON,
+    PROVIDER_OPPORTUNITY_VIEW,
+    PROVIDER_OPPORTUNITY_PUBLISH,
+    SEEKER_OPPORTUNITY_VIEW,
+    SEEKER_OPPORTUNITY_CREATE,
+    OPERATION_VIEW,
+    OPERATION_CREATE,
+    OPERATION_REINFORCE,
+    OPERATION_CLOSE,
+    OPERATION_LOSE,
+    REPORT_VIEW,
+    AGREEMENT_CREATE,
+    AGREEMENT_AGREE,
+    AGREEMENT_SIGN,
+    AGREEMENT_REVOKE,
+    AGREEMENT_CANCEL,
+    INTEGRATION_VIEW,
+    INTEGRATION_MANAGE,
+    check,
+)
 from intentions.forms import (
     DeliverValuationForm,
     ProviderPromotionForm,
@@ -111,8 +148,34 @@ async def trigger_log(request):
     return JsonResponse({'status': 'queued', 'message_id': queued.message_id})
 
 
-class DashboardSectionView(LoginRequiredMixin, TemplateView):
+class PermissionedViewMixin:
+    required_action = None
+
+    def dispatch(self, request, *args, **kwargs):
+        if self.required_action is not None:
+            check(request.user, self.required_action)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateView):
     login_url = '/admin/login/'
+    SECTION_ACTION_MAP = {
+        'agents': AGENT_VIEW,
+        'contacts': CONTACT_VIEW,
+        'properties': PROPERTY_VIEW,
+        'provider-intentions': PROVIDER_INTENTION_VIEW,
+        'provider-opportunities': PROVIDER_OPPORTUNITY_VIEW,
+        'provider-validations': PROVIDER_OPPORTUNITY_VIEW,
+        'marketing-packages': PROVIDER_OPPORTUNITY_VIEW,
+        'seeker-intentions': SEEKER_INTENTION_VIEW,
+        'seeker-opportunities': SEEKER_OPPORTUNITY_VIEW,
+        'operations': OPERATION_VIEW,
+        'operation-agreements': OPERATION_VIEW,
+        'reports-operations': REPORT_VIEW,
+        'integration-tokkobroker': INTEGRATION_VIEW,
+        'integration-zonaprop': INTEGRATION_VIEW,
+        'integration-meta': INTEGRATION_VIEW,
+    }
     NAV_GROUPS = [
         (
             'Core',
@@ -195,17 +258,54 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
         self.section = kwargs.get('section') or self.default_section
         if self.section not in self.template_map:
             raise Http404("Unknown dashboard section")
+        # Resolve first accessible section if current one is not allowed
+        required = self.SECTION_ACTION_MAP.get(self.section)
+        try:
+            if required:
+                check(request.user, required)
+        except PermissionDenied:
+            fallback = self._first_accessible_section(request.user)
+            if fallback:
+                return redirect('workflow-dashboard-section', section=fallback)
+            raise
         self.template_name = self.template_map[self.section]
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['active_section'] = self.section
-        context['nav_groups'] = self.NAV_GROUPS
+        context['nav_groups'] = self._nav_for_user(self.request.user)
         context['current_url'] = self.request.get_full_path()
         context['page_new_url'] = self._resolve_new_url()
         context.update(getattr(self, f"_context_{self.section.replace('-', '_')}")())
         return context
+
+    def _first_accessible_section(self, user):
+        for slug in self.ALL_SECTIONS:
+            required = self.SECTION_ACTION_MAP.get(slug)
+            try:
+                if required:
+                    check(user, required)
+                return slug
+            except PermissionDenied:
+                continue
+        return None
+
+    def _nav_for_user(self, user):
+        nav = []
+        for group_name, items in self.NAV_GROUPS:
+            allowed_items = []
+            for slug, label in items:
+                required = self.SECTION_ACTION_MAP.get(slug)
+                try:
+                    if required:
+                        check(user, required)
+                    allowed_items.append((slug, label))
+                except PermissionDenied:
+                    continue
+            if allowed_items:
+                nav.append((group_name, allowed_items))
+        return nav or self.NAV_GROUPS
 
     def _resolve_new_url(self):
         route_name = self.NEW_ROUTE_NAMES.get(self.section)
@@ -291,7 +391,7 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
         }
 
 
-class WorkflowFormView(LoginRequiredMixin, SuccessMessageMixin, FormView):
+class WorkflowFormView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
     template_name = 'workflow/form.html'
     success_url = reverse_lazy('workflow-dashboard')
     success_message = 'Action completed successfully.'
@@ -349,6 +449,7 @@ class AgentCreateView(WorkflowFormView):
     success_message = 'Agent registered successfully.'
     form_title = 'Add agent'
     submit_label = 'Create agent'
+    required_action = AGENT_CREATE
 
     def perform_action(self, form):
         S.core.CreateAgentService(**form.cleaned_data)
@@ -359,6 +460,12 @@ class ContactCreateView(WorkflowFormView):
     success_message = 'Contact registered successfully.'
     form_title = 'Add contact'
     submit_label = 'Create contact'
+    required_action = CONTACT_CREATE
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["actor"] = self.request.user
+        return kwargs
 
     def perform_action(self, form):
         agent = form.cleaned_data.pop('agent')
@@ -371,6 +478,7 @@ class PropertyCreateView(WorkflowFormView):
     success_message = 'Property registered successfully.'
     form_title = 'Add property'
     submit_label = 'Create property'
+    required_action = PROPERTY_CREATE
 
     def perform_action(self, form):
         S.core.CreatePropertyService(**form.cleaned_data)
@@ -402,6 +510,7 @@ class AgentUpdateView(ModelUpdateView):
     success_message = 'Agent updated successfully.'
     form_title = 'Edit agent'
     submit_label = 'Save changes'
+    required_action = AGENT_UPDATE
 
 
 class ContactUpdateView(ModelUpdateView):
@@ -411,6 +520,7 @@ class ContactUpdateView(ModelUpdateView):
     success_message = 'Contact updated successfully.'
     form_title = 'Edit contact'
     submit_label = 'Save changes'
+    required_action = CONTACT_UPDATE
 
 
 class PropertyUpdateView(ModelUpdateView):
@@ -420,6 +530,7 @@ class PropertyUpdateView(ModelUpdateView):
     success_message = 'Property updated successfully.'
     form_title = 'Edit property'
     submit_label = 'Save changes'
+    required_action = PROPERTY_UPDATE
 
 
 class ProviderIntentionMixin:
@@ -452,6 +563,7 @@ class ProviderIntentionCreateView(WorkflowFormView):
     form_title = 'New provider intention'
     form_description = 'Capture a seller lead before promoting to opportunity.'
     submit_label = 'Create intention'
+    required_action = PROVIDER_INTENTION_CREATE
 
     def perform_action(self, form):
         S.intentions.CreateSaleProviderIntentionService(**form.cleaned_data)
@@ -463,6 +575,7 @@ class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
     form_title = 'Deliver valuation'
     form_description = 'Provide the valuation amount and currency to advance the seller.'
     submit_label = 'Deliver valuation'
+    required_action = PROVIDER_INTENTION_VALUATE
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -478,6 +591,7 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
     form_title = 'Promote to opportunity'
     form_description = 'Create a provider opportunity and initial marketing package.'
     submit_label = 'Promote'
+    required_action = PROVIDER_INTENTION_PROMOTE
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -512,6 +626,7 @@ class ProviderWithdrawView(ProviderIntentionMixin, WorkflowFormView):
     success_message = 'Provider intention withdrawn.'
     form_title = 'Withdraw provider intention'
     submit_label = 'Withdraw'
+    required_action = PROVIDER_INTENTION_WITHDRAW
 
     def perform_action(self, form):
         S.intentions.WithdrawSaleProviderIntentionService(intention=self.get_intention(), **form.cleaned_data)
@@ -522,6 +637,7 @@ class SeekerIntentionCreateView(WorkflowFormView):
     success_message = 'Seeker intention registered.'
     form_title = 'New seeker intention'
     submit_label = 'Create intention'
+    required_action = SEEKER_INTENTION_CREATE
 
     def perform_action(self, form):
         S.intentions.CreateSaleSeekerIntentionService(**form.cleaned_data)
@@ -532,6 +648,7 @@ class SeekerOpportunityCreateView(SeekerIntentionMixin, WorkflowFormView):
     success_message = 'Seeker opportunity created.'
     form_title = 'Create seeker opportunity'
     submit_label = 'Create opportunity'
+    required_action = SEEKER_OPPORTUNITY_CREATE
 
     def perform_action(self, form):
         S.opportunities.CreateSeekerOpportunityService(intention=self.get_intention(), **form.cleaned_data)
@@ -542,6 +659,7 @@ class SeekerAbandonView(SeekerIntentionMixin, WorkflowFormView):
     success_message = 'Seeker intention abandoned.'
     form_title = 'Abandon seeker intention'
     submit_label = 'Abandon'
+    required_action = SEEKER_INTENTION_ABANDON
 
     def perform_action(self, form):
         S.intentions.AbandonSaleSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
@@ -629,6 +747,7 @@ class ValidationPresentView(ValidationMixin, WorkflowFormView):
     success_message = 'Validation presented.'
     form_title = 'Present validation'
     submit_label = 'Present'
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def perform_action(self, form):
         S.opportunities.ValidationPresentService(validation=self.get_validation())
@@ -640,6 +759,7 @@ class ValidationRejectView(ValidationMixin, WorkflowFormView):
     form_title = 'Revoke validation'
     form_description = 'Send the validation back to preparing and optionally add notes.'
     submit_label = 'Revoke'
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def perform_action(self, form):
         S.opportunities.ValidationRejectService(validation=self.get_validation(), notes=form.cleaned_data.get('notes'))
@@ -650,6 +770,7 @@ class ValidationAcceptView(ValidationMixin, WorkflowFormView):
     success_message = 'Validation accepted and opportunity published.'
     form_title = 'Accept validation'
     submit_label = 'Accept'
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def perform_action(self, form):
         S.opportunities.ValidationAcceptService(validation=self.get_validation())
@@ -660,6 +781,7 @@ class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
     success_message = 'Validation document uploaded.'
     form_title = 'Upload document'
     submit_label = 'Upload'
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def get_initial(self):
         initial = super().get_initial()
@@ -692,6 +814,7 @@ class ValidationAdditionalDocumentUploadView(ValidationMixin, WorkflowFormView):
     success_message = 'Custom document uploaded.'
     form_title = 'Upload custom document'
     submit_label = 'Upload'
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def perform_action(self, form):
         S.opportunities.CreateAdditionalValidationDocumentService(
@@ -707,6 +830,7 @@ class ValidationDocumentReviewView(ValidationDocumentMixin, WorkflowFormView):
     success_message = 'Validation document reviewed.'
     form_title = 'Review document'
     submit_label = 'Submit review'
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def perform_action(self, form):
         S.opportunities.ReviewValidationDocumentService(
@@ -723,6 +847,7 @@ class MarketingPackageCreateView(MarketingOpportunityMixin, WorkflowFormView):
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
     form_title = 'Create marketing package'
     submit_label = 'Create package'
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def perform_action(self, form):
         S.opportunities.MarketingPackageCreateService(opportunity=self.get_opportunity(), **form.cleaned_data)
@@ -734,6 +859,7 @@ class MarketingPackageUpdateView(MarketingPackageMixin, WorkflowFormView):
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
     form_title = 'Update marketing package'
     submit_label = 'Save changes'
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def get_initial(self):
         package = self.get_package()
@@ -750,6 +876,7 @@ class MarketingPackageActionView(MarketingPackageMixin, WorkflowFormView):
     form_class = ConfirmationForm
     service_class = None
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
+    required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def perform_action(self, form):
         if not self.service_class:
@@ -798,6 +925,7 @@ class OperationReinforceView(OperationMixin, WorkflowFormView):
     success_message = 'Operation reinforced.'
     form_title = 'Reinforce operation'
     submit_label = 'Reinforce'
+    required_action = OPERATION_REINFORCE
 
     def perform_action(self, form):
         S.opportunities.OperationReinforceService(operation=self.get_operation(), **form.cleaned_data)
@@ -808,6 +936,7 @@ class OperationCloseView(OperationMixin, WorkflowFormView):
     success_message = 'Operation closed.'
     form_title = 'Close operation'
     submit_label = 'Close'
+    required_action = OPERATION_CLOSE
 
     def perform_action(self, form):
         S.opportunities.OperationCloseService(operation=self.get_operation())
@@ -818,13 +947,15 @@ class OperationLoseView(OperationMixin, WorkflowFormView):
     success_message = 'Operation marked as lost.'
     form_title = 'Mark operation as lost'
     submit_label = 'Mark lost'
+    required_action = OPERATION_LOSE
 
     def perform_action(self, form):
         S.opportunities.OperationLoseService(operation=self.get_operation(), **form.cleaned_data)
 
 
-class TokkoSyncRunView(LoginRequiredMixin, View):
+class TokkoSyncRunView(PermissionedViewMixin, LoginRequiredMixin, View):
     login_url = '/admin/login/'
+    required_action = INTEGRATION_MANAGE
 
     def post(self, request):
         processed = sync_tokkobroker_registry()
@@ -841,8 +972,9 @@ class TokkoSyncRunView(LoginRequiredMixin, View):
         return redirect('workflow-dashboard-section', section='integrations')
 
 
-class TokkoSyncEnqueueView(LoginRequiredMixin, View):
+class TokkoSyncEnqueueView(PermissionedViewMixin, LoginRequiredMixin, View):
     login_url = '/admin/login/'
+    required_action = INTEGRATION_MANAGE
 
     def post(self, request):
         message = sync_tokkobroker_properties_task.send()
@@ -859,8 +991,9 @@ class TokkoSyncEnqueueView(LoginRequiredMixin, View):
         return redirect('workflow-dashboard-section', section='integrations')
 
 
-class TokkoClearView(LoginRequiredMixin, View):
+class TokkoClearView(PermissionedViewMixin, LoginRequiredMixin, View):
     login_url = '/admin/login/'
+    required_action = INTEGRATION_MANAGE
 
     def post(self, request):
         deleted, _ = TokkobrokerProperty.objects.all().delete()
@@ -877,9 +1010,10 @@ class TokkoClearView(LoginRequiredMixin, View):
         return redirect('workflow-dashboard-section', section='integrations')
 
 
-class ObjectTransitionHistoryView(LoginRequiredMixin, TemplateView):
+class ObjectTransitionHistoryView(PermissionedViewMixin, LoginRequiredMixin, TemplateView):
     template_name = 'workflow/transition_history.html'
     login_url = '/admin/login/'
+    required_action = REPORT_VIEW
     OBJECT_SECTION_MAP = {
         'core.agent': 'agents',
         'core.contact': 'contacts',
@@ -950,6 +1084,7 @@ class AgreeOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
     form_title = 'Confirm Agreement'
     submit_label = 'Agree'
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'operation-agreements'})
+    required_action = AGREEMENT_AGREE
 
     def perform_action(self, form):
         S.opportunities.AgreeOperationAgreementService(agreement=self.get_agreement())
@@ -961,6 +1096,7 @@ class RevokeOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
     form_title = 'Revoke Agreement'
     submit_label = 'Revoke'
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'operation-agreements'})
+    required_action = AGREEMENT_REVOKE
 
     def perform_action(self, form):
         S.opportunities.RevokeOperationAgreementService(agreement=self.get_agreement())
@@ -972,6 +1108,7 @@ class CancelOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
     form_title = 'Cancel Agreement'
     submit_label = 'Cancel Agreement'
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'operation-agreements'})
+    required_action = AGREEMENT_CANCEL
 
     def perform_action(self, form):
         S.opportunities.CancelOperationAgreementService(
@@ -986,6 +1123,7 @@ class SignOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
     form_title = 'Sign Agreement'
     submit_label = 'Sign & Create Operation'
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'operation-agreements'})
+    required_action = AGREEMENT_SIGN
 
     def perform_action(self, form):
         S.opportunities.SignOperationAgreementService(
@@ -1001,6 +1139,7 @@ class OperationAgreementCreateView(WorkflowFormView):
     form_description = 'Start a negotiation between a provider and seeker.'
     submit_label = 'Create Agreement'
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'operation-agreements'})
+    required_action = AGREEMENT_CREATE
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()

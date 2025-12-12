@@ -65,6 +65,7 @@ class ContactScopingTests(TestCase):
         self.assertNotContains(resp, str(self.agent2))
 
 
+@override_settings(TOKKO_DISABLE_SYNC=True)
 class IntegrationPermissionsTests(TestCase):
     def setUp(self):
         SeedPerms().handle()

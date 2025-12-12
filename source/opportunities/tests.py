@@ -33,8 +33,10 @@ from opportunities.models import (
     SeekerOpportunity,
     Validation,
     ValidationDocument,
+    ValidationAdditionalDocument,
 )
 from opportunities.services import (
+    CreateAdditionalValidationDocumentService,
     CreateValidationDocumentService,
     CreateOperationService,
     CreateSeekerOpportunityService,
@@ -162,9 +164,8 @@ class SaleFlowServiceTests(TestCase):
 
         self._upload_required_documents(validation)
 
-        extra_document = CreateValidationDocumentService.call(
+        extra_document = CreateAdditionalValidationDocumentService.call(
             validation=validation,
-            document_type="other",
             observations="Mandate",
             document=SimpleUploadedFile("mandate.pdf", b"pdf"),
             uploaded_by=self.reviewer,
@@ -174,12 +175,8 @@ class SaleFlowServiceTests(TestCase):
         validation.refresh_from_db()
         self.assertEqual(validation.state, Validation.State.PRESENTED)
         self._review_required_documents(validation)
-        ReviewValidationDocumentService.call(
-            document=extra_document,
-            action="accept",
-            reviewer=self.reviewer,
-            comment="Looks good",
-        )
+        extra_document.refresh_from_db()
+        self.assertEqual(extra_document.validation, validation)
 
         ValidationAcceptService.call(validation=validation)
         provider_opportunity.refresh_from_db()
@@ -447,17 +444,82 @@ class SaleFlowServiceTests(TestCase):
             comment="Now allowed",
         )
 
-    def test_document_upload_only_in_preparing(self):
+    def test_document_upload_allowed_while_presented(self):
         provider_opportunity, validation, _ = self._create_provider_opportunity()
         self._upload_required_documents(validation)
         ValidationPresentService.call(validation=validation, reviewer=self.agent)
+
+        late_document = CreateAdditionalValidationDocumentService.call(
+            validation=validation,
+            document=SimpleUploadedFile("late.pdf", b"data"),
+            uploaded_by=self.reviewer,
+        )
+
+        late_document.refresh_from_db()
+        self.assertEqual(late_document.validation, validation)
+
+    def test_document_upload_blocked_after_approval(self):
+        provider_opportunity, validation, _ = self._create_provider_opportunity()
+        self._upload_required_documents(validation)
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        self._review_required_documents(validation)
+        ValidationAcceptService.call(validation=validation)
+
         with self.assertRaises(ValidationError):
             CreateValidationDocumentService.call(
                 validation=validation,
-                document_type=Validation.required_document_choices(include_optional=False)[0][0],
+                document_type="other",
                 document=SimpleUploadedFile("late.pdf", b"data"),
                 uploaded_by=self.reviewer,
             )
+
+    def test_custom_document_upload_no_type_required(self):
+        _, validation, _ = self._create_provider_opportunity()
+
+        custom_doc = CreateAdditionalValidationDocumentService.call(
+            validation=validation,
+            document=SimpleUploadedFile("custom.pdf", b"data"),
+            observations="Photos from visit",
+            uploaded_by=self.reviewer,
+        )
+
+        custom_doc.refresh_from_db()
+        self.assertIsInstance(custom_doc, ValidationAdditionalDocument)
+        self.assertEqual(custom_doc.validation, validation)
+        self.assertEqual(custom_doc.observations, "Photos from visit")
+        self.assertEqual(custom_doc.uploaded_by, self.reviewer)
+
+    def test_custom_document_upload_blocked_after_approval(self):
+        _, validation, _ = self._create_provider_opportunity()
+        self._upload_required_documents(validation)
+        ValidationPresentService.call(validation=validation, reviewer=self.agent)
+        self._review_required_documents(validation)
+        ValidationAcceptService.call(validation=validation)
+
+        with self.assertRaises(ValidationError):
+            CreateAdditionalValidationDocumentService.call(
+                validation=validation,
+                document=SimpleUploadedFile("late.pdf", b"data"),
+                uploaded_by=self.reviewer,
+            )
+
+    def test_additional_count_includes_custom_documents(self):
+        _, validation, _ = self._create_provider_opportunity()
+
+        # two custom documents
+        CreateAdditionalValidationDocumentService.call(
+            validation=validation,
+            document=SimpleUploadedFile("custom1.pdf", b"data"),
+            uploaded_by=self.reviewer,
+        )
+        CreateAdditionalValidationDocumentService.call(
+            validation=validation,
+            document=SimpleUploadedFile("custom2.pdf", b"data"),
+            uploaded_by=self.reviewer,
+        )
+
+        summary = validation.document_status_summary()
+        self.assertEqual(summary["additional"], 2)
 
     def test_promote_with_tokkobroker_property_and_uniqueness(self):
         tokko_property = TokkobrokerProperty.objects.create(tokko_id=12345, ref_code="REF-12345")

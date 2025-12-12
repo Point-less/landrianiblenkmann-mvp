@@ -50,6 +50,7 @@ from opportunities.forms import (
     ValidationDocumentUploadForm,
     ValidationPresentForm,
     ValidationRejectForm,
+    ValidationAdditionalDocumentUploadForm,
 )
 from opportunities.models import (
     MarketingPackage,
@@ -84,6 +85,7 @@ from opportunities.services import (  # noqa: F401  # retained for registry disc
     ValidationPresentService,
     ValidationRejectService,
     CreateValidationDocumentService,
+    CreateAdditionalValidationDocumentService,
 )
 from integrations.models import TokkobrokerProperty
 from integrations.tasks import sync_tokkobroker_properties_task, sync_tokkobroker_registry
@@ -581,7 +583,7 @@ class ValidationDetailView(ValidationMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         validation = context['validation']
         context['required_documents'] = validation.required_documents_status()
-        context['additional_documents'] = validation.additional_documents()
+        context['custom_documents'] = validation.custom_documents()
         context['summary'] = validation.document_status_summary()
         context.setdefault('current_url', self.request.get_full_path())
         context.setdefault('nav_groups', DashboardSectionView.NAV_GROUPS)
@@ -664,6 +666,21 @@ class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
         S.opportunities.CreateValidationDocumentService(
             validation=self.get_validation(),
             document_type=form.cleaned_data['document_type'],
+            observations=form.cleaned_data.get('observations') or None,
+            document=form.cleaned_data['document'],
+            uploaded_by=self.request.user if self.request.user.is_authenticated else None,
+        )
+
+
+class ValidationAdditionalDocumentUploadView(ValidationMixin, WorkflowFormView):
+    form_class = ValidationAdditionalDocumentUploadForm
+    success_message = 'Custom document uploaded.'
+    form_title = 'Upload custom document'
+    submit_label = 'Upload'
+
+    def perform_action(self, form):
+        S.opportunities.CreateAdditionalValidationDocumentService(
+            validation=self.get_validation(),
             observations=form.cleaned_data.get('observations') or None,
             document=form.cleaned_data['document'],
             uploaded_by=self.request.user if self.request.user.is_authenticated else None,

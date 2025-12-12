@@ -11,6 +11,7 @@ from core.models import Agent, Currency
 from opportunities.models import (
     MarketingPackage,
     Operation,
+    ValidationAdditionalDocument,
     ValidationDocument,
     ValidationDocumentType,
 )
@@ -111,11 +112,9 @@ class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
         self.fields["observations"].required = False
         op_type = validation.opportunity.source_intention.operation_type if validation else None
         required_qs = validation.required_document_types() if validation else ValidationDocumentType.objects.filter(required=True)
-        optional_qs = ValidationDocumentType.objects.filter(required=False)
         if op_type:
-            optional_qs = optional_qs.filter(models.Q(operation_type__isnull=True) | models.Q(operation_type=op_type))
             required_qs = required_qs.filter(models.Q(operation_type__isnull=True) | models.Q(operation_type=op_type))
-        allowed_qs = (required_qs | optional_qs).distinct()
+        allowed_qs = required_qs.distinct()
         self.fields["document_type"].queryset = allowed_qs
         if forced_document_type:
             forced_obj = None
@@ -129,13 +128,31 @@ class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
                 forced_obj = allowed_qs.filter(lookups).first()
             if forced_obj:
                 self.fields["document_type"].initial = forced_obj
-                self.fields["document_type"].widget = forms.HiddenInput()
-                self.fields["document_type"].queryset = ValidationDocumentType.objects.filter(pk=forced_obj.pk)
+                if not self.is_bound:
+                    # Hide only on first render when the type was forced by the caller
+                    self.fields["document_type"].widget = forms.HiddenInput()
+                    self.fields["document_type"].queryset = ValidationDocumentType.objects.filter(pk=forced_obj.pk)
+                else:
+                    # On re-render (e.g., after validation errors) keep the selector visible to let users change it
+                    self.fields["document_type"].queryset = allowed_qs
 
 
 class ValidationDocumentReviewForm(HTML5FormMixin, forms.Form):
     action = forms.ChoiceField(choices=[("accept", "Accept"), ("reject", "Reject")])
     comment = forms.CharField(required=False, widget=forms.Textarea)
+
+
+class ValidationAdditionalDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
+    class Meta:
+        model = ValidationAdditionalDocument
+        fields = ["observations", "document"]
+        widgets = {
+            "observations": forms.Textarea(attrs={'rows': 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["observations"].required = False
 
 
 class MarketingPackageForm(HTML5FormMixin, forms.ModelForm):
@@ -166,5 +183,6 @@ __all__ = [
     "OperationLoseForm",
     "ValidationDocumentUploadForm",
     "ValidationDocumentReviewForm",
+    "ValidationAdditionalDocumentUploadForm",
     "MarketingPackageForm",
 ]

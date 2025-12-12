@@ -4,6 +4,7 @@ from builtins import property as builtin_property
 
 from collections import Counter
 from decimal import Decimal
+from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -14,7 +15,7 @@ from django_fsm import FSMField, transition
 
 from core.models import Currency
 from integrations.models import TokkobrokerProperty
-from utils.mixins import FSMTrackingMixin, TimeStampedMixin
+from utils.mixins import FSMTrackingMixin, FSMTransitionMixin, TimeStampedMixin
 
 OPERATION_STATE_CHOICES = (
     ("offered", "Offered"),
@@ -260,9 +261,11 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
                 choices.append((dt.code, dt.label))
         return choices
 
-    def _documents_by_type(self) -> dict[str, ValidationDocument]:
-        docs = {}
-        for document in self.documents.select_related("document_type"):
+    def _documents_by_type(self) -> dict[str, "ValidationDocument"]:
+        """Return the latest document per type (newest wins)."""
+
+        docs: dict[str, ValidationDocument] = {}
+        for document in self.documents.select_related("document_type").order_by("-created_at", "-id"):
             docs.setdefault(document.document_type.code, document)
         return docs
 
@@ -271,13 +274,14 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
 
         required_types = list(self.required_document_types())
         status_counts = Counter(item["status"] for item in self.required_documents_status())
+        additional_count = self.additional_attachments.count()
         return {
             "required_total": len(required_types),
             "accepted": status_counts.get(ValidationDocument.Status.ACCEPTED, 0),
             "pending": status_counts.get(ValidationDocument.Status.PENDING, 0),
             "rejected": status_counts.get(ValidationDocument.Status.REJECTED, 0),
             "missing": status_counts.get("missing", 0),
-            "additional": self.documents.exclude(document_type__in=required_types).count(),
+            "additional": additional_count,
         }
 
     def required_documents_status(self) -> list[dict[str, object]]:
@@ -297,8 +301,8 @@ class Validation(TimeStampedMixin, FSMTrackingMixin):
             )
         return summary
 
-    def additional_documents(self) -> list["ValidationDocument"]:
-        return [doc for doc in self.documents.select_related("document_type") if not doc.document_type.required]
+    def custom_documents(self) -> list["ValidationAdditionalDocument"]:
+        return list(self.additional_attachments.all())
 
     def missing_required_documents(self) -> list[str]:
         uploaded = set(self.documents.values_list("document_type__code", flat=True))
@@ -429,6 +433,10 @@ class ValidationDocument(TimeStampedMixin, FSMTrackingMixin):
     def __str__(self) -> str:
         return f"{self.document_type.label} ({self.get_status_display()})"
 
+    @property
+    def filename(self) -> str:
+        return Path(self.document.name or "").name
+
     @transition(field="status", source=[Status.PENDING, Status.REJECTED], target=Status.ACCEPTED)
     def accept(self, *, reviewer, comment: str | None = None):
         self.reviewer_comment = comment or ""
@@ -440,6 +448,118 @@ class ValidationDocument(TimeStampedMixin, FSMTrackingMixin):
         self.reviewer_comment = comment or ""
         self.decided_by = reviewer
         self.decided_at = timezone.now()
+
+
+class ValidationAdditionalDocument(TimeStampedMixin):
+    validation = models.ForeignKey(
+        Validation,
+        on_delete=models.CASCADE,
+        related_name="additional_attachments",
+    )
+    observations = models.TextField(blank=True)
+    document = models.FileField(upload_to="validation_additional_documents/%Y/%m/")
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_additional_validation_documents",
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "validation additional document"
+        verbose_name_plural = "validation additional documents"
+
+    def __str__(self) -> str:
+        return f"Custom document for {self.validation}"
+
+    @property
+    def filename(self) -> str:
+        return Path(self.document.name or "").name
+
+
+class OperationAgreement(TimeStampedMixin, FSMTrackingMixin):
+    class State(models.TextChoices):
+        PENDING = "pending", "Pending"
+        AGREED = "agreed", "Agreed"
+        SIGNED = "signed", "Signed"
+
+    provider_opportunity = models.ForeignKey(
+        ProviderOpportunity,
+        on_delete=models.PROTECT,
+        related_name="operation_agreements",
+    )
+    seeker_opportunity = models.ForeignKey(
+        SeekerOpportunity,
+        on_delete=models.PROTECT,
+        related_name="operation_agreements",
+    )
+    state = FSMField(
+        max_length=20,
+        choices=State.choices,
+        default=State.PENDING,
+        protected=False,
+    )
+    signed_document = models.FileField(
+        upload_to="operation_agreements/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Signed agreement documentation uploaded when transitioning to SIGNED state.",
+    )
+    notes = models.TextField(blank=True)
+    agreed_at = models.DateTimeField(null=True, blank=True)
+    signed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "operation agreement"
+        verbose_name_plural = "operation agreements"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider_opportunity", "seeker_opportunity"],
+                condition=models.Q(state__in=["pending", "agreed"]),
+                name="unique_active_operation_agreement",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"Agreement between {self.provider_opportunity} and {self.seeker_opportunity}"
+
+    def validate_operation_types_match(self) -> None:
+        if self.provider_opportunity.source_intention.operation_type_id != self.seeker_opportunity.source_intention.operation_type_id:
+            raise ValidationError("Provider and seeker operation types must match.")
+
+    def validate_opportunity_states(self) -> None:
+        if self.provider_opportunity.state != ProviderOpportunity.State.MARKETING:
+            raise ValidationError("Provider opportunity must be marketing.")
+        if self.seeker_opportunity.state not in {
+            SeekerOpportunity.State.MATCHING,
+            SeekerOpportunity.State.NEGOTIATING,
+        }:
+            raise ValidationError("Seeker opportunity must be matching or negotiating.")
+
+    @transition(field="state", source=State.PENDING, target=State.AGREED)
+    def agree(self) -> None:
+        self.validate_operation_types_match()
+        self.validate_opportunity_states()
+        self.agreed_at = timezone.now()
+
+    @transition(field="state", source=[State.PENDING, State.AGREED], target=State.SIGNED)
+    def sign(self, *, signed_document) -> None:
+        if not signed_document:
+            raise ValidationError("Signed document is required to sign the agreement.")
+        self.signed_document = signed_document
+        self.signed_at = timezone.now()
+
+    @transition(field="state", source=State.AGREED, target=State.PENDING)
+    def revoke(self) -> None:
+        self.agreed_at = None
+
+    @transition(field="state", source=[State.PENDING, State.AGREED], target=State.PENDING)
+    def cancel(self, reason: str | None = None) -> None:
+        if reason:
+            self.notes = (self.notes or "") + f"\nCancelled: {reason}"
 
 
 class MarketingPackageQuerySet(models.QuerySet):
@@ -539,6 +659,14 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
         on_delete=models.CASCADE,
         related_name="operations",
     )
+    agreement = models.OneToOneField(
+        "OperationAgreement",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="operation",
+        help_text="Link to the signed agreement that created this operation.",
+    )
     state = FSMField(
         max_length=20,
         choices=State.choices,
@@ -634,8 +762,10 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
 __all__ = [
     "MarketingPackage",
     "Operation",
+    "OperationAgreement",
     "ProviderOpportunity",
     "SeekerOpportunity",
     "Validation",
     "ValidationDocument",
+    "ValidationAdditionalDocument",
 ]

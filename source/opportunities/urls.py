@@ -11,6 +11,7 @@ urlpatterns = [
     path('validations/<int:validation_id>/reject/', workflow_views.ValidationRejectView.as_view(), name='validation-reject'),
     path('validations/<int:validation_id>/accept/', workflow_views.ValidationAcceptView.as_view(), name='validation-accept'),
     path('validations/<int:validation_id>/documents/upload/', workflow_views.ValidationDocumentUploadView.as_view(), name='validation-document-upload'),
+    path('validations/<int:validation_id>/documents/upload-additional/', workflow_views.ValidationAdditionalDocumentUploadView.as_view(), name='validation-additional-document-upload'),
     path('validation-documents/<int:document_id>/review/', workflow_views.ValidationDocumentReviewView.as_view(), name='validation-document-review'),
     # Marketing packages
     path('provider/<int:opportunity_id>/marketing-packages/new/', workflow_views.MarketingPackageCreateView.as_view(), name='marketing-package-create'),

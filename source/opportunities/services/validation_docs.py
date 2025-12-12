@@ -1,8 +1,14 @@
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
-from opportunities.models import Validation, ValidationDocument, ValidationDocumentType
+from opportunities.models import (
+    Validation,
+    ValidationAdditionalDocument,
+    ValidationDocument,
+    ValidationDocumentType,
+)
 from utils.services import BaseService
 
 
@@ -19,9 +25,9 @@ class CreateValidationDocumentService(BaseService):
         uploaded_by=None,
         observations: str | None = None,
     ) -> ValidationDocument:
-        if validation.state != Validation.State.PREPARING:
+        if validation.state not in {Validation.State.PREPARING, Validation.State.PRESENTED}:
             raise ValidationError({
-                "validation": "Documents can only be uploaded while the validation is preparing."
+                "validation": "Documents can only be uploaded while the validation is preparing or awaiting approval."
             })
         if not document:
             raise ValidationError({"document": "Please attach a document."})
@@ -32,6 +38,9 @@ class CreateValidationDocumentService(BaseService):
                 doc_type = ValidationDocumentType.objects.get(code=document_type)
             except ValidationDocumentType.DoesNotExist:
                 raise ValidationError({"document_type": "Invalid document type."})
+        # Only required document types are allowed (optional types are handled via custom uploads)
+        if not doc_type.required:
+            raise ValidationError({"document_type": "Only required document types can be uploaded here. Use custom documents for extras."})
         # Enforce operation type compatibility
         op_type = validation.opportunity.source_intention.operation_type
         if doc_type.operation_type_id and doc_type.operation_type_id != op_type.id:
@@ -72,7 +81,32 @@ class ReviewValidationDocumentService(BaseService):
         return document
 
 
+class CreateAdditionalValidationDocumentService(BaseService):
+    def run(
+        self,
+        *,
+        validation: Validation,
+        document,
+        uploaded_by=None,
+        observations: str | None = None,
+    ) -> ValidationAdditionalDocument:
+        if validation.state not in {Validation.State.PREPARING, Validation.State.PRESENTED}:
+            raise ValidationError({
+                "validation": "Custom documents can only be uploaded while the validation is preparing or awaiting approval."
+            })
+        if not document:
+            raise ValidationError({"document": "Please attach a document."})
+
+        return ValidationAdditionalDocument.objects.create(
+            validation=validation,
+            observations=observations or "",
+            document=document,
+            uploaded_by=uploaded_by,
+        )
+
+
 __all__ = [
     "CreateValidationDocumentService",
     "ReviewValidationDocumentService",
+    "CreateAdditionalValidationDocumentService",
 ]

@@ -29,24 +29,29 @@
         <h3 style="margin:0;">Required documents</h3>
     </div>
     <table>
-        <tr><th>Type</th><th>File</th><th>State</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
+        <tr><th>File</th><th>Type</th><th>Observations</th><th>State</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for requirement in required_documents %}
             <tr>
-                <td>{{ requirement.label }}</td>
                 <td>
                     {% if requirement.document %}
-                        <span class="pill">File uploaded</span>
+                        <div class="table-title">{{ requirement.document.filename }}</div>
+                        <div class="table-subtext">File uploaded</div>
                     {% else %}
                         <span class="pill status-missing">No file</span>
+                    {% endif %}
+                </td>
+                <td>{{ requirement.label }}</td>
+                <td>
+                    {% if requirement.document and requirement.document.observations %}
+                        <div class="table-subtext">{{ requirement.document.observations }}</div>
+                    {% else %}
+                        <div class="table-subtext">-</div>
                     {% endif %}
                 </td>
                 <td>
                     <span class="pill status-{{ requirement.status }}">{{ requirement.status|capfirst }}</span>
                     {% if requirement.document and requirement.document.reviewer_comment %}
                         <div class="table-subtext">Comment: {{ requirement.document.reviewer_comment }}</div>
-                    {% endif %}
-                    {% if requirement.document and requirement.document.observations %}
-                        <div class="table-subtext">Observations: {{ requirement.document.observations }}</div>
                     {% endif %}
                 </td>
                 <td class="latest-activity">
@@ -64,7 +69,7 @@
                             </a>
                         {% endif %}
                     {% endif %}
-                    {% if validation.state == 'preparing' %}
+                    {% if validation.state == 'preparing' or validation.state == 'presented' %}
                         <a class="icon-button" data-icon="📤" href="{% url 'validation-document-upload' validation.id %}?document_type={{ requirement.code }}&next={{ current_url|urlencode }}" title="{% if requirement.document %}Replace document{% else %}Upload document{% endif %}">
                             <span class="sr-only">{% if requirement.document %}Replace{% else %}Upload{% endif %}</span>
                         </a>
@@ -73,6 +78,41 @@
             </tr>
         {% endfor %}
     </table>
+</div>
+
+<div class="card">
+    <div class="table-header">
+        <h3 style="margin:0;">Custom documents</h3>
+        {% if validation.state == 'preparing' or validation.state == 'presented' %}
+            <a class="btn" href="{% url 'validation-additional-document-upload' validation.id %}?next={{ current_url|urlencode }}">Upload custom file</a>
+        {% endif %}
+    </div>
+    <table>
+        <tr><th>File</th><th>Observations</th><th>Uploaded by</th><th class="actions-column">Actions</th></tr>
+        {% for document in custom_documents %}
+            <tr>
+                <td>
+                    <div class="table-title">{{ document.filename }}</div>
+                    <div class="table-subtext">File uploaded</div>
+                </td>
+                <td>
+                    {% if document.observations %}<div class="table-subtext">{{ document.observations }}</div>{% else %}<div class="table-subtext">-</div>{% endif %}
+                </td>
+                <td>
+                    <div class="table-subtext">{{ document.uploaded_by|default:"N/A" }}</div>
+                    <div class="table-subtext">{{ document.created_at }}</div>
+                </td>
+                <td class="actions-column">
+                    <a class="icon-button" data-icon="⬇" href="{{ document.document.url }}" download title="Download">
+                        <span class="sr-only">Download</span>
+                    </a>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4">No custom documents uploaded yet.</td></tr>
+        {% endfor %}
+    </table>
+    <div class="table-subtext">Custom documents are stored for reference and never require approval.</div>
 </div>
 
 {% endblock %}

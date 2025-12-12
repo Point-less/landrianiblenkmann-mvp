@@ -78,8 +78,9 @@ Sales pipeline management with FSM workflows.
 - **Schema** (`schema.py`, `types.py`, `filters.py`): GraphQL queries, types, and filtering for opportunities
 - **Purpose**: Manage active sales pipeline from contract to close
 - **URLs** (`urls.py`): Opportunity and validation management endpoints
- - **Services** (`services/`): Business logic for opportunity lifecycle
+- **Services** (`services/`): Business logic for opportunity lifecycle
   - **Query services** (`services/queries.py`): read-only service classes (e.g., `AvailableProviderOpportunitiesForOperationsQuery`, `AvailableSeekerOpportunitiesForOperationsQuery`) to centralize “available for operations” selection logic with optional actor-aware filtering.
+- **Validations**: Required documents must be reviewed. Additional uploads are only allowed as custom (type-less) documents while the validation is in `preparing` or `presented`; these are auto-accepted and listed with file names and observations. Optional typed document uploads are no longer allowed.
 
 ### `reports/`
 Operational finance reporting.

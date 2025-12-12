@@ -15,6 +15,7 @@
     {{ form.media }}
     <form class="form-layout" method="post" enctype="{% if form.is_multipart %}multipart/form-data{% else %}application/x-www-form-urlencoded{% endif %}">
         {% csrf_token %}
+        <input type="hidden" name="_idempotency_token" value="{{ idempotency_token }}">
         {% if next_url %}
             <input type="hidden" name="next" value="{{ next_url }}">
         {% endif %}

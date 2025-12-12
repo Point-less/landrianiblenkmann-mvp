@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Provider Valuations | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Provider Valuations</h2>
+</div>
+<div class="card">
+    <div class="table-responsive">
+        <table>
+            <tr>
+                <th>Property</th>
+                <th>Agent</th>
+                <th>Valuation</th>
+                <th>Test / Close</th>
+                <th>Delivered</th>
+                <th>Notes</th>
+            </tr>
+            {% for valuation in provider_valuations %}
+                <tr>
+                    <td>
+                        <div class="table-title">{{ valuation.provider_intention.property }}</div>
+                        <div class="table-subtext">Owner: {{ valuation.provider_intention.owner }}</div>
+                    </td>
+                    <td>
+                        <div class="table-title">{{ valuation.agent }}</div>
+                        <div class="table-subtext">Intention agent: {{ valuation.provider_intention.agent }}</div>
+                    </td>
+                    <td>
+                        <div class="table-title">{{ valuation.amount }} {{ valuation.currency.code }}</div>
+                        <div class="table-subtext">Valuation {{ valuation.provider_intention.get_state_display }}</div>
+                    </td>
+                    <td>
+                        <div class="table-title">{{ valuation.test_value }} / {{ valuation.close_value }} {{ valuation.currency.code }}</div>
+                        {% if valuation.valuation_date %}
+                            <div class="table-subtext">Date: {{ valuation.valuation_date }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="table-title">{{ valuation.delivered_at|date:"Y-m-d H:i" }}</div>
+                        {% url 'transition-history' 'intentions' 'saleproviderintention' valuation.provider_intention.id as history_url %}
+                        <a class="history-link" href="{{ history_url }}?next={{ current_url|urlencode }}" title="View intention history">↺</a>
+                    </td>
+                    <td>
+                        {% if valuation.notes %}
+                            <div class="table-subtext">{{ valuation.notes }}</div>
+                        {% else %}
+                            <span class="muted">–</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6">No valuations yet.</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -24,9 +24,7 @@
             <input type="hidden" name="next" value="{{ current_url }}">
             <button type="submit" class="btn-danger">Clear properties</button>
         </form>
-        {% else %}
-        <p style="color: var(--text-muted); margin: 0;">View-only access to Tokkobroker data.</p>
-        {% endif %}
+{% endif %}
     </div>
     <h4 style="margin-top:1.5rem;">Recent Imports</h4>
     <table>

@@ -39,6 +39,9 @@ from opportunities.services import (
     CreateAdditionalValidationDocumentService,
     CreateValidationDocumentService,
     CreateOperationService,
+    CreateOperationAgreementService,
+    AgreeOperationAgreementService,
+    SignOperationAgreementService,
     CreateSeekerOpportunityService,
     OperationCloseService,
     OperationLoseService,
@@ -202,9 +205,14 @@ class SaleFlowServiceTests(TestCase):
         )
         self.assertEqual(seeker_opportunity.state, SeekerOpportunity.State.MATCHING)
 
-        operation = CreateOperationService.call(
+        agreement = CreateOperationAgreementService.call(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
+        )
+        AgreeOperationAgreementService.call(agreement=agreement)
+        _, operation = SignOperationAgreementService.call(
+            agreement=agreement,
+            signed_document=SimpleUploadedFile("signed.pdf", b"pdf content"),
             initial_offered_amount=Decimal("930000"),
             reserve_amount=Decimal("20000"),
             reserve_deadline=date.today(),
@@ -290,9 +298,14 @@ class SaleFlowServiceTests(TestCase):
             gross_commission_pct=Decimal("0.03"),
         )
 
-        operation = CreateOperationService.call(
+        agreement = CreateOperationAgreementService.call(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
+        )
+        AgreeOperationAgreementService.call(agreement=agreement)
+        _, operation = SignOperationAgreementService.call(
+            agreement=agreement,
+            signed_document=SimpleUploadedFile("signed.pdf", b"pdf content"),
             initial_offered_amount=Decimal("930000"),
             reserve_amount=Decimal("20000"),
             reserve_deadline=date.today(),
@@ -363,9 +376,14 @@ class SaleFlowServiceTests(TestCase):
             gross_commission_pct=Decimal("0.03"),
         )
 
-        primary_operation = CreateOperationService.call(
+        agreement = CreateOperationAgreementService.call(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
+        )
+        AgreeOperationAgreementService.call(agreement=agreement)
+        _, primary_operation = SignOperationAgreementService.call(
+            agreement=agreement,
+            signed_document=SimpleUploadedFile("signed.pdf", b"pdf content"),
             initial_offered_amount=Decimal("930000"),
             reserve_amount=Decimal("20000"),
             reserve_deadline=date.today(),
@@ -373,9 +391,14 @@ class SaleFlowServiceTests(TestCase):
             notes="Initial reservation",
         )
 
-        secondary_operation = CreateOperationService.call(
+        agreement_2 = CreateOperationAgreementService.call(
             provider_opportunity=second_provider_opportunity,
             seeker_opportunity=seeker_opportunity,
+        )
+        AgreeOperationAgreementService.call(agreement=agreement_2)
+        _, secondary_operation = SignOperationAgreementService.call(
+            agreement=agreement_2,
+            signed_document=SimpleUploadedFile("signed.pdf", b"pdf content"),
             initial_offered_amount=Decimal("910000"),
             reserve_amount=Decimal("15000"),
             reserve_deadline=date.today(),

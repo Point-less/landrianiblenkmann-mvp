@@ -13,6 +13,7 @@ from opportunities.models import (
     ProviderOpportunity,
     SeekerOpportunity,
     Validation,
+    OperationAgreement,
     OperationType as OpportunityOperationType,
 )
 
@@ -67,6 +68,11 @@ class SeekerOpportunityType(relay.Node):
     state: str = strawberry_django.field()
 
 
+@strawberry_django.type(OperationAgreement, fields="__all__")
+class OperationAgreementType(relay.Node):
+    state: str = strawberry_django.field()
+
+
 __all__ = [
     "ContactType",
     "AgentType",
@@ -78,4 +84,5 @@ __all__ = [
     "OperationType",
     "ProviderOpportunityType",
     "SeekerOpportunityType",
+    "OperationAgreementType",
 ]

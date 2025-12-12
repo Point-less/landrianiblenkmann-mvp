@@ -116,7 +116,7 @@ class ProviderOpportunity(TimeStampedMixin, FSMTrackingMixin):
     def close_opportunity(self) -> None:
         """Close the opportunity once an operation is completed."""
 
-        if not self.operations.filter(state=Operation.State.CLOSED).exists():
+        if not self.operation_agreements.filter(operation__state=Operation.State.CLOSED).exists():
             raise ValidationError("Provider opportunity cannot be closed without a closed operation.")
 
 
@@ -480,10 +480,20 @@ class ValidationAdditionalDocument(TimeStampedMixin):
 
 
 class OperationAgreement(TimeStampedMixin, FSMTrackingMixin):
+    """
+    Models the agreement between provider and seeker agents before creating an operation.
+
+    States:
+    1. PENDING: Agreement created, awaiting review
+    2. AGREED: Both parties have agreed to the terms
+    3. SIGNED: Agreement signed with documentation uploaded, operation auto-created
+    4. CANCELLED: Agreement cancelled/not met (from PENDING or AGREED)
+    """
     class State(models.TextChoices):
         PENDING = "pending", "Pending"
         AGREED = "agreed", "Agreed"
         SIGNED = "signed", "Signed"
+        CANCELLED = "cancelled", "Cancelled"
 
     provider_opportunity = models.ForeignKey(
         ProviderOpportunity,
@@ -501,15 +511,12 @@ class OperationAgreement(TimeStampedMixin, FSMTrackingMixin):
         default=State.PENDING,
         protected=False,
     )
-    signed_document = models.FileField(
-        upload_to="operation_agreements/%Y/%m/",
-        null=True,
-        blank=True,
-        help_text="Signed agreement documentation uploaded when transitioning to SIGNED state.",
-    )
+
     notes = models.TextField(blank=True)
     agreed_at = models.DateTimeField(null=True, blank=True)
     signed_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancellation_reason = models.TextField(blank=True, help_text="Reason for cancellation")
 
     class Meta:
         ordering = ("-created_at",)
@@ -524,42 +531,68 @@ class OperationAgreement(TimeStampedMixin, FSMTrackingMixin):
         ]
 
     def __str__(self) -> str:
-        return f"Agreement between {self.provider_opportunity} and {self.seeker_opportunity}"
+        return f"Agreement {self.get_state_display()} between {self.provider_opportunity} and {self.seeker_opportunity}"
 
     def validate_operation_types_match(self) -> None:
-        if self.provider_opportunity.source_intention.operation_type_id != self.seeker_opportunity.source_intention.operation_type_id:
-            raise ValidationError("Provider and seeker operation types must match.")
+        """Ensure both opportunities have the same operation type."""
+        p_type = self.provider_opportunity.source_intention.operation_type_id
+        s_type = self.seeker_opportunity.source_intention.operation_type_id
+
+        if not p_type or not s_type:
+            raise ValidationError("Both intentions must specify an operation type before creating an agreement.")
+
+        if p_type != s_type:
+            raise ValidationError({
+                "operation_type": "Provider and seeker operation types must match."
+            })
 
     def validate_opportunity_states(self) -> None:
+        """Ensure opportunities are in valid states for agreement creation."""
         if self.provider_opportunity.state != ProviderOpportunity.State.MARKETING:
-            raise ValidationError("Provider opportunity must be marketing.")
-        if self.seeker_opportunity.state not in {
-            SeekerOpportunity.State.MATCHING,
-            SeekerOpportunity.State.NEGOTIATING,
-        }:
-            raise ValidationError("Seeker opportunity must be matching or negotiating.")
+            raise ValidationError({
+                "provider_opportunity": "Provider opportunity must be in MARKETING state."
+            })
+
+        if self.seeker_opportunity.state not in [SeekerOpportunity.State.MATCHING, SeekerOpportunity.State.NEGOTIATING]:
+            raise ValidationError({
+                "seeker_opportunity": "Seeker opportunity must be in MATCHING or NEGOTIATING state."
+            })
 
     @transition(field="state", source=State.PENDING, target=State.AGREED)
     def agree(self) -> None:
-        self.validate_operation_types_match()
+        """Transition from PENDING to AGREED state."""
         self.validate_opportunity_states()
         self.agreed_at = timezone.now()
 
-    @transition(field="state", source=[State.PENDING, State.AGREED], target=State.SIGNED)
-    def sign(self, *, signed_document) -> None:
-        if not signed_document:
-            raise ValidationError("Signed document is required to sign the agreement.")
-        self.signed_document = signed_document
+    @transition(field="state", source=State.AGREED, target=State.SIGNED)
+    def sign(self) -> None:
+        """
+        Transition from AGREED to SIGNED state.
+
+        Note: The operation creation happens in the service layer after this transition.
+        The signed document is stored on the created Operation.
+        """
         self.signed_at = timezone.now()
 
     @transition(field="state", source=State.AGREED, target=State.PENDING)
     def revoke(self) -> None:
+        """
+        Transition from AGREED back to PENDING state.
+        Allows renegotiation if needed.
+        """
         self.agreed_at = None
 
-    @transition(field="state", source=[State.PENDING, State.AGREED], target=State.PENDING)
+    @transition(field="state", source=[State.PENDING, State.AGREED], target=State.CANCELLED)
     def cancel(self, reason: str | None = None) -> None:
+        """
+        Cancel the agreement from PENDING or AGREED state.
+
+        This transition is used when the agreement is not met or falls through.
+        Can be called from PENDING (before agreement) or AGREED (after agreement but before signing).
+        """
+        self.cancelled_at = timezone.now()
         if reason:
-            self.notes = (self.notes or "") + f"\nCancelled: {reason}"
+            self.cancellation_reason = reason
 
 
 class MarketingPackageQuerySet(models.QuerySet):
@@ -630,8 +663,8 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
 
     @transition(field="state", source=State.PAUSED, target=State.PUBLISHED)
     def publish(self) -> "MarketingPackage":
-        has_active_operation = self.opportunity.operations.filter(
-            state__in=[Operation.State.OFFERED, Operation.State.REINFORCED]
+        has_active_operation = self.opportunity.operation_agreements.filter(
+            operation__state__in=[Operation.State.OFFERED, Operation.State.REINFORCED]
         ).exists()
         if has_active_operation:
             raise ValidationError(
@@ -649,21 +682,11 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
         CLOSED = "closed", "Closed"
         LOST = "lost", "Lost"
 
-    provider_opportunity = models.ForeignKey(
-        ProviderOpportunity,
-        on_delete=models.CASCADE,
-        related_name="operations",
-    )
-    seeker_opportunity = models.ForeignKey(
-        SeekerOpportunity,
-        on_delete=models.CASCADE,
-        related_name="operations",
-    )
     agreement = models.OneToOneField(
         "OperationAgreement",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
+        null=False,
+        blank=False,
         related_name="operation",
         help_text="Link to the signed agreement that created this operation.",
     )
@@ -704,6 +727,12 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
         validators=[MinValueValidator(0)],
         help_text="Additional funds available when reinforced.",
     )
+    signed_document = models.FileField(
+        upload_to="operations/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Signed agreement documentation.",
+    )
     declared_deed_value = models.DecimalField(
         max_digits=14,
         decimal_places=2,
@@ -725,16 +754,17 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
         ordering = ("-created_at",)
         verbose_name = "operation"
         verbose_name_plural = "operations"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["provider_opportunity", "seeker_opportunity"],
-                condition=models.Q(state__in=["offered", "reinforced"]),
-                name="opportunities_unique_active_operation",
-            )
-        ]
 
     def __str__(self) -> str:
-        return f"Operation {self.get_state_display()} for {self.provider_opportunity}"
+        return f"Operation {self.get_state_display()} for {self.agreement.provider_opportunity}"
+
+    @property
+    def provider_opportunity(self):
+        return self.agreement.provider_opportunity
+
+    @property
+    def seeker_opportunity(self):
+        return self.agreement.seeker_opportunity
 
     @transition(field="state", source=State.OFFERED, target=State.REINFORCED)
     def reinforce(self) -> None:

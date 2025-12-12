@@ -23,7 +23,9 @@ from intentions.services import (
 from opportunities.models import Operation, ProviderOpportunity, Validation, ValidationDocument, ValidationDocumentType
 from opportunities.services import (
     CreateValidationDocumentService,
-    CreateOperationService,
+    CreateOperationAgreementService,
+    AgreeOperationAgreementService,
+    SignOperationAgreementService,
     CreateSeekerOpportunityService,
     ReviewValidationDocumentService,
     ValidationAcceptService,
@@ -123,9 +125,14 @@ class WorkflowViewSmokeTests(TestCase):
             gross_commission_pct=Decimal('0.03'),
         )
 
-        self.operation = CreateOperationService.call(
+        agreement = CreateOperationAgreementService.call(
             provider_opportunity=self.provider_opportunity,
             seeker_opportunity=self.seeker_opportunity,
+        )
+        AgreeOperationAgreementService.call(agreement=agreement)
+        _, self.operation = SignOperationAgreementService.call(
+            agreement=agreement,
+            signed_document=SimpleUploadedFile("signed.pdf", b"pdf content"),
             initial_offered_amount=Decimal('930000'),
             reserve_amount=Decimal('20000'),
             reserve_deadline=date.today(),
@@ -173,7 +180,7 @@ class WorkflowViewSmokeTests(TestCase):
             ('marketing-package-activate', {'package_id': self.marketing_package.id}),
             ('marketing-package-pause', {'package_id': self.marketing_package.id}),
             ('marketing-package-release', {'package_id': self.marketing_package.id}),
-            ('operation-create', {}),
+
             ('operation-reinforce', {'operation_id': self.operation.id}),
             ('operation-close', {'operation_id': self.operation.id}),
             ('operation-lose', {'operation_id': self.operation.id}),

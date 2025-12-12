@@ -6,8 +6,8 @@ import strawberry
 import strawberry_django
 from strawberry import relay
 
-from opportunities.filters import ProviderOpportunityFilter, SeekerOpportunityFilter
-from opportunities.types import ProviderOpportunityType, SeekerOpportunityType
+from opportunities.filters import OperationAgreementFilter, ProviderOpportunityFilter, SeekerOpportunityFilter
+from opportunities.types import OperationAgreementType, ProviderOpportunityType, SeekerOpportunityType
 from utils.services import S
 
 
@@ -18,6 +18,15 @@ def _resolve_provider_opportunities(
 ) -> Iterable[ProviderOpportunityType]:
     request = info.context.request
     return S.opportunities.ProviderOpportunitiesQuery(actor=request.user)
+
+
+def _resolve_operation_agreements(
+    root,
+    info,
+    filters: OperationAgreementFilter | None,
+) -> Iterable[OperationAgreementType]:
+    request = info.context.request
+    return S.opportunities.OperationAgreementsQuery(actor=request.user)
 
 
 def _resolve_seeker_opportunities(
@@ -41,6 +50,11 @@ class OpportunitiesQuery:
         filters=SeekerOpportunityFilter,
         resolver=_resolve_seeker_opportunities,
     )
+    operation_agreements: relay.ListConnection[OperationAgreementType] = strawberry_django.connection(
+        relay.ListConnection[OperationAgreementType],
+        filters=OperationAgreementFilter,
+        resolver=_resolve_operation_agreements,
+    )
 
 
-__all__ = ["OpportunitiesQuery", "ProviderOpportunityType", "SeekerOpportunityType"]
+__all__ = ["OpportunitiesQuery", "ProviderOpportunityType", "SeekerOpportunityType", "OperationAgreementType"]

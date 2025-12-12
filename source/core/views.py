@@ -42,10 +42,12 @@ from intentions.services import (
 )
 from opportunities.forms import (
     MarketingPackageForm,
-    OperationForm,
     OperationLoseForm,
     OperationReinforceForm,
     SeekerOpportunityCreateForm,
+    OperationAgreementCreateForm,
+    SignOperationAgreementForm,
+    CancelOperationAgreementForm,
     ValidationDocumentReviewForm,
     ValidationDocumentUploadForm,
     ValidationPresentForm,
@@ -55,6 +57,7 @@ from opportunities.forms import (
 from opportunities.models import (
     MarketingPackage,
     Operation,
+    OperationAgreement,
     ProviderOpportunity,
     SeekerOpportunity,
     Validation,
@@ -72,6 +75,11 @@ from opportunities.services import (  # noqa: F401  # retained for registry disc
     OperationCloseService,
     OperationLoseService,
     OperationReinforceService,
+    CreateOperationAgreementService,
+    AgreeOperationAgreementService,
+    SignOperationAgreementService,
+    RevokeOperationAgreementService,
+    CancelOperationAgreementService,
     AvailableProviderOpportunitiesForOperationsQuery,
     AvailableSeekerOpportunitiesForOperationsQuery,
     DashboardProviderOpportunitiesQuery,
@@ -133,6 +141,7 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
         (
             'Operations',
             [
+                ('operation-agreements', 'Operation Agreements'),
                 ('operations', 'Operations'),
             ],
         ),
@@ -163,6 +172,7 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
         'seeker-intentions': 'workflow/sections/seeker_intentions.html',
         'seeker-opportunities': 'workflow/sections/seeker_opportunities.html',
         'operations': 'workflow/sections/operations.html',
+        'operation-agreements': 'workflow/sections/operation_agreements.html',
         'reports-operations': 'workflow/sections/reports_operations.html',
         'integration-tokkobroker': 'workflow/sections/integrations.html',
         'integration-zonaprop': 'workflow/sections/integration_placeholder.html',
@@ -175,7 +185,7 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
         'properties': 'property-create',
         'provider-intentions': 'provider-intention-create',
         'seeker-intentions': 'seeker-intention-create',
-        'operations': 'operation-create',
+        'operation-agreements': 'agreement-create',
     }
 
     ALL_SECTIONS = [slug for _, items in NAV_GROUPS for slug, _ in items]
@@ -194,7 +204,7 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
         context['nav_groups'] = self.NAV_GROUPS
         context['current_url'] = self.request.get_full_path()
         context['page_new_url'] = self._resolve_new_url()
-        context.update(getattr(self, f'_context_{self.section.replace('-', '_')}')())
+        context.update(getattr(self, f"_context_{self.section.replace('-', '_')}")())
         return context
 
     def _resolve_new_url(self):
@@ -252,6 +262,11 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
     def _context_operations(self):
         return {
             'operations': S.opportunities.DashboardOperationsQuery(actor=self.request.user),
+        }
+
+    def _context_operation_agreements(self):
+        return {
+            'operation_agreements': S.opportunities.OperationAgreementsQuery(actor=self.request.user),
         }
 
     def _context_reports_operations(self):
@@ -763,20 +778,7 @@ class MarketingPackagePauseView(MarketingPackageActionView):
     service_class = MarketingPackagePauseService
 
 
-class OperationCreateView(WorkflowFormView):
-    form_class = OperationForm
-    success_message = 'Operation created.'
-    form_title = 'Create operation'
-    form_description = 'Link a provider and seeker opportunity to start negotiation.'
-    submit_label = 'Create operation'
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["actor"] = self.request.user
-        return kwargs
-
-    def perform_action(self, form):
-        S.opportunities.CreateOperationService(**form.cleaned_data)
 
 
 class OperationMixin:
@@ -928,3 +930,82 @@ class ObjectTransitionHistoryView(LoginRequiredMixin, TemplateView):
         if slug:
             return reverse('workflow-dashboard-section', kwargs={'section': slug})
         return reverse('workflow-dashboard')
+
+
+class OperationAgreementMixin:
+    pk_url_kwarg = 'agreement_id'
+
+    def get_agreement(self):
+        return get_object_or_404(OperationAgreement, pk=self.kwargs[self.pk_url_kwarg])
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['agreement'] = self.get_agreement()
+        return context
+
+
+class AgreeOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
+    form_class = ConfirmationForm
+    success_message = 'Agreement confirmed.'
+    form_title = 'Confirm Agreement'
+    submit_label = 'Agree'
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'operation-agreements'})
+
+    def perform_action(self, form):
+        S.opportunities.AgreeOperationAgreementService(agreement=self.get_agreement())
+
+
+class RevokeOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
+    form_class = ConfirmationForm
+    success_message = 'Agreement revoked.'
+    form_title = 'Revoke Agreement'
+    submit_label = 'Revoke'
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'operation-agreements'})
+
+    def perform_action(self, form):
+        S.opportunities.RevokeOperationAgreementService(agreement=self.get_agreement())
+
+
+class CancelOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
+    form_class = CancelOperationAgreementForm
+    success_message = 'Agreement cancelled.'
+    form_title = 'Cancel Agreement'
+    submit_label = 'Cancel Agreement'
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'operation-agreements'})
+
+    def perform_action(self, form):
+        S.opportunities.CancelOperationAgreementService(
+            agreement=self.get_agreement(),
+            reason=form.cleaned_data['reason']
+        )
+
+
+class SignOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
+    form_class = SignOperationAgreementForm
+    success_message = 'Agreement signed and Operation created.'
+    form_title = 'Sign Agreement'
+    submit_label = 'Sign & Create Operation'
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'operation-agreements'})
+
+    def perform_action(self, form):
+        S.opportunities.SignOperationAgreementService(
+            agreement=self.get_agreement(),
+            **form.cleaned_data
+        )
+
+
+class OperationAgreementCreateView(WorkflowFormView):
+    form_class = OperationAgreementCreateForm
+    success_message = 'Operation agreement created.'
+    form_title = 'Create Operation Agreement'
+    form_description = 'Start a negotiation between a provider and seeker.'
+    submit_label = 'Create Agreement'
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'operation-agreements'})
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["actor"] = self.request.user
+        return kwargs
+
+    def perform_action(self, form):
+        S.opportunities.CreateOperationAgreementService(**form.cleaned_data)

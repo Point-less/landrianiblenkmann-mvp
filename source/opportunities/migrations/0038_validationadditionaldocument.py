@@ -8,7 +8,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("opportunities", "0037_add_operation_agreement"),
+        ("opportunities", "0036_contract_end_helptext"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

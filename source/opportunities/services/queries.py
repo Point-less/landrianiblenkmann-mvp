@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from utils.services import BaseService
-from opportunities.models import MarketingPackage, Operation, ProviderOpportunity, SeekerOpportunity, Validation
+from opportunities.models import MarketingPackage, Operation, OperationAgreement, ProviderOpportunity, SeekerOpportunity, Validation
 
 
 class AvailableProviderOpportunitiesForOperationsQuery(BaseService):
@@ -51,8 +51,8 @@ class DashboardOperationsQuery(BaseService):
     def run(self, *, actor=None):
         return (
             Operation.objects.select_related(
-                'provider_opportunity__source_intention__owner',
-                'seeker_opportunity__source_intention__contact',
+                'agreement__provider_opportunity__source_intention__owner',
+                'agreement__seeker_opportunity__source_intention__contact',
             )
             .prefetch_related('state_transitions')
             .order_by('-created_at')
@@ -111,6 +111,15 @@ class SeekerOpportunitiesQuery(BaseService):
         ).order_by('-created_at')
 
 
+class OperationAgreementsQuery(BaseService):
+    """Generic operation agreements listing (GraphQL / API)."""
+
+    def run(self, *, actor=None):
+        return OperationAgreement.objects.select_related(
+            'provider_opportunity', 'seeker_opportunity'
+        ).order_by('-created_at')
+
+
 class ProviderOpportunityByTokkobrokerPropertyQuery(BaseService):
     """Check for existing opportunities linked to a Tokkobroker property."""
 
@@ -131,8 +140,8 @@ class ActiveOperationsBetweenOpportunitiesQuery(BaseService):
     def run(self, *, provider_opportunity: ProviderOpportunity, seeker_opportunity: SeekerOpportunity):
         active_states = (Operation.State.OFFERED, Operation.State.REINFORCED)
         return Operation.objects.filter(
-            provider_opportunity=provider_opportunity,
-            seeker_opportunity=seeker_opportunity,
+            agreement__provider_opportunity=provider_opportunity,
+            agreement__seeker_opportunity=seeker_opportunity,
             state__in=active_states,
         )
 
@@ -143,7 +152,7 @@ class SeekerActiveOperationsQuery(BaseService):
     def run(self, *, seeker_opportunity: SeekerOpportunity):
         active_states = (Operation.State.OFFERED, Operation.State.REINFORCED)
         return Operation.objects.filter(
-            seeker_opportunity=seeker_opportunity,
+            agreement__seeker_opportunity=seeker_opportunity,
             state__in=active_states,
         )
 
@@ -163,4 +172,5 @@ __all__ = [
     "MarketingPackageByIdQuery",
     "ActiveOperationsBetweenOpportunitiesQuery",
     "SeekerActiveOperationsQuery",
+    "OperationAgreementsQuery",
 ]

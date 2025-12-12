@@ -11,6 +11,7 @@ from core.models import Agent, Currency
 from opportunities.models import (
     MarketingPackage,
     Operation,
+    OperationAgreement,
     ValidationAdditionalDocument,
     ValidationDocument,
     ValidationDocumentType,
@@ -67,26 +68,6 @@ class SeekerOpportunityCreateForm(HTML5FormMixin, forms.Form):
         self.fields["gross_commission_pct"].initial = default_pct
 
 
-class OperationForm(HTML5FormMixin, forms.ModelForm):
-    class Meta:
-        model = Operation
-        fields = [
-            "provider_opportunity",
-            "seeker_opportunity",
-            "initial_offered_amount",
-            "reserve_amount",
-            "reserve_deadline",
-            "currency",
-            "notes",
-        ]
-
-    def __init__(self, *args, actor=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["provider_opportunity"].queryset = S.opportunities.AvailableProviderOpportunitiesForOperationsQuery(actor=actor)
-        self.fields["seeker_opportunity"].queryset = S.opportunities.AvailableSeekerOpportunitiesForOperationsQuery(actor=actor)
-        self.fields["currency"].queryset = Currency.objects.order_by("code")
-
-
 class OperationLoseForm(HTML5FormMixin, forms.Form):
     lost_reason = forms.CharField(required=False, widget=forms.Textarea)
 
@@ -96,6 +77,43 @@ class OperationReinforceForm(HTML5FormMixin, forms.Form):
     reinforcement_amount = forms.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=False)
     declared_deed_value = forms.DecimalField(max_digits=14, decimal_places=2, min_value=0, required=True)
 
+
+class OperationAgreementCreateForm(HTML5FormMixin, forms.ModelForm):
+    class Meta:
+        model = OperationAgreement
+        fields = [
+            "provider_opportunity",
+            "seeker_opportunity",
+        ]
+
+    def __init__(self, *args, actor=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["provider_opportunity"].queryset = S.opportunities.AvailableProviderOpportunitiesForOperationsQuery(actor=actor)
+        self.fields["seeker_opportunity"].queryset = S.opportunities.AvailableSeekerOpportunitiesForOperationsQuery(actor=actor)
+
+
+class CancelOperationAgreementForm(HTML5FormMixin, forms.Form):
+    reason = forms.CharField(required=True, widget=forms.Textarea)
+
+
+class SignOperationAgreementForm(HTML5FormMixin, forms.ModelForm):
+    # Additional fields required for automatic Operation creation
+    signed_document = forms.FileField(required=True)
+    initial_offered_amount = forms.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=True)
+    reserve_amount = forms.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=True)
+    reserve_deadline = forms.DateField(required=True, widget=forms.DateInput(attrs={'type': 'date'}))
+    currency = forms.ModelChoiceField(queryset=Currency.objects.all())
+
+    class Meta:
+        model = OperationAgreement
+        fields = ["notes"]
+        widgets = {
+            "notes": forms.Textarea(attrs={'rows': 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["currency"].queryset = Currency.objects.order_by("code")
 
 class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
     document_type = forms.ModelChoiceField(queryset=ValidationDocumentType.objects.none(), widget=forms.Select())
@@ -179,10 +197,12 @@ __all__ = [
     "ValidationPresentForm",
     "ValidationRejectForm",
     "SeekerOpportunityCreateForm",
-    "OperationForm",
     "OperationLoseForm",
     "ValidationDocumentUploadForm",
     "ValidationDocumentReviewForm",
     "ValidationAdditionalDocumentUploadForm",
     "MarketingPackageForm",
+    "CancelOperationAgreementForm",
+    "SignOperationAgreementForm",
+    "OperationAgreementCreateForm",
 ]

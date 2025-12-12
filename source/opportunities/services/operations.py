@@ -22,25 +22,16 @@ class CreateOperationService(BaseService):
     def run(
         self,
         *,
-        provider_opportunity: ProviderOpportunity,
-        seeker_opportunity: SeekerOpportunity,
-        initial_offered_amount=None,
+        agreement,
+        signed_document,
         reserve_amount,
         reserve_deadline,
+        initial_offered_amount=None,
         currency: Currency | None = None,
         notes: str | None = None,
     ) -> Operation:
-        if provider_opportunity.state != ProviderOpportunity.State.MARKETING:
-            raise ValidationError({
-                "provider_opportunity": "Provider opportunity must be marketing before opening an operation.",
-            })
-        if seeker_opportunity.state not in {
-            SeekerOpportunity.State.MATCHING,
-            SeekerOpportunity.State.NEGOTIATING,
-        }:
-            raise ValidationError({
-                "seeker_opportunity": "Seeker opportunity must be matching or negotiating.",
-            })
+        provider_opportunity = agreement.provider_opportunity
+        seeker_opportunity = agreement.seeker_opportunity
 
         if self.s.opportunities.ActiveOperationsBetweenOpportunitiesQuery(
             provider_opportunity=provider_opportunity,
@@ -48,21 +39,14 @@ class CreateOperationService(BaseService):
         ).exists():
             raise ValidationError("An active operation already exists for this pair.")
 
-        p_type = provider_opportunity.source_intention.operation_type_id
-        s_type = seeker_opportunity.source_intention.operation_type_id
-        if not p_type or not s_type:
-            raise ValidationError("Both intentions must specify an operation type before pairing.")
-        if p_type != s_type:
-            raise ValidationError("Provider and seeker operation types must match before pairing.")
-
         if reserve_amount is None:
             raise ValidationError({"reserve_amount": "Reserve amount is required."})
         if reserve_deadline is None:
             raise ValidationError({"reserve_deadline": "Reserve deadline is required."})
 
         operation = Operation.objects.create(
-            provider_opportunity=provider_opportunity,
-            seeker_opportunity=seeker_opportunity,
+            agreement=agreement,
+            signed_document=signed_document,
             initial_offered_amount=initial_offered_amount,
             offered_amount=None,
             reserve_amount=reserve_amount,

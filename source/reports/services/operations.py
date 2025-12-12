@@ -15,11 +15,11 @@ class ClosedOperationsFinancialReportQuery(BaseService):
             Operation.objects.filter(state=Operation.State.CLOSED)
             .select_related(
                 "currency",
-                "provider_opportunity__source_intention__owner",
-                "provider_opportunity__source_intention__property",
-                "provider_opportunity__source_intention__agent",
-                "seeker_opportunity__source_intention__contact",
-                "seeker_opportunity__source_intention__agent",
+                "agreement__provider_opportunity__source_intention__owner",
+                "agreement__provider_opportunity__source_intention__property",
+                "agreement__provider_opportunity__source_intention__agent",
+                "agreement__seeker_opportunity__source_intention__contact",
+                "agreement__seeker_opportunity__source_intention__agent",
             )
         )
 

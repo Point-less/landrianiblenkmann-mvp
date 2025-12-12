@@ -5,6 +5,7 @@ from django.urls import path, reverse
 
 from integrations.models import TokkobrokerProperty
 from integrations.tasks import sync_tokkobroker_properties_task, sync_tokkobroker_registry
+from opportunities.models import OperationAgreement
 
 
 @admin.register(TokkobrokerProperty)
@@ -67,3 +68,21 @@ class TokkobrokerPropertyAdmin(admin.ModelAdmin):
         self.message_user(request, f"Synced {processed} Tokkobroker properties.")
 
     sync_from_tokkobroker_action.short_description = "Sync Tokkobroker registry now"
+
+
+@admin.register(OperationAgreement)
+class OperationAgreementAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "provider_opportunity",
+        "seeker_opportunity",
+        "state",
+        "created_at",
+    )
+    list_filter = ("state", "created_at")
+    search_fields = (
+        "provider_opportunity__source_intention__property__address__full_address",
+        "seeker_opportunity__source_intention__contact__first_name",
+        "seeker_opportunity__source_intention__contact__last_name",
+    )
+    readonly_fields = ("created_at", "updated_at", "agreed_at", "signed_at", "cancelled_at")

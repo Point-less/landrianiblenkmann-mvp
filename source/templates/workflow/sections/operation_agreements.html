@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load workflow_extras %}
+{% block title %}Operation Agreements | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Operation Agreements</h2>
+    {% if page_new_url %}
+    <a class="btn" href="{{ page_new_url }}?next={{ current_url|urlencode }}">New</a>
+    {% endif %}
+</div>
+<div class="card">
+    <table>
+        <tr>
+            <th>Provider</th>
+            <th>Seeker</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th class="actions-column">Actions</th>
+        </tr>
+        {% for agreement in operation_agreements %}
+        <tr>
+            <td>
+                <div class="table-title">{{ agreement.provider_opportunity }}</div>
+                <div class="table-subtext">{{ agreement.provider_opportunity.source_intention.owner }}</div>
+            </td>
+            <td>
+                <div class="table-title">{{ agreement.seeker_opportunity }}</div>
+                <div class="table-subtext">{{ agreement.seeker_opportunity.source_intention.contact }}</div>
+            </td>
+            <td>
+                <span class="pill">{{ agreement.get_state_display }}</span>
+            </td>
+            <td>
+                {{ agreement.created_at|date:"Y-m-d H:i" }}
+            </td>
+            <td class="actions-column">
+                {% if agreement.state == 'pending' %}
+                <a class="icon-button" data-icon="👍"
+                    href="{% url 'agreement-agree' agreement.id %}?next={{ current_url|urlencode }}" title="Agree">
+                    <span class="sr-only">Agree</span>
+                </a>
+                {% endif %}
+                {% if agreement.state == 'agreed' %}
+                <a class="icon-button" data-icon="✍️"
+                    href="{% url 'agreement-sign' agreement.id %}?next={{ current_url|urlencode }}" title="Sign">
+                    <span class="sr-only">Sign</span>
+                </a>
+                <a class="icon-button" data-icon="↩️"
+                    href="{% url 'agreement-revoke' agreement.id %}?next={{ current_url|urlencode }}" title="Revoke">
+                    <span class="sr-only">Revoke</span>
+                </a>
+                {% endif %}
+                {% if agreement.state != 'signed' and agreement.state != 'cancelled' %}
+                <a class="icon-button" data-icon="🚫" data-variant="danger"
+                    href="{% url 'agreement-cancel' agreement.id %}?next={{ current_url|urlencode }}" title="Cancel">
+                    <span class="sr-only">Cancel</span>
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5">No operation agreements.</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

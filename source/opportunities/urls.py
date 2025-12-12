@@ -20,8 +20,14 @@ urlpatterns = [
     path('marketing-packages/<int:package_id>/pause/', workflow_views.MarketingPackagePauseView.as_view(), name='marketing-package-pause'),
     path('marketing-packages/<int:package_id>/release/', workflow_views.MarketingPackageReleaseView.as_view(), name='marketing-package-release'),
     # Operations
-    path('operations/new/', workflow_views.OperationCreateView.as_view(), name='operation-create'),
+
     path('operations/<int:operation_id>/reinforce/', workflow_views.OperationReinforceView.as_view(), name='operation-reinforce'),
     path('operations/<int:operation_id>/close/', workflow_views.OperationCloseView.as_view(), name='operation-close'),
     path('operations/<int:operation_id>/lose/', workflow_views.OperationLoseView.as_view(), name='operation-lose'),
+    # Operation Agreements
+    path('operation-agreements/new/', workflow_views.OperationAgreementCreateView.as_view(), name='agreement-create'),
+    path('operation-agreements/<int:agreement_id>/agree/', workflow_views.AgreeOperationAgreementView.as_view(), name='agreement-agree'),
+    path('operation-agreements/<int:agreement_id>/sign/', workflow_views.SignOperationAgreementView.as_view(), name='agreement-sign'),
+    path('operation-agreements/<int:agreement_id>/revoke/', workflow_views.RevokeOperationAgreementView.as_view(), name='agreement-revoke'),
+    path('operation-agreements/<int:agreement_id>/cancel/', workflow_views.CancelOperationAgreementView.as_view(), name='agreement-cancel'),
 ]

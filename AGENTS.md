@@ -150,8 +150,7 @@ State transitions use **django-fsm** with **django-fsm-log** for audit trails.
 
 ## Bootstrap & Development
 
-- **Bootstrap**: `python manage.py bootstrap` runs migrations and creates default superuser (`admin/admin`)
-  - Re-run after `docker compose down -v` to reset state
+- **Bootstrap**: `python manage.py bootstrap` runs migrations and creates/updates a superuser. Set `BOOTSTRAP_ADMIN_PASSWORD` (and optionally `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_EMAIL`) before running; if the user exists, the password/email will be updated, otherwise creation is blocked unless a password is provided. Re-run after `docker compose down -v` to reset state.
 - **Live Reload**: `watchmedo` auto-restarts Gunicorn and Dramatiq on code changes in `source/`
 - **Management Commands**: `docker compose exec frontend python manage.py <command>`
 - **Migrations**: Do not handcraft migration files. Run `docker compose exec frontend python manage.py makemigrations` and let Django generate them deterministically.

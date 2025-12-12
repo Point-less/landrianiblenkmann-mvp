@@ -1,4 +1,3 @@
-from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 
@@ -65,13 +64,6 @@ class ProviderIntentionCreateView(WorkflowFormView):
     def perform_action(self, form):
         S.intentions.CreateProviderIntentionService(**form.cleaned_data)
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError as exc:
-            return self.form_invalid(form)
-        return super().form_valid(form)
-
     def get_success_url(self):
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-intentions'})
 
@@ -91,13 +83,6 @@ class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
 
     def perform_action(self, form):
         S.intentions.DeliverValuationService(intention=self.get_intention(), **form.cleaned_data)
-
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
 
     def get_success_url(self):
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-intentions'})
@@ -138,13 +123,6 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
             valuation_close_value=data.get('valuation_close_value'),
         )
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError as exc:
-            return self.form_invalid(form)
-        return super().form_valid(form)
-
     def get_success_url(self):
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-opportunities'})
 
@@ -158,13 +136,6 @@ class ProviderWithdrawView(ProviderIntentionMixin, WorkflowFormView):
 
     def perform_action(self, form):
         S.intentions.WithdrawProviderIntentionService(intention=self.get_intention(), **form.cleaned_data)
-
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
 
     def get_success_url(self):
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-intentions'})
@@ -185,13 +156,6 @@ class SeekerIntentionCreateView(WorkflowFormView):
     def perform_action(self, form):
         S.intentions.CreateSeekerIntentionService(**form.cleaned_data)
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
-
     def get_success_url(self):
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'seeker-intentions'})
 
@@ -206,13 +170,6 @@ class SeekerOpportunityCreateView(SeekerIntentionMixin, WorkflowFormView):
     def perform_action(self, form):
         S.opportunities.CreateSeekerOpportunityService(intention=self.get_intention(), **form.cleaned_data)
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
-
     def get_success_url(self):
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'seeker-opportunities'})
 
@@ -226,13 +183,6 @@ class SeekerAbandonView(SeekerIntentionMixin, WorkflowFormView):
 
     def perform_action(self, form):
         S.intentions.AbandonSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
-
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
 
     def get_success_url(self):
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'seeker-intentions'})

@@ -164,6 +164,7 @@ Environment variables (see `config/settings.py`):
 - **Redis**: `REDIS_CACHE_URL`, `REDIS_RESULTS_URL`
 - **Dramatiq**: `DRAMATIQ_BROKER_URL` (RabbitMQ)
 - **Tokkobroker**: `TOKKO_BASE_URL`, `TOKKO_USERNAME`, `TOKKO_PASSWORD`, `TOKKO_OTP_TOKEN`, `TOKKO_TIMEOUT`
+- **Tokkobroker Sync Toggle**: `TOKKO_SYNC_ENABLED` (default: `true`) — set to `false` to skip all Tokkobroker publication sync tasks
 - **Django**: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `TZ`
 
 **Authentication Configuration**:

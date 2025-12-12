@@ -200,6 +200,13 @@ def _unpublish_marketing_package(client: TokkoClient, marketing_package: Marketi
 def sync_marketing_package_publication_task(marketing_package_id: int) -> None:
     """Ensure Tokkobroker reflects the marketing package publication status."""
 
+    if not settings.TOKKO_SYNC_ENABLED:
+        logger.info(
+            "Tokkobroker sync disabled; skipping marketing package %s publication task",
+            marketing_package_id,
+        )
+        return
+
     try:
         marketing_package = S.opportunities.MarketingPackageByIdQuery(pk=marketing_package_id)
     except MarketingPackage.DoesNotExist:

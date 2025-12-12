@@ -10,10 +10,10 @@ strawberry_types.field_type_map.setdefault(FSMField, str)
 from core.models import Agent, Contact, ContactAgentRelationship, Currency, Property
 from opportunities.models import (
     MarketingPackage,
-    Operation,
     ProviderOpportunity,
     SeekerOpportunity,
     Validation,
+    OperationType as OpportunityOperationType,
 )
 
 
@@ -52,7 +52,7 @@ class MarketingPackageType(relay.Node):
     state: str = strawberry_django.field()
 
 
-@strawberry_django.type(Operation, fields="__all__")
+@strawberry_django.type(OpportunityOperationType, fields="__all__")
 class OperationType(relay.Node):
     state: str = strawberry_django.field()
 

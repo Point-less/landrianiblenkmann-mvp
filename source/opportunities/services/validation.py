@@ -11,7 +11,8 @@ from utils.services import BaseService
 class ValidationPresentService(BaseService):
     """Mark a validation as presented."""
 
-    def run(self, *, validation: Validation) -> Validation:
+    def run(self, *, validation: Validation, reviewer=None) -> Validation:
+        # reviewer is accepted for compatibility with callers/tests; currently unused.
         validation.ensure_required_documents_uploaded()
         try:
             validation.present()

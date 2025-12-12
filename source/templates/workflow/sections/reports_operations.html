@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Financial & Tax Report | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Financial & Tax Report (Closed Operations)</h2>
+</div>
+<div class="card">
+    {% if report_rows %}
+    <div class="table-responsive">
+    <table>
+        <tr>
+            <th>Close date</th>
+            <th>Client</th>
+            <th>Tax ID (CUIT/CUIL)</th>
+            <th>Tax condition</th>
+            <th>Client address</th>
+            <th>Property address</th>
+            <th>Agent</th>
+            <th>Role</th>
+            <th>Closing value</th>
+            <th>Deed value</th>
+            <th>Gross commission %</th>
+            <th>Agent split %</th>
+            <th>Agent revenue</th>
+            <th>Agency revenue</th>
+        </tr>
+        {% for row in report_rows %}
+        <tr>
+            <td>{{ row.close_date|default:"—" }}</td>
+            <td>{{ row.client_name|default:"—" }}</td>
+            <td>{{ row.client_tax_id|default:"—" }}</td>
+            <td>{{ row.client_tax_condition|default:"—" }}</td>
+            <td>{{ row.client_address|default:"—" }}</td>
+            <td>{{ row.property_address|default:"—" }}</td>
+            <td>{{ row.agent|default:"—" }}</td>
+            <td>{{ row.role }}</td>
+            <td>{{ row.deal_value|default:"—" }}</td>
+            <td>{{ row.deed_value|default:"—" }}</td>
+            <td>{{ row.gross_commission_pct|floatformat:2 }}</td>
+            <td>{{ row.agent_split|floatformat:2 }}</td>
+            <td>{{ row.agent_revenue|default:"—" }}</td>
+            <td>{{ row.agency_revenue|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    </div>
+    {% else %}
+    <p>No closed operations to show.</p>
+    {% endif %}
+</div>
+{% endblock %}

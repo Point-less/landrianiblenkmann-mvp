@@ -6,7 +6,7 @@ from opportunities.models import Validation, ValidationDocument, ValidationDocum
 from utils.services import BaseService
 
 
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".pdf", ".png"}
+DEFAULT_ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".pdf", ".png"}
 
 
 class CreateValidationDocumentService(BaseService):
@@ -37,9 +37,14 @@ class CreateValidationDocumentService(BaseService):
         if doc_type.operation_type_id and doc_type.operation_type_id != op_type.id:
             raise ValidationError({"document_type": "Document type not allowed for this operation type."})
         suffix = Path(document.name or "").suffix.lower()
-        if suffix not in ALLOWED_EXTENSIONS:
-            allowed_display = ", ".join(ext.upper().lstrip(".") for ext in sorted(ALLOWED_EXTENSIONS))
-            raise ValidationError({"document": f"Formato inválido. Usa archivos {allowed_display}."})
+        allowed_exts = {
+            ("." + ext.lower().lstrip(".")) for ext in (doc_type.accepted_formats or []) if ext
+        }
+        if not allowed_exts:
+            raise ValidationError({"document_type": "Configure accepted formats for this document type before uploading."})
+        if suffix not in allowed_exts:
+            allowed_display = ", ".join(ext.upper().lstrip(".") for ext in sorted(allowed_exts))
+            raise ValidationError({"document": f"Invalid format. Allowed files: {allowed_display}."})
 
         return ValidationDocument.objects.create(
             validation=validation,

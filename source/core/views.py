@@ -30,16 +30,13 @@ from intentions.forms import (
     SaleProviderIntentionForm,
     SaleSeekerIntentionForm,
     SeekerAbandonForm,
-    SeekerMandateForm,
 )
 from intentions.models import SaleProviderIntention, SaleSeekerIntention
-from intentions.services import (  # noqa: F401  # retained for registry discovery
-    AbandonSaleSeekerIntentionService,
-    ActivateSaleSeekerIntentionService,
+from intentions.services import (
     CreateSaleProviderIntentionService,
     CreateSaleSeekerIntentionService,
     DeliverSaleValuationService,
-    MandateSaleSeekerIntentionService,
+    AbandonSaleSeekerIntentionService,
     PromoteSaleProviderIntentionService,
     WithdrawSaleProviderIntentionService,
 )
@@ -47,6 +44,7 @@ from opportunities.forms import (
     MarketingPackageForm,
     OperationForm,
     OperationLoseForm,
+    OperationReinforceForm,
     SeekerOpportunityCreateForm,
     ValidationDocumentReviewForm,
     ValidationDocumentUploadForm,
@@ -144,6 +142,12 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
                 ('integration-meta', 'Meta'),
             ],
         ),
+        (
+            'Reports',
+            [
+                ('reports-operations', 'Financial & Tax Report'),
+            ],
+        ),
     ]
 
     template_map = {
@@ -157,6 +161,7 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
         'seeker-intentions': 'workflow/sections/seeker_intentions.html',
         'seeker-opportunities': 'workflow/sections/seeker_opportunities.html',
         'operations': 'workflow/sections/operations.html',
+        'reports-operations': 'workflow/sections/reports_operations.html',
         'integration-tokkobroker': 'workflow/sections/integrations.html',
         'integration-zonaprop': 'workflow/sections/integration_placeholder.html',
         'integration-meta': 'workflow/sections/integration_placeholder.html',
@@ -246,6 +251,9 @@ class DashboardSectionView(LoginRequiredMixin, TemplateView):
         return {
             'operations': S.opportunities.DashboardOperationsQuery(actor=self.request.user),
         }
+
+    def _context_reports_operations(self):
+        return {"report_rows": S.reports.ClosedOperationsFinancialReportQuery(actor=self.request.user)}
 
     def _context_integration_tokkobroker(self):
         return {
@@ -456,27 +464,29 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs['currency_queryset'] = S.core.CurrenciesQuery(actor=self.request.user)
         kwargs['tokkobroker_property_queryset'] = S.core.AvailableTokkobrokerPropertiesQuery(actor=self.request.user)
+        valuation = self.get_intention().valuation
+        if valuation:
+            kwargs.setdefault('initial', {})
+            kwargs['initial'].update(
+                valuation_test_value=valuation.test_value,
+                valuation_close_value=valuation.close_value,
+            )
         return kwargs
 
     def perform_action(self, form):
         data = form.cleaned_data
-        marketing_payload = {
-            key: value
-            for key, value in {
-                'headline': data.get('headline'),
-                'description': data.get('description'),
-                'price': data.get('price'),
-                'currency': data.get('currency'),
-            }.items()
-            if value not in (None, '')
-        }
         S.intentions.PromoteSaleProviderIntentionService(
             intention=self.get_intention(),
-            opportunity_notes=data.get('opportunity_notes') or None,
-            marketing_package_data=marketing_payload or None,
+            notes=data.get('notes') or None,
+            marketing_package_data=None,
             tokkobroker_property=data.get('tokkobroker_property'),
+            gross_commission_pct=data.get('gross_commission_pct'),
+            listing_kind=data.get('listing_kind'),
+            contract_expires_on=data.get('contract_expires_on'),
+            contract_effective_on=data.get('contract_effective_on'),
+            valuation_test_value=data.get('valuation_test_value'),
+            valuation_close_value=data.get('valuation_close_value'),
         )
 
 
@@ -500,24 +510,14 @@ class SeekerIntentionCreateView(WorkflowFormView):
         S.intentions.CreateSaleSeekerIntentionService(**form.cleaned_data)
 
 
-class SeekerActivateView(SeekerIntentionMixin, WorkflowFormView):
-    form_class = ConfirmationForm
-    success_message = 'Seeker search activated.'
-    form_title = 'Activate seeker'
-    submit_label = 'Activate'
+class SeekerOpportunityCreateView(SeekerIntentionMixin, WorkflowFormView):
+    form_class = SeekerOpportunityCreateForm
+    success_message = 'Seeker opportunity created.'
+    form_title = 'Create seeker opportunity'
+    submit_label = 'Create opportunity'
 
     def perform_action(self, form):
-        S.intentions.ActivateSaleSeekerIntentionService(intention=self.get_intention())
-
-
-class SeekerMandateView(SeekerIntentionMixin, WorkflowFormView):
-    form_class = SeekerMandateForm
-    success_message = 'Seeker mandate captured.'
-    form_title = 'Capture mandate'
-    submit_label = 'Save mandate'
-
-    def perform_action(self, form):
-        S.intentions.MandateSaleSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
+        S.opportunities.CreateSeekerOpportunityService(intention=self.get_intention(), **form.cleaned_data)
 
 
 class SeekerAbandonView(SeekerIntentionMixin, WorkflowFormView):
@@ -528,16 +528,6 @@ class SeekerAbandonView(SeekerIntentionMixin, WorkflowFormView):
 
     def perform_action(self, form):
         S.intentions.AbandonSaleSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
-
-
-class SeekerOpportunityCreateView(SeekerIntentionMixin, WorkflowFormView):
-    form_class = SeekerOpportunityCreateForm
-    success_message = 'Seeker opportunity created.'
-    form_title = 'Create seeker opportunity'
-    submit_label = 'Create opportunity'
-
-    def perform_action(self, form):
-        S.opportunities.CreateSeekerOpportunityService(intention=self.get_intention(), **form.cleaned_data)
 
 
 class ProviderOpportunityMixin:
@@ -785,13 +775,13 @@ class OperationMixin:
 
 
 class OperationReinforceView(OperationMixin, WorkflowFormView):
-    form_class = ConfirmationForm
+    form_class = OperationReinforceForm
     success_message = 'Operation reinforced.'
     form_title = 'Reinforce operation'
     submit_label = 'Reinforce'
 
     def perform_action(self, form):
-        S.opportunities.OperationReinforceService(operation=self.get_operation())
+        S.opportunities.OperationReinforceService(operation=self.get_operation(), **form.cleaned_data)
 
 
 class OperationCloseView(OperationMixin, WorkflowFormView):

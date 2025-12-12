@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django import forms
+from decimal import Decimal
 
 from core.models import Agent, Contact, Property
 
@@ -34,9 +35,31 @@ class TypedFormMixin:
 
 
 class AgentForm(TypedFormMixin, forms.ModelForm):
+    commission_split = forms.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        min_value=0,
+        max_value=100,
+        label="Agent split percentage",
+        help_text="Percentage of commission allocated to the agent (e.g., 50 for 50%).",
+    )
+
     class Meta:
         model = Agent
-        fields = ["first_name", "last_name", "email", "phone_number"]
+        fields = ["first_name", "last_name", "email", "phone_number", "commission_split"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Represent commission split as percentage for the form.
+        if self.instance and self.instance.pk and "commission_split" in self.fields:
+            if self.instance.commission_split is not None:
+                self.initial["commission_split"] = self.instance.commission_split * 100
+
+    def clean_commission_split(self):
+        value = self.cleaned_data.get("commission_split")
+        if value is None:
+            return value
+        return Decimal(value) / Decimal("100")
 
 
 class AgentEditForm(AgentForm):
@@ -47,25 +70,43 @@ class ContactForm(TypedFormMixin, forms.ModelForm):
 
     class Meta:
         model = Contact
-        fields = ["first_name", "last_name", "email", "phone_number", "notes"]
+        fields = [
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "full_address",
+            "tax_id",
+            "tax_condition",
+            "notes",
+        ]
 
 
 class PropertyForm(TypedFormMixin, forms.ModelForm):
     class Meta:
         model = Property
-        fields = ["name", "reference_code"]
+        fields = ["name", "full_address"]
 
 
 class ContactEditForm(TypedFormMixin, forms.ModelForm):
     class Meta:
         model = Contact
-        fields = ["first_name", "last_name", "email", "phone_number", "notes"]
+        fields = [
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "full_address",
+            "tax_id",
+            "tax_condition",
+            "notes",
+        ]
 
 
 class PropertyEditForm(TypedFormMixin, forms.ModelForm):
     class Meta:
         model = Property
-        fields = ["name", "reference_code"]
+        fields = ["name", "full_address"]
 
 
 class ConfirmationForm(forms.Form):

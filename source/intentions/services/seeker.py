@@ -34,26 +34,6 @@ class CreateSaleSeekerIntentionService(BaseService):
         )
 
 
-class ActivateSaleSeekerIntentionService(BaseService):
-    """Advance a seeker into an active search."""
-
-    def run(self, *, intention: SaleSeekerIntention) -> SaleSeekerIntention:
-        intention.activate_search()
-        intention.save(update_fields=["state", "search_activated_at", "updated_at"])
-        return intention
-
-
-class MandateSaleSeekerIntentionService(BaseService):
-    """Record a signed mandate for a seeker."""
-
-    def run(self, *, intention: SaleSeekerIntention, signed_on=None) -> SaleSeekerIntention:
-        if not intention.search_activated_at:
-            raise ValidationError({"state": "Seeker must be active before signing a mandate."})
-        intention.sign_mandate(signed_on=signed_on)
-        intention.save(update_fields=["state", "mandate_signed_on", "updated_at"])
-        return intention
-
-
 class AbandonSaleSeekerIntentionService(BaseService):
     """Mark a seeker intention as abandoned."""
 
@@ -68,7 +48,5 @@ class AbandonSaleSeekerIntentionService(BaseService):
 
 __all__ = [
     "CreateSaleSeekerIntentionService",
-    "ActivateSaleSeekerIntentionService",
-    "MandateSaleSeekerIntentionService",
     "AbandonSaleSeekerIntentionService",
 ]

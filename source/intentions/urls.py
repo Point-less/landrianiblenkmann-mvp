@@ -10,8 +10,6 @@ urlpatterns = [
     path('provider/<int:intention_id>/promote/', workflow_views.ProviderPromotionView.as_view(), name='provider-promote'),
     path('provider/<int:intention_id>/withdraw/', workflow_views.ProviderWithdrawView.as_view(), name='provider-withdraw'),
     path('seeker/new/', workflow_views.SeekerIntentionCreateView.as_view(), name='seeker-intention-create'),
-    path('seeker/<int:intention_id>/activate/', workflow_views.SeekerActivateView.as_view(), name='seeker-activate'),
-    path('seeker/<int:intention_id>/mandate/', workflow_views.SeekerMandateView.as_view(), name='seeker-mandate'),
-    path('seeker/<int:intention_id>/abandon/', workflow_views.SeekerAbandonView.as_view(), name='seeker-abandon'),
     path('seeker/<int:intention_id>/create-opportunity/', workflow_views.SeekerOpportunityCreateView.as_view(), name='seeker-create-opportunity'),
+    path('seeker/<int:intention_id>/abandon/', workflow_views.SeekerAbandonView.as_view(), name='seeker-abandon'),
 ]

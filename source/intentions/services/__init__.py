@@ -7,10 +7,8 @@ from .provider import (
     WithdrawSaleProviderIntentionService,
 )
 from .seeker import (
-    AbandonSaleSeekerIntentionService,
-    ActivateSaleSeekerIntentionService,
     CreateSaleSeekerIntentionService,
-    MandateSaleSeekerIntentionService,
+    AbandonSaleSeekerIntentionService,
 )
 
 __all__ = [
@@ -19,7 +17,5 @@ __all__ = [
     "WithdrawSaleProviderIntentionService",
     "PromoteSaleProviderIntentionService",
     "CreateSaleSeekerIntentionService",
-    "ActivateSaleSeekerIntentionService",
-    "MandateSaleSeekerIntentionService",
     "AbandonSaleSeekerIntentionService",
 ]

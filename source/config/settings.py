@@ -1,4 +1,5 @@
 from pathlib import Path
+from decimal import Decimal
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -16,6 +17,9 @@ TOKKO_PASSWORD = os.environ.get('TOKKO_PASSWORD', 'admin')
 TOKKO_OTP_TOKEN = os.environ.get('TOKKO_OTP_TOKEN', '123456')
 TOKKO_TIMEOUT = int(os.environ.get('TOKKO_TIMEOUT', '30'))
 
+# Default gross commission (fraction). Override with env DEFAULT_GROSS_COMMISSION_PCT (e.g., 0.04 for 4%).
+DEFAULT_GROSS_COMMISSION_PCT = Decimal(os.environ.get('DEFAULT_GROSS_COMMISSION_PCT', '0.04'))
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -32,6 +36,7 @@ INSTALLED_APPS = [
     'opportunities.apps.OpportunitiesConfig',
     'intentions.apps.IntentionsConfig',
     'core.apps.CoreConfig',
+    'reports.apps.ReportsConfig',
 ]
 
 MIDDLEWARE = [

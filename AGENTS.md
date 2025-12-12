@@ -26,7 +26,7 @@
 
 ## Application Structure
 
-The project is organized into 7 Django apps under `source/`:
+The project is organized into 8 Django apps under `source/`:
 
 ### `config/`
 Project configuration and routing hub.
@@ -37,7 +37,10 @@ Project configuration and routing hub.
 
 ### `core/`
 Shared domain models and dashboard views.
-- **Models**: `Agent`, `Contact`, `Property`, `Currency`, `ContactAgentRelationship`
+- **Models**: `Agent` (commission split optional, % stored as 0-1 fraction), `Contact` (email required, tax id/condition, full address), `Property` (full address), `Currency`, `ContactAgentRelationship`
+  - Contacts capture first/last name, full address, CUIT/CUIL (`tax_id`), and tax condition (RI/Monotributo/Exento/Consumidor final); email is required.
+  - Agents store a `commission_split` (0-1 fraction of commissions allocated to them).
+  - Properties store `full_address` in addition to name/reference code.
 - **URLs** (`urls.py`): Dashboard views, health checks, entity CRUD (agents, contacts, properties), transition history
 - **Views** (`views.py`): Workflow dashboard, entity management forms, health/trigger endpoints
 - **Services** (`services/`): Command services plus query services (`services/queries.py`) for dashboard/form data (agents, contacts, properties, intentions, Tokkobroker props, currencies)
@@ -56,6 +59,7 @@ Pre-contract intent tracking with FSM state management.
   - `SaleProviderIntention`: Property owner's pre-contract engagement (states: assessing → valuated → converted/withdrawn) with `operation_type` (Sale/Rent)
   - `SaleSeekerIntention`: Buyer's pre-representation interest (states: qualifying → active → mandated → converted/abandoned) with `operation_type`
   - `SaleValuation`: Valuation records delivered to providers
+- **Valuations**: capture valuation_date and required test/close values (max 12 digits); promotion forms prefill client test/close values.
 - **Purpose**: Capture and qualify leads before formal contracts
 - **FSM States**: Uses django-fsm for state transitions with validation rules
 - **URLs** (`urls.py`): Intention management endpoints
@@ -64,14 +68,24 @@ Pre-contract intent tracking with FSM state management.
 Sales pipeline management with FSM workflows.
 - **Models**:
   - `ProviderOpportunity`: Property opportunities (states: validating → marketing → closed)
+    - Required `tokkobroker_property`, contract expiration; optional contract start; stores valuation test/close values.
   - `SeekerOpportunity`: Buyer opportunities (states: matching → negotiating → closed/lost)
   - `Validation`: Document validation workflow (states: preparing → presented → accepted)
   - Supporting models: `ValidationDocument`, `ValidationDocumentType` (configurable per operation type), `Match`, `Operation`, `OperationType` (Sale/Rent)
+- **Operations**: require currency, reserve amount/deadline, initial offered amount; reinforcement captures offered_amount, reinforcement_amount, declared_deed_value; reserve/offered stored separately.
+- **Commission tracking**: Provider and seeker opportunities store negotiated gross commission as a 0-1 fraction (e.g., 0.05 = 5%), defaulting to 4% via `DEFAULT_GROSS_COMMISSION_PCT`; agent commission split now lives on the Agent model.
+- **Tokkobroker linking**: Provider opportunities must have an associated Tokkobroker property; promotion enforces this.
 - **Schema** (`schema.py`, `types.py`, `filters.py`): GraphQL queries, types, and filtering for opportunities
 - **Purpose**: Manage active sales pipeline from contract to close
 - **URLs** (`urls.py`): Opportunity and validation management endpoints
  - **Services** (`services/`): Business logic for opportunity lifecycle
   - **Query services** (`services/queries.py`): read-only service classes (e.g., `AvailableProviderOpportunitiesForOperationsQuery`, `AvailableSeekerOpportunitiesForOperationsQuery`) to centralize “available for operations” selection logic with optional actor-aware filtering.
+
+### `reports/`
+Operational finance reporting.
+- **Services**: `services/operations.py` builds the closed-operations financial/tax report (per agent).
+- **Templates**: `templates/workflow/sections/reports_operations.html` renders the “Financial & Tax Report” table.
+- **Purpose**: Display per-agent financial results for closed operations (closing date, client data, addresses, deed value, commissions, splits, agent/agency revenue).
 
 ### `users/`
 Authentication and user management with passwordless login.

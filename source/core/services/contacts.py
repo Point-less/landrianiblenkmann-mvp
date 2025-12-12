@@ -16,15 +16,21 @@ class CreateContactService(BaseService):
         *,
         first_name: str,
         last_name: str = "",
-        email: str | None = None,
+        email: str,
         phone_number: str | None = None,
+        full_address: str | None = None,
+        tax_id: str | None = None,
+        tax_condition: str | None = None,
         notes: str | None = None,
     ) -> Contact:
         return Contact.objects.create(
             first_name=first_name,
             last_name=last_name,
-            email=email or "",
-            phone_number=phone_number or "",
+            email=email,
+            phone_number=phone_number,
+            full_address=full_address or "",
+            tax_id=tax_id or "",
+            tax_condition=tax_condition or "",
             notes=notes or "",
         )
 
@@ -32,7 +38,7 @@ class CreateContactService(BaseService):
 class UpdateContactService(BaseService):
     """Patch the mutable fields of a contact."""
 
-    editable_fields = {"first_name", "last_name", "email", "phone_number", "notes"}
+    editable_fields = {"first_name", "last_name", "email", "phone_number", "notes", "full_address", "tax_id", "tax_condition"}
 
     def run(self, *, contact: Contact, **changes: Any) -> Contact:
         if not changes:

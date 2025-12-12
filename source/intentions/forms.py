@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from django import forms
+from django.conf import settings
+from decimal import Decimal
+from datetime import date
 
 from integrations.models import TokkobrokerProperty
 from intentions.models import SaleProviderIntention, SaleSeekerIntention
+from opportunities.models import OperationType
 
 
 class HTML5WidgetMixin:
@@ -31,11 +35,10 @@ class HTML5WidgetMixin:
 class SaleProviderIntentionForm(HTML5WidgetMixin, forms.ModelForm):
     class Meta:
         model = SaleProviderIntention
-        fields = ["owner", "agent", "property", "operation_type", "documentation_notes"]
+        fields = ["owner", "agent", "property", "operation_type", "notes"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from opportunities.models import OperationType
         self.fields["operation_type"].queryset = OperationType.objects.all()
 
 
@@ -43,31 +46,57 @@ class DeliverValuationForm(HTML5WidgetMixin, forms.Form):
     amount = forms.DecimalField(max_digits=12, decimal_places=2)
     currency = forms.ModelChoiceField(queryset=None)
     notes = forms.CharField(required=False, widget=forms.Textarea)
+    valuation_date = forms.DateField(required=False, initial=date.today)
+    test_value = forms.DecimalField(max_digits=12, decimal_places=2, label="Agent test value")
+    close_value = forms.DecimalField(max_digits=12, decimal_places=2, label="Agent close value")
 
     def __init__(self, *args, currency_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
         queryset = currency_queryset if currency_queryset is not None else []
         self.fields["currency"].queryset = queryset
 class ProviderPromotionForm(HTML5WidgetMixin, forms.Form):
-    opportunity_notes = forms.CharField(required=False, widget=forms.Textarea)
-    headline = forms.CharField(required=False)
-    description = forms.CharField(required=False, widget=forms.Textarea)
-    price = forms.DecimalField(required=False, max_digits=12, decimal_places=2)
-    currency = forms.ModelChoiceField(required=False, queryset=None)
+    listing_kind = forms.ChoiceField(
+        choices=[
+            ("exclusive", "Exclusive"),
+            ("non_exclusive", "Non-exclusive"),
+        ],
+        label="Contract type",
+    )
+    contract_expires_on = forms.DateField(required=True, label="Contract end date")
+    contract_effective_on = forms.DateField(required=True, label="Contract start date")
+    valuation_test_value = forms.DecimalField(max_digits=12, decimal_places=2, label="Client test value")
+    valuation_close_value = forms.DecimalField(max_digits=12, decimal_places=2, label="Client close value")
+    gross_commission_pct = forms.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        min_value=0,
+        max_value=100,
+        label="Gross commission (%)",
+        help_text="Percentage agreed with the client (e.g., 4 for 4%).",
+    )
     tokkobroker_property = forms.ModelChoiceField(
-        required=False,
+        required=True,
         queryset=TokkobrokerProperty.objects.none(),
         label="Tokkobroker property",
+        help_text="Select the linked Tokkobroker listing to promote.",
     )
+    notes = forms.CharField(required=False, widget=forms.Textarea, label="Notes")
 
     def __init__(self, *args, currency_queryset=None, tokkobroker_property_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
-        queryset = currency_queryset if currency_queryset is not None else []
-        self.fields["currency"].queryset = queryset
         property_queryset = (
             tokkobroker_property_queryset if tokkobroker_property_queryset is not None else TokkobrokerProperty.objects.none()
         )
         self.fields["tokkobroker_property"].queryset = property_queryset
+        # Pre-fill with default commission (%)
+        default_pct = Decimal(getattr(settings, "DEFAULT_GROSS_COMMISSION_PCT", Decimal("0.04"))) * 100
+        self.fields["gross_commission_pct"].initial = default_pct
+
+    def clean_gross_commission_pct(self):
+        value = self.cleaned_data.get("gross_commission_pct")
+        if value is None:
+            return value
+        return Decimal(value) / Decimal("100")
 
 
 class ProviderWithdrawForm(HTML5WidgetMixin, forms.Form):
@@ -95,7 +124,6 @@ class SaleSeekerIntentionForm(HTML5WidgetMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from opportunities.models import OperationType
         self.fields["operation_type"].queryset = OperationType.objects.all()
 
 

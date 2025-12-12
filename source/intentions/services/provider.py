@@ -21,14 +21,14 @@ class CreateSaleProviderIntentionService(BaseService):
         agent: Agent,
         property: Property,
         operation_type,
-        documentation_notes: str | None = None,
+        notes: str | None = None,
     ) -> SaleProviderIntention:
         return SaleProviderIntention.objects.create(
             owner=owner,
             agent=agent,
             property=property,
             operation_type=operation_type,
-            documentation_notes=documentation_notes or "",
+            notes=notes or "",
         )
 
 
@@ -42,8 +42,18 @@ class DeliverSaleValuationService(BaseService):
         amount,
         currency: Currency,
         notes: str | None = None,
+        valuation_date=None,
+        test_value,
+        close_value,
     ) -> SaleValuation:
-        intention.deliver_valuation(amount=amount, currency=currency, notes=notes)
+        intention.deliver_valuation(
+            amount=amount,
+            currency=currency,
+            notes=notes,
+            valuation_date=valuation_date,
+            test_value=test_value,
+            close_value=close_value,
+        )
         intention.save(update_fields=["state", "valuation", "updated_at"])
         return intention.valuation  # type: ignore[return-value]
 
@@ -61,7 +71,7 @@ class WithdrawSaleProviderIntentionService(BaseService):
         intention.withdraw(reason=reason, notes=notes)
         update_fields = ["state", "withdraw_reason", "updated_at"]
         if notes:
-            update_fields.append("documentation_notes")
+            update_fields.append("notes")
         intention.save(update_fields=update_fields)
         return intention
 
@@ -73,20 +83,34 @@ class PromoteSaleProviderIntentionService(BaseService):
         self,
         *,
         intention: SaleProviderIntention,
-        opportunity_notes: str | None = None,
+        notes: str | None = None,
+        gross_commission_pct,
         marketing_package_data: Mapping[str, Any] | None = None,
-        tokkobroker_property: TokkobrokerProperty | None = None,
+        tokkobroker_property: TokkobrokerProperty,
+        listing_kind=None,
+        contract_expires_on=None,
+        contract_effective_on=None,
+        valuation_test_value=None,
+        valuation_close_value=None,
     ):
         if not intention.is_promotable():
             raise ValidationError(
                 "Intention must be valuated and not converted before promotion."
             )
+        if not tokkobroker_property:
+            raise ValidationError("Tokkobroker property is required to promote the intention.")
 
         opportunity = CreateOpportunityService.call(
             intention=intention,
-            notes=opportunity_notes,
+            notes=notes,
+            gross_commission_pct=gross_commission_pct,
             marketing_package_data=marketing_package_data,
             tokkobroker_property=tokkobroker_property,
+            listing_kind=listing_kind,
+            contract_expires_on=contract_expires_on,
+            contract_effective_on=contract_effective_on,
+            valuation_test_value=valuation_test_value,
+            valuation_close_value=valuation_close_value,
         )
 
         intention.mark_converted(opportunity=opportunity)

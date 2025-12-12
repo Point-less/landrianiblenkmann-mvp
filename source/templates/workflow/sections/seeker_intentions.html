@@ -32,19 +32,9 @@
                     {% include "workflow/partials/latest_transition.html" with transitions=intention.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
-                    {% if intention|can_transition:'activate_search' %}
-                        <a class="icon-button" data-icon="▶" href="{% url 'seeker-activate' intention.id %}?next={{ current_url|urlencode }}" title="Activate search">
-                            <span class="sr-only">Activate search</span>
-                        </a>
-                    {% endif %}
-                    {% if intention|can_transition:'sign_mandate' %}
-                        <a class="icon-button" data-icon="📜" href="{% url 'seeker-mandate' intention.id %}?next={{ current_url|urlencode }}" title="Sign mandate">
-                            <span class="sr-only">Sign mandate</span>
-                        </a>
-                    {% endif %}
                     {% if intention.can_create_opportunity %}
-                        <a class="icon-button" data-icon="➕" href="{% url 'seeker-create-opportunity' intention.id %}?next={{ current_url|urlencode }}" title="Create opportunity">
-                            <span class="sr-only">Create seeker opportunity</span>
+                        <a class="icon-button" data-icon="🚀" href="{% url 'seeker-create-opportunity' intention.id %}?next={{ current_url|urlencode }}" title="Promote">
+                            <span class="sr-only">Promote</span>
                         </a>
                     {% endif %}
                     {% if intention|can_transition:'abandon' %}

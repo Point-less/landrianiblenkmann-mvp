@@ -32,8 +32,8 @@
                         </a>
                     {% endif %}
                     {% if intention.is_promotable %}
-                        <a class="icon-button" data-icon="🚀" href="{% url 'provider-promote' intention.id %}?next={{ current_url|urlencode }}" title="Promote to opportunity">
-                            <span class="sr-only">Promote to opportunity</span>
+                        <a class="icon-button" data-icon="🚀" href="{% url 'provider-promote' intention.id %}?next={{ current_url|urlencode }}" title="Promote">
+                            <span class="sr-only">Promote</span>
                         </a>
                     {% endif %}
                     {% if intention|can_transition:'withdraw' %}

@@ -18,19 +18,24 @@ class CreateAgentService(BaseService):
         last_name: str = "",
         email: str | None = None,
         phone_number: str | None = None,
+        commission_split: float | None = None,
     ) -> Agent:
-        return Agent.objects.create(
-            first_name=first_name,
-            last_name=last_name,
-            email=email or "",
-            phone_number=phone_number or "",
-        )
+        data = {
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email or "",
+        }
+        if phone_number is not None:
+            data["phone_number"] = phone_number
+        if commission_split is not None:
+            data["commission_split"] = commission_split
+        return Agent.objects.create(**data)
 
 
 class UpdateAgentService(BaseService):
     """Patch mutable agent fields."""
 
-    editable_fields = {"first_name", "last_name", "email", "phone_number"}
+    editable_fields = {"first_name", "last_name", "email", "phone_number", "commission_split"}
 
     def run(self, *, agent: Agent, **changes: Any) -> Agent:
         if not changes:
@@ -41,8 +46,7 @@ class UpdateAgentService(BaseService):
             raise ValidationError({"fields": f"Unsupported agent fields: {sorted(invalid)}"})
 
         for field, value in changes.items():
-            normalized = value if value is not None else ""
-            setattr(agent, field, normalized)
+            setattr(agent, field, value)
 
         agent.full_clean()
         update_fields = list(changes.keys()) + ["updated_at"]

@@ -24,9 +24,9 @@ class CreateOperationService(BaseService):
         *,
         provider_opportunity: ProviderOpportunity,
         seeker_opportunity: SeekerOpportunity,
-        offered_amount=None,
-        reserve_amount=None,
-        reinforcement_amount=None,
+        initial_offered_amount=None,
+        reserve_amount,
+        reserve_deadline,
         currency: Currency | None = None,
         notes: str | None = None,
     ) -> Operation:
@@ -55,12 +55,19 @@ class CreateOperationService(BaseService):
         if p_type != s_type:
             raise ValidationError("Provider and seeker operation types must match before pairing.")
 
+        if reserve_amount is None:
+            raise ValidationError({"reserve_amount": "Reserve amount is required."})
+        if reserve_deadline is None:
+            raise ValidationError({"reserve_deadline": "Reserve deadline is required."})
+
         operation = Operation.objects.create(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
-            offered_amount=offered_amount,
+            initial_offered_amount=initial_offered_amount,
+            offered_amount=None,
             reserve_amount=reserve_amount,
-            reinforcement_amount=reinforcement_amount,
+            reserve_deadline=reserve_deadline,
+            reinforcement_amount=None,
             currency=currency,
             notes=notes or "",
         )
@@ -90,13 +97,22 @@ class CreateOperationService(BaseService):
 class OperationReinforceService(BaseService):
     """Transition an offered operation into reinforced."""
 
-    def run(self, *, operation: Operation) -> Operation:
+    def run(self, *, operation: Operation, offered_amount=None, reinforcement_amount=None, declared_deed_value=None) -> Operation:
         try:
             operation.reinforce()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
 
-        operation.save(update_fields=["state", "occurred_at", "updated_at"])
+        # Prefill offered_amount with initial if none provided
+        if offered_amount is None:
+            offered_amount = operation.initial_offered_amount
+        operation.offered_amount = offered_amount
+        if reinforcement_amount is not None:
+            operation.reinforcement_amount = reinforcement_amount
+        if declared_deed_value is not None:
+            operation.declared_deed_value = declared_deed_value
+
+        operation.save(update_fields=["state", "occurred_at", "offered_amount", "reinforcement_amount", "declared_deed_value", "updated_at"])
         return operation
 
 

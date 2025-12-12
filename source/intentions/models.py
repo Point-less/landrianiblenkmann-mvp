@@ -55,7 +55,7 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
         protected=False,
     )
     contract_signed_on = models.DateField(null=True, blank=True)
-    documentation_notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
     valuation = models.ForeignKey(
         "SaleValuation",
         on_delete=models.SET_NULL,
@@ -84,7 +84,16 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
             raise ValidationError({"withdraw_reason": "Please capture a withdraw reason."})
 
     @transition(field="state", source=State.ASSESSING, target=State.VALUATED)
-    def deliver_valuation(self, *, amount, currency: Currency, notes: str | None = None) -> None:
+    def deliver_valuation(
+        self,
+        *,
+        amount,
+        currency: Currency,
+        test_value,
+        close_value,
+        valuation_date=None,
+        notes: str | None = None,
+    ) -> None:
         if amount is None or currency is None:
             raise ValidationError("Amount and currency are required for a valuation.")
         valuation = SaleValuation.objects.create(
@@ -93,6 +102,9 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
             amount=amount,
             currency=currency,
             delivered_at=timezone.now(),
+            valuation_date=valuation_date or timezone.now().date(),
+            test_value=test_value,
+            close_value=close_value,
             notes=notes or "",
         )
         self.valuation = valuation
@@ -117,7 +129,7 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
             raise ValidationError({"withdraw_reason": "Invalid withdraw reason."})
         self.withdraw_reason = reason
         if notes:
-            self.documentation_notes = (self.documentation_notes or "") + f"\nWithdrawn: {notes}"
+            self.notes = (self.notes or "") + f"\nWithdrawn: {notes}"
 
     def is_promotable(self) -> bool:
         return self.state == self.State.VALUATED and not hasattr(self, "provider_opportunity")
@@ -128,8 +140,6 @@ class SaleSeekerIntention(TimeStampedMixin, FSMTrackingMixin):
 
     class State(models.TextChoices):
         QUALIFYING = "qualifying", "Qualifying"
-        ACTIVE = "active", "Active Search"
-        MANDATED = "mandated", "Mandated"
         CONVERTED = "converted", "Converted"
         ABANDONED = "abandoned", "Abandoned"
 
@@ -177,8 +187,6 @@ class SaleSeekerIntention(TimeStampedMixin, FSMTrackingMixin):
     )
     desired_features = models.JSONField(default=_default_feature_map, blank=True)
     notes = models.TextField(blank=True)
-    search_activated_at = models.DateTimeField(null=True, blank=True)
-    mandate_signed_on = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ("-created_at",)
@@ -197,28 +205,18 @@ class SaleSeekerIntention(TimeStampedMixin, FSMTrackingMixin):
                 "seeker_opportunity": "Converted intentions should own a seeker opportunity only once converted.",
             })
 
-    @transition(field="state", source=State.QUALIFYING, target=State.ACTIVE)
-    def activate_search(self) -> None:
-        if not self.budget_max or not self.currency:
-            raise ValidationError("Budget range and currency required before activating search.")
-        self.search_activated_at = timezone.now()
-
-    @transition(field="state", source=State.ACTIVE, target=State.MANDATED)
-    def sign_mandate(self, signed_on=None) -> None:
-        self.mandate_signed_on = signed_on or timezone.now().date()
-
-    @transition(field="state", source=State.MANDATED, target=State.CONVERTED)
+    @transition(field="state", source=State.QUALIFYING, target=State.CONVERTED)
     def mark_converted(self, *, opportunity: "SeekerOpportunity") -> None:
         if opportunity is None:
             raise ValidationError("An opportunity is required when converting a seeker intention.")
 
-    @transition(field="state", source=[State.QUALIFYING, State.ACTIVE], target=State.ABANDONED)
+    @transition(field="state", source=State.QUALIFYING, target=State.ABANDONED)
     def abandon(self, reason: str | None = None) -> None:
         if reason:
             self.notes = (self.notes or "") + f"\nAbandoned: {reason}"
 
     def can_create_opportunity(self) -> bool:
-        return self.state == self.State.MANDATED and not hasattr(self, "seeker_opportunity")
+        return self.state == self.State.QUALIFYING
 
 
 class SaleValuation(TimeStampedMixin):
@@ -233,12 +231,15 @@ class SaleValuation(TimeStampedMixin):
         related_name="sale_valuations",
     )
     amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    test_value = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    close_value = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     currency = models.ForeignKey(
         Currency,
         on_delete=models.PROTECT,
         related_name="sale_valuations",
     )
     delivered_at = models.DateTimeField(default=timezone.now)
+    valuation_date = models.DateField(null=True, blank=True, help_text="Date the valuation was issued.")
     notes = models.TextField(blank=True)
 
     class Meta:

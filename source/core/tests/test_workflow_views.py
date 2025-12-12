@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from datetime import date
 
 import shutil
 import tempfile
@@ -12,12 +13,11 @@ from django.urls import reverse
 
 from core.models import Agent, Contact, Currency, Property
 from intentions.models import SaleProviderIntention, SaleSeekerIntention
+from integrations.models import TokkobrokerProperty
 from intentions.services import (
-    ActivateSaleSeekerIntentionService,
     CreateSaleProviderIntentionService,
     CreateSaleSeekerIntentionService,
     DeliverSaleValuationService,
-    MandateSaleSeekerIntentionService,
     PromoteSaleProviderIntentionService,
 )
 from opportunities.models import Operation, ProviderOpportunity, Validation, ValidationDocument, ValidationDocumentType
@@ -47,10 +47,12 @@ class WorkflowViewSmokeTests(TestCase):
         assert self.client.login(username='admin', password=self.admin_password)
 
         self.currency = Currency.objects.create(code='USD', name='US Dollar', symbol='$')
+        from opportunities.models import ValidationDocumentType
+        ValidationDocumentType.objects.update(accepted_formats=[".pdf"])
         self.agent = Agent.objects.create(first_name='Alice', last_name='Agent')
         self.owner = Contact.objects.create(first_name='Owner', last_name='One')
         self.seeker_contact = Contact.objects.create(first_name='Buyer', last_name='Beta')
-        self.property = Property.objects.create(name='Ocean View Loft', reference_code='PROP-001')
+        self.property = Property.objects.create(name='Ocean View Loft')
         from opportunities.models import OperationType
         self.operation_type = OperationType.objects.get(code="sale")
         self.file = SimpleUploadedFile('doc.pdf', b'content')
@@ -60,16 +62,23 @@ class WorkflowViewSmokeTests(TestCase):
             agent=self.agent,
             property=self.property,
             operation_type=self.operation_type,
-            documentation_notes='Initial notes',
+            notes='Initial notes',
         )
         DeliverSaleValuationService.call(
             intention=self.provider_intention,
             amount=Decimal('950000'),
             currency=self.currency,
+            test_value=Decimal('940000'),
+            close_value=Decimal('930000'),
         )
+        self.tokko_property = TokkobrokerProperty.objects.create(tokko_id=77777, ref_code="AUTO-REF-77777")
         self.provider_opportunity = PromoteSaleProviderIntentionService.call(
             intention=self.provider_intention,
-            marketing_package_data={'currency': self.currency},
+            marketing_package_data={},
+            gross_commission_pct=Decimal('0.05'),
+            tokkobroker_property=self.tokko_property,
+            listing_kind=ProviderOpportunity.ListingKind.EXCLUSIVE,
+            contract_expires_on=date.today(),
         )
         self.validation = Validation.objects.get(opportunity=self.provider_opportunity)
         docs = []
@@ -109,13 +118,17 @@ class WorkflowViewSmokeTests(TestCase):
             budget_max=Decimal('980000'),
             currency=self.currency,
         )
-        ActivateSaleSeekerIntentionService.call(intention=self.seeker_intention)
-        MandateSaleSeekerIntentionService.call(intention=self.seeker_intention)
-        self.seeker_opportunity = CreateSeekerOpportunityService.call(intention=self.seeker_intention)
+        self.seeker_opportunity = CreateSeekerOpportunityService.call(
+            intention=self.seeker_intention,
+            gross_commission_pct=Decimal('0.03'),
+        )
 
         self.operation = CreateOperationService.call(
             provider_opportunity=self.provider_opportunity,
             seeker_opportunity=self.seeker_opportunity,
+            initial_offered_amount=Decimal('930000'),
+            reserve_amount=Decimal('20000'),
+            reserve_deadline=date.today(),
             currency=self.currency,
         )
 
@@ -129,6 +142,7 @@ class WorkflowViewSmokeTests(TestCase):
             ('workflow-dashboard-section', {'section': 'agents'}),
             ('workflow-dashboard-section', {'section': 'contacts'}),
             ('workflow-dashboard-section', {'section': 'properties'}),
+            ('workflow-dashboard-section', {'section': 'reports-operations'}),
             ('workflow-dashboard-section', {'section': 'provider-intentions'}),
             ('workflow-dashboard-section', {'section': 'provider-opportunities'}),
             ('workflow-dashboard-section', {'section': 'marketing-packages'}),
@@ -147,9 +161,6 @@ class WorkflowViewSmokeTests(TestCase):
             ('provider-promote', {'intention_id': self.provider_intention.id}),
             ('provider-withdraw', {'intention_id': self.provider_intention.id}),
             ('seeker-intention-create', {}),
-            ('seeker-activate', {'intention_id': self.seeker_intention.id}),
-            ('seeker-mandate', {'intention_id': self.seeker_intention.id}),
-            ('seeker-abandon', {'intention_id': self.seeker_intention.id}),
             ('seeker-create-opportunity', {'intention_id': self.seeker_intention.id}),
             ('validation-present', {'validation_id': self.validation.id}),
             ('validation-reject', {'validation_id': self.validation.id}),

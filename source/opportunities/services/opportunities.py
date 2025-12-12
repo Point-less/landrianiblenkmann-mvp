@@ -26,20 +26,32 @@ class CreateOpportunityService(BaseService):
         *,
         intention: SaleProviderIntention,
         notes: str | None = None,
+        gross_commission_pct,
         marketing_package_data: Mapping[str, Any] | None = None,
-        tokkobroker_property: TokkobrokerProperty | None = None,
+        tokkobroker_property: TokkobrokerProperty,
+        listing_kind=ProviderOpportunity.ListingKind.EXCLUSIVE,
+        contract_expires_on=None,
+        contract_effective_on=None,
+        valuation_test_value=None,
+        valuation_close_value=None,
     ) -> ProviderOpportunity:
         marketing_payload = dict(marketing_package_data or {})
 
-        if tokkobroker_property and self.s.opportunities.ProviderOpportunityByTokkobrokerPropertyQuery(
+        if self.s.opportunities.ProviderOpportunityByTokkobrokerPropertyQuery(
             tokkobroker_property=tokkobroker_property
         ).exists():
             raise ValidationError("Tokkobroker property is already linked to another opportunity.")
 
         opportunity = ProviderOpportunity.objects.create(
             source_intention=intention,
-            notes=notes or intention.documentation_notes,
+            notes=notes or intention.notes,
             tokkobroker_property=tokkobroker_property,
+            gross_commission_pct=gross_commission_pct,
+            listing_kind=listing_kind or ProviderOpportunity.ListingKind.EXCLUSIVE,
+            contract_expires_on=contract_expires_on,
+            contract_effective_on=contract_effective_on,
+            valuation_test_value=valuation_test_value if valuation_test_value is not None else getattr(intention.valuation, "test_value", 0),
+            valuation_close_value=valuation_close_value if valuation_close_value is not None else getattr(intention.valuation, "close_value", 0),
         )
 
         marketing_payload.setdefault("headline", f"Listing for {intention.property}")
@@ -84,15 +96,17 @@ class CreateSeekerOpportunityService(BaseService):
         *,
         intention: SaleSeekerIntention,
         notes: str | None = None,
+        gross_commission_pct,
     ) -> SeekerOpportunity:
         if hasattr(intention, "seeker_opportunity"):
             raise ValidationError("Intention already has a seeker opportunity attached.")
-        if intention.state != SaleSeekerIntention.State.MANDATED:
-            raise ValidationError("Seeker intention must be mandated before conversion.")
+        if intention.state != SaleSeekerIntention.State.QUALIFYING:
+            raise ValidationError("Seeker intention must be qualifying before conversion.")
 
         opportunity = SeekerOpportunity.objects.create(
             source_intention=intention,
             notes=notes or intention.notes,
+            gross_commission_pct=gross_commission_pct,
         )
 
         intention.mark_converted(opportunity=opportunity)

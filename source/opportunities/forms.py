@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 from django import forms
+from django.conf import settings
+from decimal import Decimal
 from django.db import models
 
 from core.models import Agent, Currency
 from opportunities.models import (
     MarketingPackage,
     Operation,
-    ProviderOpportunity,
-    SeekerOpportunity,
-    Validation,
     ValidationDocument,
     ValidationDocumentType,
 )
@@ -45,7 +44,26 @@ class ValidationRejectForm(HTML5FormMixin, forms.Form):
 
 
 class SeekerOpportunityCreateForm(HTML5FormMixin, forms.Form):
+    gross_commission_pct = forms.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        min_value=0,
+        max_value=100,
+        label="Gross commission (%)",
+        help_text="Percentage agreed with the client (e.g., 3 for 3%).",
+    )
     notes = forms.CharField(required=False, widget=forms.Textarea)
+
+    def clean_gross_commission_pct(self):
+        value = self.cleaned_data.get("gross_commission_pct")
+        if value is None:
+            return value
+        return Decimal(value) / Decimal("100")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        default_pct = Decimal(getattr(settings, "DEFAULT_GROSS_COMMISSION_PCT", Decimal("0.04"))) * 100
+        self.fields["gross_commission_pct"].initial = default_pct
 
 
 class OperationForm(HTML5FormMixin, forms.ModelForm):
@@ -54,9 +72,9 @@ class OperationForm(HTML5FormMixin, forms.ModelForm):
         fields = [
             "provider_opportunity",
             "seeker_opportunity",
-            "offered_amount",
+            "initial_offered_amount",
             "reserve_amount",
-            "reinforcement_amount",
+            "reserve_deadline",
             "currency",
             "notes",
         ]
@@ -70,6 +88,12 @@ class OperationForm(HTML5FormMixin, forms.ModelForm):
 
 class OperationLoseForm(HTML5FormMixin, forms.Form):
     lost_reason = forms.CharField(required=False, widget=forms.Textarea)
+
+
+class OperationReinforceForm(HTML5FormMixin, forms.Form):
+    offered_amount = forms.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=False)
+    reinforcement_amount = forms.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=False)
+    declared_deed_value = forms.DecimalField(max_digits=14, decimal_places=2, min_value=0, required=True)
 
 
 class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):

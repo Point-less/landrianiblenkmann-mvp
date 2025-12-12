@@ -17,7 +17,7 @@
                     <div class="table-subtext">Created {{ property.created_at|date:"M d, Y" }}</div>
                 </td>
                 <td>
-                    <div class="table-title">Ref: {{ property.reference_code|default:"No reference" }}</div>
+                    <div class="table-title">{{ property.name }}</div>
                 </td>
                 <td class="actions-column">
                     <a class="icon-button" data-icon="✏" href="{% url 'property-edit' property.id %}?next={{ current_url|urlencode }}" title="Edit property">

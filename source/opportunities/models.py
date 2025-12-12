@@ -3,10 +3,11 @@ from __future__ import annotations
 from builtins import property as builtin_property
 
 from collections import Counter
+from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django_fsm import FSMField, transition
@@ -51,15 +52,32 @@ class ProviderOpportunity(TimeStampedMixin, FSMTrackingMixin):
     )
     tokkobroker_property = models.OneToOneField(
         TokkobrokerProperty,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
+        related_name="provider_opportunity",
+    )
+    contract_expires_on = models.DateField(
         null=True,
         blank=True,
-        related_name="provider_opportunity",
+        help_text="Contract end date.",
+    )
+    contract_effective_on = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Contract effective/start date.",
     )
     listing_kind = models.CharField(
         max_length=20,
         choices=ListingKind.choices,
         default=ListingKind.EXCLUSIVE,
+    )
+    valuation_test_value = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+    valuation_close_value = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+    gross_commission_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+        help_text="Negotiated gross commission expressed as 0-1 (e.g., 0.05 for 5%).",
+        default=getattr(settings, "DEFAULT_GROSS_COMMISSION_PCT", Decimal("0.04")),
     )
     state = FSMField(
         max_length=20,
@@ -112,6 +130,13 @@ class SeekerOpportunity(TimeStampedMixin, FSMTrackingMixin):
         "intentions.SaleSeekerIntention",
         on_delete=models.PROTECT,
         related_name="seeker_opportunity",
+    )
+    gross_commission_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+        help_text="Negotiated gross commission expressed as 0-1 (e.g., 0.03 for 3%).",
+        default=getattr(settings, "DEFAULT_GROSS_COMMISSION_PCT", Decimal("0.04")),
     )
     notes = models.TextField(blank=True)
     state = FSMField(
@@ -171,6 +196,11 @@ class ValidationDocumentType(models.Model):
     code = models.CharField(max_length=50, unique=True)
     label = models.CharField(max_length=150)
     required = models.BooleanField(default=False)
+    accepted_formats = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Allowed file extensions (e.g., ['.pdf', '.jpg']); leave empty to use system defaults.",
+    )
     operation_type = models.ForeignKey(
         "OperationType",
         on_delete=models.PROTECT,
@@ -515,21 +545,28 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
         default=State.OFFERED,
         protected=False,
     )
+    initial_offered_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        help_text="Initial offered amount at operation creation.",
+    )
     offered_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        help_text="Amount proposed in this negotiation step.",
+        help_text="Current offered amount (set when reinforced).",
     )
     reserve_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        null=True,
-        blank=True,
         validators=[MinValueValidator(0)],
         help_text="Remaining reserved funds after this step.",
+    )
+    reserve_deadline = models.DateField(
+        help_text="Deadline for the reserve amount.",
     )
     reinforcement_amount = models.DecimalField(
         max_digits=12,
@@ -537,13 +574,19 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        help_text="Additional funds available for reinforcement, if applicable.",
+        help_text="Additional funds available when reinforced.",
+    )
+    declared_deed_value = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Declared deed value captured at reinforcement/closing.",
     )
     currency = models.ForeignKey(
         Currency,
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name='operations',
     )
     occurred_at = models.DateTimeField(null=True, blank=True)

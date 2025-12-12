@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import tempfile
 from decimal import Decimal
+from datetime import date
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -10,6 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
 from core.models import Currency
+from opportunities.models import OperationType
 from core.services import (
     CreateAgentService,
     CreateContactService,
@@ -18,13 +20,11 @@ from core.services import (
 )
 from integrations.models import TokkobrokerProperty
 from intentions.services import (
-    AbandonSaleSeekerIntentionService,
-    ActivateSaleSeekerIntentionService,
     CreateSaleProviderIntentionService,
     CreateSaleSeekerIntentionService,
     DeliverSaleValuationService,
-    MandateSaleSeekerIntentionService,
     PromoteSaleProviderIntentionService,
+    AbandonSaleSeekerIntentionService,
 )
 from opportunities.models import (
     MarketingPackage,
@@ -59,36 +59,47 @@ class SaleFlowServiceTests(TestCase):
         self._media_override.enable()
 
         self.currency = Currency.objects.create(code="USD", name="US Dollar", symbol="$")
+        from opportunities.models import ValidationDocumentType
+        ValidationDocumentType.objects.update(accepted_formats=[".pdf"])
         self.reviewer = get_user_model().objects.create_user(username="reviewer")
         self.agent = CreateAgentService.call(first_name="Alice", last_name="Agent", email="alice@example.com")
         self.owner = CreateContactService.call(first_name="Oscar", last_name="Owner", email="owner@example.com")
         self.seeker_contact = CreateContactService.call(
             first_name="Stella", last_name="Seeker", email="stella@example.com"
         )
-        from opportunities.models import OperationType
         self.operation_type = OperationType.objects.get(code="sale")
-        self.property = CreatePropertyService.call(name="Ocean View Loft", reference_code="PROP-001")
+        self.property = CreatePropertyService.call(name="Ocean View Loft")
         LinkContactAgentService.call(contact=self.owner, agent=self.agent)
         LinkContactAgentService.call(contact=self.seeker_contact, agent=self.agent)
 
     def _create_provider_opportunity(self, *, tokkobroker_property=None):
+        if tokkobroker_property is None:
+            tokkobroker_property = TokkobrokerProperty.objects.create(
+                tokko_id=99999,
+                ref_code="AUTO-REF-99999",
+            )
         provider_intention = CreateSaleProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
             property=self.property,
             operation_type=self.operation_type,
-            documentation_notes="Initial walkthrough pending",
+            notes="Initial walkthrough pending",
         )
         DeliverSaleValuationService.call(
             intention=provider_intention,
             amount=Decimal("950000"),
             currency=self.currency,
             notes="Comparable units closed last quarter",
+            test_value=Decimal("940000"),
+            close_value=Decimal("930000"),
         )
         provider_opportunity = PromoteSaleProviderIntentionService.call(
             intention=provider_intention,
-            marketing_package_data={"currency": self.currency, "price": Decimal("975000")},
+            marketing_package_data={},
+            gross_commission_pct=Decimal("0.05"),
             tokkobroker_property=tokkobroker_property,
+            listing_kind=ProviderOpportunity.ListingKind.EXCLUSIVE,
+            contract_expires_on=date.today(),
         )
         validation = Validation.objects.get(opportunity=provider_opportunity)
         return provider_opportunity, validation, provider_intention
@@ -99,7 +110,7 @@ class SaleFlowServiceTests(TestCase):
             agent=self.agent,
             property=self.property,
             operation_type=self.operation_type,
-            documentation_notes="Actor tracing",
+            notes="Actor tracing",
         )
 
         DeliverSaleValuationService.call(
@@ -108,6 +119,8 @@ class SaleFlowServiceTests(TestCase):
             currency=self.currency,
             notes="With actor",
             actor=self.reviewer,
+            test_value=Decimal("940000"),
+            close_value=Decimal("930000"),
         )
 
         transition = intention.state_transitions.filter(
@@ -173,7 +186,7 @@ class SaleFlowServiceTests(TestCase):
         validation.refresh_from_db()
         self.assertEqual(provider_opportunity.state, ProviderOpportunity.State.MARKETING)
         marketing_package.refresh_from_db()
-        self.assertEqual(marketing_package.state, MarketingPackage.State.PUBLISHED)
+        self.assertEqual(marketing_package.state, MarketingPackage.State.PREPARING)
 
         seeker_intention = CreateSaleSeekerIntentionService.call(
             contact=self.seeker_contact,
@@ -185,18 +198,19 @@ class SaleFlowServiceTests(TestCase):
             desired_features={"bedrooms": 3},
             notes="Looking for turnkey units",
         )
-        ActivateSaleSeekerIntentionService.call(intention=seeker_intention)
-        MandateSaleSeekerIntentionService.call(intention=seeker_intention)
 
-        seeker_opportunity = CreateSeekerOpportunityService.call(intention=seeker_intention)
+        seeker_opportunity = CreateSeekerOpportunityService.call(
+            intention=seeker_intention,
+            gross_commission_pct=Decimal("0.03"),
+        )
         self.assertEqual(seeker_opportunity.state, SeekerOpportunity.State.MATCHING)
 
         operation = CreateOperationService.call(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
-            offered_amount=Decimal("930000"),
+            initial_offered_amount=Decimal("930000"),
             reserve_amount=Decimal("20000"),
-            reinforcement_amount=Decimal("15000"),
+            reserve_deadline=date.today(),
             currency=self.currency,
             notes="Initial reservation",
         )
@@ -204,7 +218,7 @@ class SaleFlowServiceTests(TestCase):
         seeker_opportunity.refresh_from_db()
         self.assertEqual(seeker_opportunity.state, SeekerOpportunity.State.NEGOTIATING)
         marketing_package.refresh_from_db()
-        self.assertEqual(marketing_package.state, MarketingPackage.State.PAUSED)
+        self.assertEqual(marketing_package.state, MarketingPackage.State.PREPARING)
         with self.assertRaises(ValidationError):
             MarketingPackageReleaseService.call(package=marketing_package, use_atomic=False)
 
@@ -273,17 +287,18 @@ class SaleFlowServiceTests(TestCase):
             desired_features={"bedrooms": 3},
             notes="Looking for turnkey units",
         )
-        ActivateSaleSeekerIntentionService.call(intention=seeker_intention)
-        MandateSaleSeekerIntentionService.call(intention=seeker_intention)
 
-        seeker_opportunity = CreateSeekerOpportunityService.call(intention=seeker_intention)
+        seeker_opportunity = CreateSeekerOpportunityService.call(
+            intention=seeker_intention,
+            gross_commission_pct=Decimal("0.03"),
+        )
 
         operation = CreateOperationService.call(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
-            offered_amount=Decimal("930000"),
+            initial_offered_amount=Decimal("930000"),
             reserve_amount=Decimal("20000"),
-            reinforcement_amount=Decimal("15000"),
+            reserve_deadline=date.today(),
             currency=self.currency,
             notes="Initial reservation",
         )
@@ -305,23 +320,28 @@ class SaleFlowServiceTests(TestCase):
         ValidationAcceptService.call(validation=validation)
         provider_opportunity.refresh_from_db()
 
-        second_property = CreatePropertyService.call(name="Skyline Loft", reference_code="PROP-002")
+        second_property = CreatePropertyService.call(name="Skyline Loft")
         second_intention = CreateSaleProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
             property=second_property,
             operation_type=self.operation_type,
-            documentation_notes="Second listing",
+            notes="Second listing",
         )
         DeliverSaleValuationService.call(
             intention=second_intention,
             amount=Decimal("850000"),
             currency=self.currency,
             notes="Downtown comps",
+            test_value=Decimal("840000"),
+            close_value=Decimal("830000"),
         )
         second_provider_opportunity = PromoteSaleProviderIntentionService.call(
             intention=second_intention,
-            marketing_package_data={"currency": self.currency, "price": Decimal("875000")},
+            marketing_package_data={},
+            gross_commission_pct=Decimal("0.05"),
+            tokkobroker_property=TokkobrokerProperty.objects.create(tokko_id=88888, ref_code="AUTO-REF-88888"),
+            contract_expires_on=date.today(),
         )
         second_validation = Validation.objects.get(opportunity=second_provider_opportunity)
         self._upload_required_documents(second_validation)
@@ -340,17 +360,18 @@ class SaleFlowServiceTests(TestCase):
             desired_features={"bedrooms": 3},
             notes="Looking for turnkey units",
         )
-        ActivateSaleSeekerIntentionService.call(intention=seeker_intention)
-        MandateSaleSeekerIntentionService.call(intention=seeker_intention)
 
-        seeker_opportunity = CreateSeekerOpportunityService.call(intention=seeker_intention)
+        seeker_opportunity = CreateSeekerOpportunityService.call(
+            intention=seeker_intention,
+            gross_commission_pct=Decimal("0.03"),
+        )
 
         primary_operation = CreateOperationService.call(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
-            offered_amount=Decimal("930000"),
+            initial_offered_amount=Decimal("930000"),
             reserve_amount=Decimal("20000"),
-            reinforcement_amount=Decimal("15000"),
+            reserve_deadline=date.today(),
             currency=self.currency,
             notes="Initial reservation",
         )
@@ -358,9 +379,9 @@ class SaleFlowServiceTests(TestCase):
         secondary_operation = CreateOperationService.call(
             provider_opportunity=second_provider_opportunity,
             seeker_opportunity=seeker_opportunity,
-            offered_amount=Decimal("910000"),
+            initial_offered_amount=Decimal("910000"),
             reserve_amount=Decimal("15000"),
-            reinforcement_amount=Decimal("12000"),
+            reserve_deadline=date.today(),
             currency=self.currency,
             notes="Backup offer",
         )
@@ -447,7 +468,7 @@ class SaleFlowServiceTests(TestCase):
         self.assertEqual(provider_opportunity.tokkobroker_property, tokko_property)
         self.assertEqual(tokko_property.provider_opportunity, provider_opportunity)
 
-        secondary_property = CreatePropertyService.call(name="City Loft", reference_code="PROP-002")
+        secondary_property = CreatePropertyService.call(name="City Loft")
         second_intention = CreateSaleProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
@@ -458,13 +479,17 @@ class SaleFlowServiceTests(TestCase):
             intention=second_intention,
             amount=Decimal("750000"),
             currency=self.currency,
+            test_value=Decimal("740000"),
+            close_value=Decimal("730000"),
         )
 
         with self.assertRaises(ValidationError):
             PromoteSaleProviderIntentionService.call(
                 intention=second_intention,
-                marketing_package_data={"currency": self.currency},
+                marketing_package_data={},
                 tokkobroker_property=tokko_property,
+                gross_commission_pct=Decimal("0.05"),
+                contract_expires_on=date.today(),
                 use_atomic=False,
             )
 

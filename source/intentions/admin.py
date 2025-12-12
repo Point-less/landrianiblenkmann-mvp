@@ -40,7 +40,7 @@ class SaleSeekerIntentionAdmin(admin.ModelAdmin):
         "contact__last_name",
     )
     raw_id_fields = ("contact", "agent")
-    readonly_fields = ("created_at", "updated_at", "search_activated_at", "mandate_signed_on")
+    readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(models.SaleValuation)

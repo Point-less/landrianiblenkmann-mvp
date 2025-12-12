@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from utils.mixins import TimeStampedMixin
 
@@ -18,10 +19,23 @@ class Currency(TimeStampedMixin):
 
 
 class Contact(TimeStampedMixin):
+    class TaxCondition(models.TextChoices):
+        RESPONSABLE_INSCRIPTO = "ri", "Responsable Inscripto"
+        MONOTRIBUTO = "monotributo", "Monotributo"
+        EXENTO = "exento", "Exento"
+        CONSUMIDOR_FINAL = "consumidor_final", "Consumidor final"
+
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
-    email = models.EmailField(blank=True)
-    phone_number = models.CharField(max_length=50, blank=True)
+    full_address = models.CharField(max_length=255, blank=True)
+    tax_id = models.CharField("CUIT/CUIL", max_length=20, blank=True)
+    tax_condition = models.CharField(
+        max_length=20,
+        choices=TaxCondition.choices,
+        blank=True,
+    )
+    email = models.EmailField(blank=False)
+    phone_number = models.CharField(max_length=50, blank=True, null=True)
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -31,14 +45,23 @@ class Contact(TimeStampedMixin):
         db_table = "opportunities_contact"
 
     def __str__(self) -> str:
-        return f"{self.first_name} {self.last_name}".strip()
+        name = f"{self.first_name} {self.last_name}".strip()
+        return name or self.email or "Contact"
 
 
 class Agent(TimeStampedMixin):
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     email = models.EmailField(blank=True)
-    phone_number = models.CharField(max_length=50, blank=True)
+    phone_number = models.CharField(max_length=50, blank=True, null=True)
+    commission_split = models.DecimalField(
+        max_digits=4,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+        help_text="Fraction (0-1) of commission allocated to this agent.",
+    )
     contacts = models.ManyToManyField(
         "core.Contact",
         through="core.ContactAgentRelationship",
@@ -59,7 +82,7 @@ class Agent(TimeStampedMixin):
 
 class Property(TimeStampedMixin):
     name = models.CharField(max_length=255)
-    reference_code = models.CharField(max_length=50, blank=True, unique=True)
+    full_address = models.CharField(max_length=255, blank=True)
 
     class Meta:
         ordering = ("name",)

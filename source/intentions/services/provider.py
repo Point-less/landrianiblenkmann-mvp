@@ -1,4 +1,4 @@
-"""Provider-facing services for sale intentions."""
+"""Provider-facing services for intentions."""
 
 from typing import Any, Mapping
 
@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 
 from core.models import Agent, Contact, Currency, Property
 from integrations.models import TokkobrokerProperty
-from intentions.models import SaleProviderIntention, SaleValuation
+from intentions.models import ProviderIntention, Valuation
 from opportunities.services import CreateOpportunityService
 from utils.services import BaseService
 from utils.authorization import (
@@ -17,7 +17,7 @@ from utils.authorization import (
 )
 
 
-class CreateSaleProviderIntentionService(BaseService):
+class CreateProviderIntentionService(BaseService):
     """Register a new provider intention before it becomes an opportunity."""
 
     required_action = PROVIDER_INTENTION_CREATE
@@ -30,8 +30,21 @@ class CreateSaleProviderIntentionService(BaseService):
         property: Property,
         operation_type,
         notes: str | None = None,
-    ) -> SaleProviderIntention:
-        return SaleProviderIntention.objects.create(
+    ) -> ProviderIntention:
+        existing = ProviderIntention.objects.filter(
+            agent=agent,
+            property=property,
+        ).exclude(
+            state__in=[
+                ProviderIntention.State.CONVERTED,
+                ProviderIntention.State.WITHDRAWN,
+            ]
+        )
+        if existing.exists():
+            raise ValidationError(
+                "An active provider intention already exists for this property and agent."
+            )
+        return ProviderIntention.objects.create(
             owner=owner,
             agent=agent,
             property=property,
@@ -40,7 +53,7 @@ class CreateSaleProviderIntentionService(BaseService):
         )
 
 
-class DeliverSaleValuationService(BaseService):
+class DeliverValuationService(BaseService):
     """Attach a valuation and advance the provider intention FSM."""
 
     required_action = PROVIDER_INTENTION_VALUATE
@@ -48,14 +61,14 @@ class DeliverSaleValuationService(BaseService):
     def run(
         self,
         *,
-        intention: SaleProviderIntention,
+        intention: ProviderIntention,
         amount,
         currency: Currency,
         notes: str | None = None,
         valuation_date=None,
         test_value,
         close_value,
-    ) -> SaleValuation:
+    ) -> Valuation:
         intention.deliver_valuation(
             amount=amount,
             currency=currency,
@@ -68,7 +81,7 @@ class DeliverSaleValuationService(BaseService):
         return intention.valuation  # type: ignore[return-value]
 
 
-class WithdrawSaleProviderIntentionService(BaseService):
+class WithdrawProviderIntentionService(BaseService):
     """Withdraw an intention that will no longer move forward."""
 
     required_action = PROVIDER_INTENTION_WITHDRAW
@@ -76,10 +89,10 @@ class WithdrawSaleProviderIntentionService(BaseService):
     def run(
         self,
         *,
-        intention: SaleProviderIntention,
-        reason: SaleProviderIntention.WithdrawReason,
+        intention: ProviderIntention,
+        reason: ProviderIntention.WithdrawReason,
         notes: str | None = None,
-    ) -> SaleProviderIntention:
+    ) -> ProviderIntention:
         intention.withdraw(reason=reason, notes=notes)
         update_fields = ["state", "withdraw_reason", "updated_at"]
         if notes:
@@ -88,7 +101,7 @@ class WithdrawSaleProviderIntentionService(BaseService):
         return intention
 
 
-class PromoteSaleProviderIntentionService(BaseService):
+class PromoteProviderIntentionService(BaseService):
     """Promote a provider intention into a fully managed opportunity."""
 
     required_action = PROVIDER_INTENTION_PROMOTE
@@ -96,7 +109,7 @@ class PromoteSaleProviderIntentionService(BaseService):
     def run(
         self,
         *,
-        intention: SaleProviderIntention,
+        intention: ProviderIntention,
         notes: str | None = None,
         gross_commission_pct,
         marketing_package_data: Mapping[str, Any] | None = None,
@@ -139,8 +152,8 @@ class PromoteSaleProviderIntentionService(BaseService):
 
 
 __all__ = [
-    "CreateSaleProviderIntentionService",
-    "DeliverSaleValuationService",
-    "WithdrawSaleProviderIntentionService",
-    "PromoteSaleProviderIntentionService",
+    "CreateProviderIntentionService",
+    "DeliverValuationService",
+    "WithdrawProviderIntentionService",
+    "PromoteProviderIntentionService",
 ]

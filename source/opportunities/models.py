@@ -47,7 +47,7 @@ class ProviderOpportunity(TimeStampedMixin, FSMTrackingMixin):
         NON_EXCLUSIVE = "non_exclusive", "Non-exclusive"
 
     source_intention = models.OneToOneField(
-        "intentions.SaleProviderIntention",
+        "intentions.ProviderIntention",
         on_delete=models.PROTECT,
         related_name="provider_opportunity",
     )
@@ -128,7 +128,7 @@ class SeekerOpportunity(TimeStampedMixin, FSMTrackingMixin):
         LOST = "lost", "Lost"
 
     source_intention = models.OneToOneField(
-        "intentions.SaleSeekerIntention",
+        "intentions.SeekerIntention",
         on_delete=models.PROTECT,
         related_name="seeker_opportunity",
     )

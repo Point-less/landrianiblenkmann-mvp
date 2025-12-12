@@ -4,7 +4,7 @@ from django.test import TestCase
 
 from core.models import Agent, Contact, Property
 from opportunities.models import OperationType
-from intentions.models import SaleProviderIntention
+from intentions.models import ProviderIntention
 from users.models import User, Role, RolePermission, Permission as Perm, RoleMembership
 from utils.authorization import (
     Action,
@@ -36,17 +36,17 @@ class AuthorizationTests(TestCase):
 
         owner = Contact.objects.create(first_name="C", email="c@example.com")
         prop = Property.objects.create(name="P")
-        self.intention1 = SaleProviderIntention.objects.create(owner=owner, agent=self.agent1, property=prop, operation_type=self.op_type)
-        self.intention2 = SaleProviderIntention.objects.create(owner=owner, agent=self.agent2, property=prop, operation_type=self.op_type)
+        self.intention1 = ProviderIntention.objects.create(owner=owner, agent=self.agent1, property=prop, operation_type=self.op_type)
+        self.intention2 = ProviderIntention.objects.create(owner=owner, agent=self.agent2, property=prop, operation_type=self.op_type)
 
     def test_filter_queryset_scopes_to_agent(self):
-        qs = SaleProviderIntention.objects.order_by("id")
+        qs = ProviderIntention.objects.order_by("id")
         filtered = filter_queryset(self.user, PROVIDER_INTENTION_VIEW, qs, owner_field="agent", view_all_action=PROVIDER_INTENTION_VIEW_ALL)
         self.assertQuerysetEqual(filtered, [self.intention1], ordered=True)
 
     def test_filter_queryset_view_all(self):
         RolePermission.objects.create(role=self.agent_role, permission=self.perm_view_all, allowed=True)
-        qs = SaleProviderIntention.objects.order_by("id")
+        qs = ProviderIntention.objects.order_by("id")
         filtered = filter_queryset(self.user, PROVIDER_INTENTION_VIEW, qs, owner_field="agent", view_all_action=PROVIDER_INTENTION_VIEW_ALL)
         self.assertEqual(filtered.count(), 2)
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from core.models import Agent, Contact, Property, Currency
-from intentions.models import SaleProviderIntention, SaleSeekerIntention
+from intentions.models import ProviderIntention, SeekerIntention, Valuation
 from integrations.models import TokkobrokerProperty
 from utils.authorization import (
     AGENT_VIEW,
@@ -46,7 +46,29 @@ class PropertiesQuery(BaseService):
 
 class ProviderIntentionsQuery(BaseService):
     def run(self, *, actor=None):
-        queryset = SaleProviderIntention.objects.select_related('owner', 'agent', 'property').prefetch_related('state_transitions').order_by('-created_at')
+        queryset = ProviderIntention.objects.select_related('owner', 'agent', 'property').prefetch_related('state_transitions').order_by('-created_at')
+        return filter_queryset(
+            actor,
+            PROVIDER_INTENTION_VIEW,
+            queryset,
+            owner_field='agent',
+            view_all_action=PROVIDER_INTENTION_VIEW_ALL,
+        )
+
+
+class ProviderValuationsQuery(BaseService):
+    def run(self, *, actor=None):
+        queryset = (
+            Valuation.objects.select_related(
+                'provider_intention',
+                'provider_intention__property',
+                'provider_intention__owner',
+                'provider_intention__agent',
+                'currency',
+                'agent',
+            )
+            .order_by('-delivered_at', '-created_at')
+        )
         return filter_queryset(
             actor,
             PROVIDER_INTENTION_VIEW,
@@ -58,7 +80,7 @@ class ProviderIntentionsQuery(BaseService):
 
 class SeekerIntentionsQuery(BaseService):
     def run(self, *, actor=None):
-        queryset = SaleSeekerIntention.objects.select_related('contact', 'agent').prefetch_related('state_transitions').order_by('-created_at')
+        queryset = SeekerIntention.objects.select_related('contact', 'agent').prefetch_related('state_transitions').order_by('-created_at')
         return filter_queryset(
             actor,
             SEEKER_INTENTION_VIEW,
@@ -88,6 +110,7 @@ __all__ = [
     'ContactsQuery',
     'PropertiesQuery',
     'ProviderIntentionsQuery',
+    'ProviderValuationsQuery',
     'SeekerIntentionsQuery',
     'TokkobrokerPropertiesQuery',
     'AvailableTokkobrokerPropertiesQuery',

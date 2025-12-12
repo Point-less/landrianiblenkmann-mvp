@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -15,7 +13,7 @@ def _default_feature_map() -> dict:
     return {}
 
 
-class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
+class ProviderIntention(TimeStampedMixin, FSMTrackingMixin):
     """Represents a property owner’s desire to work with the agency prior to a contract."""
 
     class State(models.TextChoices):
@@ -31,17 +29,17 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
     owner = models.ForeignKey(
         Contact,
         on_delete=models.PROTECT,
-        related_name="sale_provider_intentions",
+        related_name="provider_intentions",
     )
     agent = models.ForeignKey(
         Agent,
         on_delete=models.PROTECT,
-        related_name="sale_provider_intentions",
+        related_name="provider_intentions",
     )
     property = models.ForeignKey(
         Property,
         on_delete=models.PROTECT,
-        related_name="sale_provider_intentions",
+        related_name="provider_intentions",
     )
     operation_type = models.ForeignKey(
         "opportunities.OperationType",
@@ -57,7 +55,7 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
     contract_signed_on = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
     valuation = models.ForeignKey(
-        "SaleValuation",
+        "Valuation",
         on_delete=models.SET_NULL,
         related_name="+",
         null=True,
@@ -72,11 +70,11 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
 
     class Meta:
         ordering = ("-created_at",)
-        verbose_name = "sale provider intention"
-        verbose_name_plural = "sale provider intentions"
+        verbose_name = "provider intention"
+        verbose_name_plural = "provider intentions"
 
     def __str__(self) -> str:
-        return f"Sale intent for {self.property} by {self.owner}"
+        return f"Intention for {self.property} by {self.owner}"
 
     def clean(self):
         super().clean()
@@ -96,7 +94,7 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
     ) -> None:
         if amount is None or currency is None:
             raise ValidationError("Amount and currency are required for a valuation.")
-        valuation = SaleValuation.objects.create(
+        valuation = Valuation.objects.create(
             provider_intention=self,
             agent=self.agent,
             amount=amount,
@@ -122,7 +120,7 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
         return self.state not in {self.State.CONVERTED, self.State.WITHDRAWN}
 
     @transition(field="state", source="*", target=State.WITHDRAWN, conditions=[can_withdraw])
-    def withdraw(self, *, reason: "SaleProviderIntention.WithdrawReason", notes: str | None = None) -> None:
+    def withdraw(self, *, reason: "ProviderIntention.WithdrawReason", notes: str | None = None) -> None:
         if self.state == self.State.CONVERTED:
             raise ValidationError("Converted intentions cannot be withdrawn.")
         if reason not in self.WithdrawReason.values:
@@ -135,7 +133,7 @@ class SaleProviderIntention(TimeStampedMixin, FSMTrackingMixin):
         return self.state == self.State.VALUATED and not hasattr(self, "provider_opportunity")
 
 
-class SaleSeekerIntention(TimeStampedMixin, FSMTrackingMixin):
+class SeekerIntention(TimeStampedMixin, FSMTrackingMixin):
     """Captures buyer-side interest prior to signing a representation agreement."""
 
     class State(models.TextChoices):
@@ -146,12 +144,12 @@ class SaleSeekerIntention(TimeStampedMixin, FSMTrackingMixin):
     contact = models.ForeignKey(
         Contact,
         on_delete=models.PROTECT,
-        related_name="sale_seeker_intentions",
+        related_name="seeker_intentions",
     )
     agent = models.ForeignKey(
         Agent,
         on_delete=models.PROTECT,
-        related_name="sale_seeker_intentions",
+        related_name="seeker_intentions",
     )
     operation_type = models.ForeignKey(
         "opportunities.OperationType",
@@ -190,11 +188,11 @@ class SaleSeekerIntention(TimeStampedMixin, FSMTrackingMixin):
 
     class Meta:
         ordering = ("-created_at",)
-        verbose_name = "sale seeker intention"
-        verbose_name_plural = "sale seeker intentions"
+        verbose_name = "seeker intention"
+        verbose_name_plural = "seeker intentions"
 
     def __str__(self) -> str:
-        return f"Sale seeker intent for {self.contact}"
+        return f"Seeker intent for {self.contact}"
 
     def clean(self):
         super().clean()
@@ -219,16 +217,16 @@ class SaleSeekerIntention(TimeStampedMixin, FSMTrackingMixin):
         return self.state == self.State.QUALIFYING
 
 
-class SaleValuation(TimeStampedMixin):
+class Valuation(TimeStampedMixin):
     provider_intention = models.ForeignKey(
-        SaleProviderIntention,
+        ProviderIntention,
         on_delete=models.CASCADE,
         related_name="valuations",
     )
     agent = models.ForeignKey(
         Agent,
         on_delete=models.PROTECT,
-        related_name="sale_valuations",
+        related_name="valuations",
     )
     amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     test_value = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
@@ -236,7 +234,7 @@ class SaleValuation(TimeStampedMixin):
     currency = models.ForeignKey(
         Currency,
         on_delete=models.PROTECT,
-        related_name="sale_valuations",
+        related_name="valuations",
     )
     delivered_at = models.DateTimeField(default=timezone.now)
     valuation_date = models.DateField(null=True, blank=True, help_text="Date the valuation was issued.")
@@ -244,15 +242,15 @@ class SaleValuation(TimeStampedMixin):
 
     class Meta:
         ordering = ("-delivered_at", "-created_at")
-        verbose_name = "sale valuation"
-        verbose_name_plural = "sale valuations"
+        verbose_name = "valuation"
+        verbose_name_plural = "valuations"
 
     def __str__(self) -> str:
         return f"Valuation {self.amount} {self.currency} for {self.provider_intention}"
 
 
 __all__ = [
-    "SaleProviderIntention",
-    "SaleSeekerIntention",
-    "SaleValuation",
+    "ProviderIntention",
+    "SeekerIntention",
+    "Valuation",
 ]

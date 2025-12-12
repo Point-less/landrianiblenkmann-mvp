@@ -12,7 +12,7 @@ from opportunities.models import (
 )
 from opportunities.services.validation import ValidationEnsureService
 from opportunities.services.queries import ProviderOpportunityByTokkobrokerPropertyQuery
-from intentions.models import SaleProviderIntention, SaleSeekerIntention
+from intentions.models import ProviderIntention, SeekerIntention
 
 from utils.services import BaseService
 from utils.authorization import (
@@ -32,7 +32,7 @@ class CreateOpportunityService(BaseService):
     def run(
         self,
         *,
-        intention: SaleProviderIntention,
+        intention: ProviderIntention,
         notes: str | None = None,
         gross_commission_pct,
         marketing_package_data: Mapping[str, Any] | None = None,
@@ -108,13 +108,13 @@ class CreateSeekerOpportunityService(BaseService):
     def run(
         self,
         *,
-        intention: SaleSeekerIntention,
+        intention: SeekerIntention,
         notes: str | None = None,
         gross_commission_pct,
     ) -> SeekerOpportunity:
         if hasattr(intention, "seeker_opportunity"):
             raise ValidationError("Intention already has a seeker opportunity attached.")
-        if intention.state != SaleSeekerIntention.State.QUALIFYING:
+        if intention.state != SeekerIntention.State.QUALIFYING:
             raise ValidationError("Seeker intention must be qualifying before conversion.")
 
         opportunity = SeekerOpportunity.objects.create(

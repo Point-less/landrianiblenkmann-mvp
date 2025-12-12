@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from core.models import Agent, Contact, Property
 from opportunities.models import OperationType, ProviderOpportunity, SeekerOpportunity, Operation
-from intentions.models import SaleProviderIntention, SaleSeekerIntention
+from intentions.models import ProviderIntention, SeekerIntention
 from opportunities.services.agreements import CreateOperationAgreementService, SignOperationAgreementService
 from users.models import Role, RoleMembership, User
 from users.management.commands.seed_permissions import Command as SeedPerms
@@ -39,8 +39,8 @@ class AgreementCreationRulesTests(TestCase):
         else:
             self.currency = Currency.objects.create(code="USD", name="US Dollar")
 
-        sp_int = SaleProviderIntention.objects.create(owner=contact, agent=self.agent_provider, property=prop, operation_type=self.op_type)
-        ss_int = SaleSeekerIntention.objects.create(contact=seeker_contact, agent=self.agent_seeker, operation_type=self.op_type, budget_max=Decimal("200000"), currency=self.currency)
+        sp_int = ProviderIntention.objects.create(owner=contact, agent=self.agent_provider, property=prop, operation_type=self.op_type)
+        ss_int = SeekerIntention.objects.create(contact=seeker_contact, agent=self.agent_seeker, operation_type=self.op_type, budget_max=Decimal("200000"), currency=self.currency)
 
         self.provider_opp = ProviderOpportunity.objects.create(source_intention=sp_int, tokkobroker_property=self.tokko)
         self.provider_opp.state = ProviderOpportunity.State.MARKETING

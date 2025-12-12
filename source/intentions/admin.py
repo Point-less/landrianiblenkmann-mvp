@@ -3,8 +3,8 @@ from django.contrib import admin
 from . import models
 
 
-@admin.register(models.SaleProviderIntention)
-class SaleProviderIntentionAdmin(admin.ModelAdmin):
+@admin.register(models.ProviderIntention)
+class ProviderIntentionAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "property",
@@ -23,8 +23,8 @@ class SaleProviderIntentionAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at", "converted_at")
 
 
-@admin.register(models.SaleSeekerIntention)
-class SaleSeekerIntentionAdmin(admin.ModelAdmin):
+@admin.register(models.SeekerIntention)
+class SeekerIntentionAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "contact",
@@ -43,8 +43,8 @@ class SaleSeekerIntentionAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at")
 
 
-@admin.register(models.SaleValuation)
-class SaleValuationAdmin(admin.ModelAdmin):
+@admin.register(models.Valuation)
+class ValuationAdmin(admin.ModelAdmin):
     list_display = ("id", "provider_intention", "agent", "amount", "currency", "delivered_at")
     list_filter = ("currency", "agent")
     search_fields = ("provider_intention__property__name", "agent__first_name", "agent__last_name")

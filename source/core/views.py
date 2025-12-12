@@ -11,6 +11,8 @@ from django.urls import reverse, reverse_lazy
 from django.views.generic import TemplateView, View
 from django.views.generic.edit import FormView
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.http import HttpResponseRedirect
+import uuid
 
 from core.forms import (
     AgentEditForm,
@@ -64,18 +66,18 @@ from intentions.forms import (
     DeliverValuationForm,
     ProviderPromotionForm,
     ProviderWithdrawForm,
-    SaleProviderIntentionForm,
-    SaleSeekerIntentionForm,
+    ProviderIntentionForm,
+    SeekerIntentionForm,
     SeekerAbandonForm,
 )
-from intentions.models import SaleProviderIntention, SaleSeekerIntention
+from intentions.models import ProviderIntention, SeekerIntention
 from intentions.services import (
-    CreateSaleProviderIntentionService,
-    CreateSaleSeekerIntentionService,
-    DeliverSaleValuationService,
-    AbandonSaleSeekerIntentionService,
-    PromoteSaleProviderIntentionService,
-    WithdrawSaleProviderIntentionService,
+    CreateProviderIntentionService,
+    CreateSeekerIntentionService,
+    DeliverValuationService,
+    AbandonSeekerIntentionService,
+    PromoteProviderIntentionService,
+    WithdrawProviderIntentionService,
 )
 from opportunities.forms import (
     MarketingPackageForm,
@@ -164,6 +166,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
         'contacts': CONTACT_VIEW,
         'properties': PROPERTY_VIEW,
         'provider-intentions': PROVIDER_INTENTION_VIEW,
+        'provider-valuations': PROVIDER_INTENTION_VIEW,
         'provider-opportunities': PROVIDER_OPPORTUNITY_VIEW,
         'provider-validations': PROVIDER_OPPORTUNITY_VIEW,
         'marketing-packages': PROVIDER_OPPORTUNITY_VIEW,
@@ -189,6 +192,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
             'Providers',
             [
                 ('provider-intentions', 'Provider Intentions'),
+                ('provider-valuations', 'Valuations'),
                 ('provider-opportunities', 'Provider Opportunities'),
                 ('marketing-packages', 'Marketing Packages'),
                 ('provider-validations', 'Documental Validations'),
@@ -229,6 +233,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
         'contacts': 'workflow/sections/contacts.html',
         'properties': 'workflow/sections/properties.html',
         'provider-intentions': 'workflow/sections/provider_intentions.html',
+        'provider-valuations': 'workflow/sections/provider_valuations.html',
         'provider-opportunities': 'workflow/sections/provider_opportunities.html',
         'provider-validations': 'workflow/sections/provider_validations.html',
         'marketing-packages': 'workflow/sections/marketing_packages.html',
@@ -333,6 +338,11 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
             'provider_intentions': S.core.ProviderIntentionsQuery(actor=self.request.user),
         }
 
+    def _context_provider_valuations(self):
+        return {
+            'provider_valuations': S.core.ProviderValuationsQuery(actor=self.request.user),
+        }
+
     def _context_provider_opportunities(self):
         return {
             'provider_opportunities': S.opportunities.DashboardProviderOpportunitiesQuery(actor=self.request.user),
@@ -381,13 +391,13 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
     def _context_integration_zonaprop(self):
         return {
             'integration_name': 'Zonaprop',
-            'status_message': 'Estamos preparando esta integración. Pronto podrás sincronizar propiedades de Zonaprop desde aquí.',
+            'status_message': 'This integration is in progress. You will be able to sync Zonaprop properties from here soon.',
         }
 
     def _context_integration_meta(self):
         return {
             'integration_name': 'Meta',
-            'status_message': 'Integración con Meta Ads en desarrollo. Volvé pronto para activarla.',
+            'status_message': 'Meta Ads integration is under development. Check back soon to activate it.',
         }
 
 
@@ -403,7 +413,9 @@ class WorkflowFormView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessage
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.setdefault('nav_groups', DashboardSectionView.NAV_GROUPS)
+        # Use permission-filtered nav for consistency with dashboard sections
+        nav = DashboardSectionView()._nav_for_user(self.request.user)
+        context.setdefault('nav_groups', nav)
         context.setdefault('active_section', None)
         context.setdefault('current_url', self.request.get_full_path())
         context.setdefault('page_new_url', None)
@@ -412,9 +424,17 @@ class WorkflowFormView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessage
         context.setdefault('form_title', default_title)
         context.setdefault('form_description', getattr(self, 'form_description', None))
         context.setdefault('submit_label', getattr(self, 'submit_label', 'Submit'))
+        context.setdefault('idempotency_token', self._issue_idempotency_token())
         return context
 
     def form_valid(self, form):
+        try:
+            first_use = self._consume_idempotency_token()
+        except IdempotencyError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
+        if not first_use:
+            return HttpResponseRedirect(self.get_success_url())
         try:
             response = self.perform_action(form)
         except ValidationError as exc:
@@ -442,6 +462,35 @@ class WorkflowFormView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessage
                 form.add_error(None, message)
         else:
             form.add_error(None, str(exc))
+
+    def _issue_idempotency_token(self) -> str:
+        token = uuid.uuid4().hex
+        issued = self.request.session.get('_form_tokens_issued', [])
+        issued.append(token)
+        issued = issued[-50:]
+        self.request.session['_form_tokens_issued'] = issued
+        self.request.session.modified = True
+        return token
+
+    def _consume_idempotency_token(self) -> bool:
+        token = self.request.POST.get('_idempotency_token')
+        if not token:
+            raise IdempotencyError("Form submission token missing.")
+        issued = set(self.request.session.get('_form_tokens_issued', []))
+        if token not in issued:
+            raise IdempotencyError("Form submission token is invalid or expired. Please reload the form.")
+        used = self.request.session.get('_form_tokens_used', [])
+        if token in used:
+            return False
+        used.append(token)
+        used = used[-50:]
+        self.request.session['_form_tokens_used'] = used
+        self.request.session.modified = True
+        return True
+
+
+class IdempotencyError(Exception):
+    pass
 
 
 class AgentCreateView(WorkflowFormView):
@@ -537,7 +586,7 @@ class ProviderIntentionMixin:
     pk_url_kwarg = 'intention_id'
 
     def get_intention(self):
-        return get_object_or_404(SaleProviderIntention, pk=self.kwargs[self.pk_url_kwarg])
+        return get_object_or_404(ProviderIntention, pk=self.kwargs[self.pk_url_kwarg])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -549,7 +598,7 @@ class SeekerIntentionMixin:
     pk_url_kwarg = 'intention_id'
 
     def get_intention(self):
-        return get_object_or_404(SaleSeekerIntention, pk=self.kwargs[self.pk_url_kwarg])
+        return get_object_or_404(SeekerIntention, pk=self.kwargs[self.pk_url_kwarg])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -558,7 +607,7 @@ class SeekerIntentionMixin:
 
 
 class ProviderIntentionCreateView(WorkflowFormView):
-    form_class = SaleProviderIntentionForm
+    form_class = ProviderIntentionForm
     success_message = 'Provider intention created.'
     form_title = 'New provider intention'
     form_description = 'Capture a seller lead before promoting to opportunity.'
@@ -566,7 +615,7 @@ class ProviderIntentionCreateView(WorkflowFormView):
     required_action = PROVIDER_INTENTION_CREATE
 
     def perform_action(self, form):
-        S.intentions.CreateSaleProviderIntentionService(**form.cleaned_data)
+        S.intentions.CreateProviderIntentionService(**form.cleaned_data)
 
 
 class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
@@ -583,7 +632,7 @@ class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
         return kwargs
 
     def perform_action(self, form):
-        S.intentions.DeliverSaleValuationService(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.DeliverValuationService(intention=self.get_intention(), **form.cleaned_data)
 
 class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
     form_class = ProviderPromotionForm
@@ -607,7 +656,7 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
 
     def perform_action(self, form):
         data = form.cleaned_data
-        S.intentions.PromoteSaleProviderIntentionService(
+        S.intentions.PromoteProviderIntentionService(
             intention=self.get_intention(),
             notes=data.get('notes') or None,
             marketing_package_data=None,
@@ -629,18 +678,18 @@ class ProviderWithdrawView(ProviderIntentionMixin, WorkflowFormView):
     required_action = PROVIDER_INTENTION_WITHDRAW
 
     def perform_action(self, form):
-        S.intentions.WithdrawSaleProviderIntentionService(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.WithdrawProviderIntentionService(intention=self.get_intention(), **form.cleaned_data)
 
 
 class SeekerIntentionCreateView(WorkflowFormView):
-    form_class = SaleSeekerIntentionForm
+    form_class = SeekerIntentionForm
     success_message = 'Seeker intention registered.'
     form_title = 'New seeker intention'
     submit_label = 'Create intention'
     required_action = SEEKER_INTENTION_CREATE
 
     def perform_action(self, form):
-        S.intentions.CreateSaleSeekerIntentionService(**form.cleaned_data)
+        S.intentions.CreateSeekerIntentionService(**form.cleaned_data)
 
 
 class SeekerOpportunityCreateView(SeekerIntentionMixin, WorkflowFormView):
@@ -662,7 +711,7 @@ class SeekerAbandonView(SeekerIntentionMixin, WorkflowFormView):
     required_action = SEEKER_INTENTION_ABANDON
 
     def perform_action(self, form):
-        S.intentions.AbandonSaleSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.AbandonSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
 
 
 class ProviderOpportunityMixin:

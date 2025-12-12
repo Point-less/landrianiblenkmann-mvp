@@ -20,11 +20,11 @@ from core.services import (
 )
 from integrations.models import TokkobrokerProperty
 from intentions.services import (
-    CreateSaleProviderIntentionService,
-    CreateSaleSeekerIntentionService,
-    DeliverSaleValuationService,
-    PromoteSaleProviderIntentionService,
-    AbandonSaleSeekerIntentionService,
+    CreateProviderIntentionService,
+    CreateSeekerIntentionService,
+    DeliverValuationService,
+    PromoteProviderIntentionService,
+    AbandonSeekerIntentionService,
 )
 from opportunities.models import (
     MarketingPackage,
@@ -55,7 +55,7 @@ from utils.models import FSMStateTransition
 
 
 @override_settings(BYPASS_SERVICE_AUTH_FOR_TESTS=True)
-class SaleFlowServiceTests(TestCase):
+class IntentionFlowServiceTests(TestCase):
     maxDiff = None
 
     def setUp(self) -> None:
@@ -84,14 +84,14 @@ class SaleFlowServiceTests(TestCase):
                 tokko_id=99999,
                 ref_code="AUTO-REF-99999",
             )
-        provider_intention = CreateSaleProviderIntentionService.call(
+        provider_intention = CreateProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
             property=self.property,
             operation_type=self.operation_type,
             notes="Initial walkthrough pending",
         )
-        DeliverSaleValuationService.call(
+        DeliverValuationService.call(
             intention=provider_intention,
             amount=Decimal("950000"),
             currency=self.currency,
@@ -99,7 +99,7 @@ class SaleFlowServiceTests(TestCase):
             test_value=Decimal("940000"),
             close_value=Decimal("930000"),
         )
-        provider_opportunity = PromoteSaleProviderIntentionService.call(
+        provider_opportunity = PromoteProviderIntentionService.call(
             intention=provider_intention,
             marketing_package_data={},
             gross_commission_pct=Decimal("0.05"),
@@ -111,7 +111,7 @@ class SaleFlowServiceTests(TestCase):
         return provider_opportunity, validation, provider_intention
 
     def test_transition_records_actor_from_service_context(self):
-        intention = CreateSaleProviderIntentionService.call(
+        intention = CreateProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
             property=self.property,
@@ -119,7 +119,7 @@ class SaleFlowServiceTests(TestCase):
             notes="Actor tracing",
         )
 
-        DeliverSaleValuationService.call(
+        DeliverValuationService.call(
             intention=intention,
             amount=Decimal("950000"),
             currency=self.currency,
@@ -189,7 +189,7 @@ class SaleFlowServiceTests(TestCase):
         marketing_package.refresh_from_db()
         self.assertEqual(marketing_package.state, MarketingPackage.State.PREPARING)
 
-        seeker_intention = CreateSaleSeekerIntentionService.call(
+        seeker_intention = CreateSeekerIntentionService.call(
             contact=self.seeker_contact,
             agent=self.agent,
             operation_type=self.operation_type,
@@ -262,7 +262,7 @@ class SaleFlowServiceTests(TestCase):
         )
 
         # ensure we can abandon remaining seeker intents if needed
-        abandon_intention = CreateSaleSeekerIntentionService.call(
+        abandon_intention = CreateSeekerIntentionService.call(
             contact=self.seeker_contact,
             agent=self.agent,
             operation_type=self.operation_type,
@@ -271,7 +271,7 @@ class SaleFlowServiceTests(TestCase):
             budget_max=Decimal("550000"),
         )
         with self.subTest("abandon seeker intention"):
-            AbandonSaleSeekerIntentionService.call(intention=abandon_intention, reason="Shifted priorities")
+            AbandonSeekerIntentionService.call(intention=abandon_intention, reason="Shifted priorities")
             self.assertEqual(abandon_intention.state, abandon_intention.State.ABANDONED)
 
     def test_operation_loss_resets_seeker_to_matching(self):
@@ -283,7 +283,7 @@ class SaleFlowServiceTests(TestCase):
         ValidationAcceptService.call(validation=validation)
         provider_opportunity.refresh_from_db()
 
-        seeker_intention = CreateSaleSeekerIntentionService.call(
+        seeker_intention = CreateSeekerIntentionService.call(
             contact=self.seeker_contact,
             agent=self.agent,
             operation_type=self.operation_type,
@@ -332,14 +332,14 @@ class SaleFlowServiceTests(TestCase):
         provider_opportunity.refresh_from_db()
 
         second_property = CreatePropertyService.call(name="Skyline Loft")
-        second_intention = CreateSaleProviderIntentionService.call(
+        second_intention = CreateProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
             property=second_property,
             operation_type=self.operation_type,
             notes="Second listing",
         )
-        DeliverSaleValuationService.call(
+        DeliverValuationService.call(
             intention=second_intention,
             amount=Decimal("850000"),
             currency=self.currency,
@@ -347,7 +347,7 @@ class SaleFlowServiceTests(TestCase):
             test_value=Decimal("840000"),
             close_value=Decimal("830000"),
         )
-        second_provider_opportunity = PromoteSaleProviderIntentionService.call(
+        second_provider_opportunity = PromoteProviderIntentionService.call(
             intention=second_intention,
             marketing_package_data={},
             gross_commission_pct=Decimal("0.05"),
@@ -361,7 +361,7 @@ class SaleFlowServiceTests(TestCase):
         ValidationAcceptService.call(validation=second_validation)
         second_provider_opportunity.refresh_from_db()
 
-        seeker_intention = CreateSaleSeekerIntentionService.call(
+        seeker_intention = CreateSeekerIntentionService.call(
             contact=self.seeker_contact,
             agent=self.agent,
             operation_type=self.operation_type,
@@ -555,13 +555,13 @@ class SaleFlowServiceTests(TestCase):
         self.assertEqual(tokko_property.provider_opportunity, provider_opportunity)
 
         secondary_property = CreatePropertyService.call(name="City Loft")
-        second_intention = CreateSaleProviderIntentionService.call(
+        second_intention = CreateProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
             property=secondary_property,
             operation_type=self.operation_type,
         )
-        DeliverSaleValuationService.call(
+        DeliverValuationService.call(
             intention=second_intention,
             amount=Decimal("750000"),
             currency=self.currency,
@@ -570,7 +570,7 @@ class SaleFlowServiceTests(TestCase):
         )
 
         with self.assertRaises(ValidationError):
-            PromoteSaleProviderIntentionService.call(
+            PromoteProviderIntentionService.call(
                 intention=second_intention,
                 marketing_package_data={},
                 tokkobroker_property=tokko_property,

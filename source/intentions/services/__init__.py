@@ -1,21 +1,21 @@
 """Intentions service layer."""
 
 from .provider import (
-    CreateSaleProviderIntentionService,
-    DeliverSaleValuationService,
-    PromoteSaleProviderIntentionService,
-    WithdrawSaleProviderIntentionService,
+    CreateProviderIntentionService,
+    DeliverValuationService,
+    PromoteProviderIntentionService,
+    WithdrawProviderIntentionService,
 )
 from .seeker import (
-    CreateSaleSeekerIntentionService,
-    AbandonSaleSeekerIntentionService,
+    CreateSeekerIntentionService,
+    AbandonSeekerIntentionService,
 )
 
 __all__ = [
-    "CreateSaleProviderIntentionService",
-    "DeliverSaleValuationService",
-    "WithdrawSaleProviderIntentionService",
-    "PromoteSaleProviderIntentionService",
-    "CreateSaleSeekerIntentionService",
-    "AbandonSaleSeekerIntentionService",
+    "CreateProviderIntentionService",
+    "DeliverValuationService",
+    "WithdrawProviderIntentionService",
+    "PromoteProviderIntentionService",
+    "CreateSeekerIntentionService",
+    "AbandonSeekerIntentionService",
 ]

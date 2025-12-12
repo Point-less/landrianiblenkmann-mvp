@@ -8,8 +8,15 @@ from decimal import Decimal
 from datetime import date
 
 from integrations.models import TokkobrokerProperty
-from intentions.models import SaleProviderIntention, SaleSeekerIntention
+from intentions.models import ProviderIntention, SeekerIntention
 from opportunities.models import OperationType
+from core.models import Contact, Agent
+from utils.authorization import (
+    CONTACT_VIEW,
+    CONTACT_VIEW_ALL,
+    filter_queryset,
+    get_role_profile,
+)
 
 
 class HTML5WidgetMixin:
@@ -32,14 +39,37 @@ class HTML5WidgetMixin:
         self._apply_html5_widgets()
 
 
-class SaleProviderIntentionForm(HTML5WidgetMixin, forms.ModelForm):
+class ProviderIntentionForm(HTML5WidgetMixin, forms.ModelForm):
     class Meta:
-        model = SaleProviderIntention
+        model = ProviderIntention
         fields = ["owner", "agent", "property", "operation_type", "notes"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, actor=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["operation_type"].queryset = OperationType.objects.all()
+        if actor is not None:
+            self.fields["owner"].queryset = filter_queryset(
+                actor,
+                CONTACT_VIEW,
+                Contact.objects.order_by("last_name", "first_name"),
+                owner_field="agents",
+                view_all_action=CONTACT_VIEW_ALL,
+            )
+            agent_profile = get_role_profile(actor, "agent")
+            agent_qs = Agent.objects.filter(pk=agent_profile.pk) if agent_profile else Agent.objects.none()
+            self.fields["agent"].queryset = agent_qs
+            if agent_profile:
+                self.fields["agent"].initial = agent_profile
+            self._actor_agent = agent_profile
+
+    def clean_agent(self):
+        agent = self.cleaned_data.get("agent")
+        expected = getattr(self, "_actor_agent", None)
+        if expected is None:
+            raise forms.ValidationError("You must be linked to an agent profile to create intentions.")
+        if agent != expected:
+            raise forms.ValidationError("You can only create intentions for yourself as agent.")
+        return agent
 
 
 class DeliverValuationForm(HTML5WidgetMixin, forms.Form):
@@ -100,13 +130,13 @@ class ProviderPromotionForm(HTML5WidgetMixin, forms.Form):
 
 
 class ProviderWithdrawForm(HTML5WidgetMixin, forms.Form):
-    reason = forms.ChoiceField(choices=SaleProviderIntention.WithdrawReason.choices)
+    reason = forms.ChoiceField(choices=ProviderIntention.WithdrawReason.choices)
     notes = forms.CharField(required=False, widget=forms.Textarea)
 
 
-class SaleSeekerIntentionForm(HTML5WidgetMixin, forms.ModelForm):
+class SeekerIntentionForm(HTML5WidgetMixin, forms.ModelForm):
     class Meta:
-        model = SaleSeekerIntention
+        model = SeekerIntention
         fields = [
             "contact",
             "agent",
@@ -122,9 +152,32 @@ class SaleSeekerIntentionForm(HTML5WidgetMixin, forms.ModelForm):
             "notes": forms.Textarea(attrs={'rows': 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, actor=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["operation_type"].queryset = OperationType.objects.all()
+        if actor is not None:
+            self.fields["contact"].queryset = filter_queryset(
+                actor,
+                CONTACT_VIEW,
+                Contact.objects.order_by("last_name", "first_name"),
+                owner_field="agents",
+                view_all_action=CONTACT_VIEW_ALL,
+            )
+            agent_profile = get_role_profile(actor, "agent")
+            agent_qs = Agent.objects.filter(pk=agent_profile.pk) if agent_profile else Agent.objects.none()
+            self.fields["agent"].queryset = agent_qs
+            if agent_profile:
+                self.fields["agent"].initial = agent_profile
+            self._actor_agent = agent_profile
+
+    def clean_agent(self):
+        agent = self.cleaned_data.get("agent")
+        expected = getattr(self, "_actor_agent", None)
+        if expected is None:
+            raise forms.ValidationError("You must be linked to an agent profile to create intentions.")
+        if agent != expected:
+            raise forms.ValidationError("You can only create intentions for yourself as agent.")
+        return agent
 
 
 class SeekerMandateForm(HTML5WidgetMixin, forms.Form):
@@ -136,11 +189,11 @@ class SeekerAbandonForm(HTML5WidgetMixin, forms.Form):
 
 
 __all__ = [
-    "SaleProviderIntentionForm",
+    "ProviderIntentionForm",
     "DeliverValuationForm",
     "ProviderPromotionForm",
     "ProviderWithdrawForm",
-    "SaleSeekerIntentionForm",
+    "SeekerIntentionForm",
     "SeekerMandateForm",
     "SeekerAbandonForm",
 ]

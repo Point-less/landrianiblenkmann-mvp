@@ -1,14 +1,14 @@
-"""Seeker-facing services for sale intentions."""
+"""Seeker-facing services for intentions."""
 
 from django.core.exceptions import ValidationError
 
 from core.models import Agent, Contact, Currency
-from intentions.models import SaleSeekerIntention
+from intentions.models import SeekerIntention
 from utils.services import BaseService
 from utils.authorization import SEEKER_INTENTION_CREATE, SEEKER_INTENTION_ABANDON
 
 
-class CreateSaleSeekerIntentionService(BaseService):
+class CreateSeekerIntentionService(BaseService):
     """Capture an inbound buyer inquiry before it becomes an opportunity."""
 
     required_action = SEEKER_INTENTION_CREATE
@@ -24,8 +24,8 @@ class CreateSaleSeekerIntentionService(BaseService):
         currency: Currency | None = None,
         desired_features: dict | None = None,
         notes: str | None = None,
-    ) -> SaleSeekerIntention:
-        return SaleSeekerIntention.objects.create(
+    ) -> SeekerIntention:
+        return SeekerIntention.objects.create(
             contact=contact,
             agent=agent,
             operation_type=operation_type,
@@ -37,12 +37,12 @@ class CreateSaleSeekerIntentionService(BaseService):
         )
 
 
-class AbandonSaleSeekerIntentionService(BaseService):
+class AbandonSeekerIntentionService(BaseService):
     """Mark a seeker intention as abandoned."""
 
     required_action = SEEKER_INTENTION_ABANDON
 
-    def run(self, *, intention: SaleSeekerIntention, reason: str | None = None) -> SaleSeekerIntention:
+    def run(self, *, intention: SeekerIntention, reason: str | None = None) -> SeekerIntention:
         intention.abandon(reason=reason)
         update_fields = ["state", "updated_at"]
         if reason:
@@ -52,6 +52,6 @@ class AbandonSaleSeekerIntentionService(BaseService):
 
 
 __all__ = [
-    "CreateSaleSeekerIntentionService",
-    "AbandonSaleSeekerIntentionService",
+    "CreateSeekerIntentionService",
+    "AbandonSeekerIntentionService",
 ]

@@ -1,21 +1,18 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
-from django.views.generic.edit import FormView
 
-from core.mixins import PermissionedViewMixin
+from core.views import WorkflowFormView
 from intentions.forms import (
     DeliverValuationForm,
     ProviderPromotionForm,
     ProviderWithdrawForm,
-    SaleProviderIntentionForm,
-    SaleSeekerIntentionForm,
+    ProviderIntentionForm,
+    SeekerIntentionForm,
     SeekerAbandonForm,
 )
 from opportunities.forms import SeekerOpportunityCreateForm
-from intentions.models import SaleProviderIntention, SaleSeekerIntention
+from intentions.models import ProviderIntention, SeekerIntention
 from utils.services import S
 from utils.authorization import (
     PROVIDER_INTENTION_CREATE,
@@ -32,7 +29,7 @@ class ProviderIntentionMixin:
     pk_url_kwarg = 'intention_id'
 
     def get_intention(self):
-        return get_object_or_404(SaleProviderIntention, pk=self.kwargs[self.pk_url_kwarg])
+        return get_object_or_404(ProviderIntention, pk=self.kwargs[self.pk_url_kwarg])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -44,7 +41,7 @@ class SeekerIntentionMixin:
     pk_url_kwarg = 'intention_id'
 
     def get_intention(self):
-        return get_object_or_404(SaleSeekerIntention, pk=self.kwargs[self.pk_url_kwarg])
+        return get_object_or_404(SeekerIntention, pk=self.kwargs[self.pk_url_kwarg])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -52,16 +49,21 @@ class SeekerIntentionMixin:
         return context
 
 
-class ProviderIntentionCreateView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
-    form_class = SaleProviderIntentionForm
+class ProviderIntentionCreateView(WorkflowFormView):
+    form_class = ProviderIntentionForm
     success_message = 'Provider intention created.'
     form_title = 'New provider intention'
     form_description = 'Capture a seller lead before promoting to opportunity.'
     submit_label = 'Create intention'
     required_action = PROVIDER_INTENTION_CREATE
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['actor'] = self.request.user
+        return kwargs
+
     def perform_action(self, form):
-        S.intentions.CreateSaleProviderIntentionService(**form.cleaned_data)
+        S.intentions.CreateProviderIntentionService(**form.cleaned_data)
 
     def form_valid(self, form):
         try:
@@ -74,7 +76,7 @@ class ProviderIntentionCreateView(PermissionedViewMixin, LoginRequiredMixin, Suc
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-intentions'})
 
 
-class DeliverValuationView(ProviderIntentionMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
     form_class = DeliverValuationForm
     success_message = 'Valuation delivered.'
     form_title = 'Deliver valuation'
@@ -88,7 +90,7 @@ class DeliverValuationView(ProviderIntentionMixin, PermissionedViewMixin, LoginR
         return kwargs
 
     def perform_action(self, form):
-        S.intentions.DeliverSaleValuationService(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.DeliverValuationService(intention=self.get_intention(), **form.cleaned_data)
 
     def form_valid(self, form):
         try:
@@ -101,7 +103,7 @@ class DeliverValuationView(ProviderIntentionMixin, PermissionedViewMixin, LoginR
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-intentions'})
 
 
-class ProviderPromotionView(ProviderIntentionMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
     form_class = ProviderPromotionForm
     success_message = 'Provider intention promoted to opportunity.'
     form_title = 'Promote to opportunity'
@@ -123,7 +125,7 @@ class ProviderPromotionView(ProviderIntentionMixin, PermissionedViewMixin, Login
 
     def perform_action(self, form):
         data = form.cleaned_data
-        S.intentions.PromoteSaleProviderIntentionService(
+        S.intentions.PromoteProviderIntentionService(
             intention=self.get_intention(),
             notes=data.get('notes') or None,
             marketing_package_data=None,
@@ -147,7 +149,7 @@ class ProviderPromotionView(ProviderIntentionMixin, PermissionedViewMixin, Login
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-opportunities'})
 
 
-class ProviderWithdrawView(ProviderIntentionMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class ProviderWithdrawView(ProviderIntentionMixin, WorkflowFormView):
     form_class = ProviderWithdrawForm
     success_message = 'Provider intention withdrawn.'
     form_title = 'Withdraw provider intention'
@@ -155,7 +157,7 @@ class ProviderWithdrawView(ProviderIntentionMixin, PermissionedViewMixin, LoginR
     required_action = PROVIDER_INTENTION_WITHDRAW
 
     def perform_action(self, form):
-        S.intentions.WithdrawSaleProviderIntentionService(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.WithdrawProviderIntentionService(intention=self.get_intention(), **form.cleaned_data)
 
     def form_valid(self, form):
         try:
@@ -168,15 +170,20 @@ class ProviderWithdrawView(ProviderIntentionMixin, PermissionedViewMixin, LoginR
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-intentions'})
 
 
-class SeekerIntentionCreateView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
-    form_class = SaleSeekerIntentionForm
+class SeekerIntentionCreateView(WorkflowFormView):
+    form_class = SeekerIntentionForm
     success_message = 'Seeker intention registered.'
     form_title = 'New seeker intention'
     submit_label = 'Create intention'
     required_action = SEEKER_INTENTION_CREATE
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['actor'] = self.request.user
+        return kwargs
+
     def perform_action(self, form):
-        S.intentions.CreateSaleSeekerIntentionService(**form.cleaned_data)
+        S.intentions.CreateSeekerIntentionService(**form.cleaned_data)
 
     def form_valid(self, form):
         try:
@@ -189,7 +196,7 @@ class SeekerIntentionCreateView(PermissionedViewMixin, LoginRequiredMixin, Succe
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'seeker-intentions'})
 
 
-class SeekerOpportunityCreateView(SeekerIntentionMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class SeekerOpportunityCreateView(SeekerIntentionMixin, WorkflowFormView):
     form_class = SeekerOpportunityCreateForm
     success_message = 'Seeker opportunity created.'
     form_title = 'Create seeker opportunity'
@@ -210,7 +217,7 @@ class SeekerOpportunityCreateView(SeekerIntentionMixin, PermissionedViewMixin, L
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'seeker-opportunities'})
 
 
-class SeekerAbandonView(SeekerIntentionMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class SeekerAbandonView(SeekerIntentionMixin, WorkflowFormView):
     form_class = SeekerAbandonForm
     success_message = 'Seeker intention abandoned.'
     form_title = 'Abandon seeker intention'
@@ -218,7 +225,7 @@ class SeekerAbandonView(SeekerIntentionMixin, PermissionedViewMixin, LoginRequir
     required_action = SEEKER_INTENTION_ABANDON
 
     def perform_action(self, form):
-        S.intentions.AbandonSaleSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
+        S.intentions.AbandonSeekerIntentionService(intention=self.get_intention(), **form.cleaned_data)
 
     def form_valid(self, form):
         try:

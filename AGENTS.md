@@ -43,7 +43,7 @@ Shared domain models and dashboard views.
   - Properties store `full_address` in addition to name/reference code.
 - **URLs** (`urls.py`): Dashboard views, health checks, entity CRUD (agents, contacts, properties), transition history
 - **Views** (`views.py`): Workflow dashboard, entity management forms, health/trigger endpoints
-- **Services** (`services/`): Command services plus query services (`services/queries.py`) for dashboard/form data (agents, contacts, properties, intentions, Tokkobroker props, currencies)
+- **Services** (`services/`): Command services plus query services (`services/queries.py`) for dashboard/form data (agents, contacts, properties, intentions, valuations, Tokkobroker props, currencies)
 - **Purpose**: Foundation entities used across the real estate workflow
 
 ### `integrations/`
@@ -56,9 +56,9 @@ External service integrations.
 ### `intentions/`
 Pre-contract intent tracking with FSM state management.
 - **Models**:
-  - `SaleProviderIntention`: Property owner's pre-contract engagement (states: assessing → valuated → converted/withdrawn) with `operation_type` (Sale/Rent)
-  - `SaleSeekerIntention`: Buyer's pre-representation interest (states: qualifying → active → mandated → converted/abandoned) with `operation_type`
-  - `SaleValuation`: Valuation records delivered to providers
+  - `ProviderIntention`: Property owner's pre-contract engagement (states: assessing → valuated → converted/withdrawn) with configurable `operation_type`
+  - `SeekerIntention`: Buyer's pre-representation interest (states: qualifying → active → mandated → converted/abandoned) with configurable `operation_type`
+  - `Valuation`: Valuation records delivered to providers
 - **Valuations**: capture valuation_date and required test/close values (max 12 digits); promotion forms prefill client test/close values.
 - **Purpose**: Capture and qualify leads before formal contracts
 - **FSM States**: Uses django-fsm for state transitions with validation rules
@@ -117,9 +117,10 @@ Shared utilities and mixins.
 The system models a real estate agency's sales workflow:
 
 1. **Intentions**: Capture provider (seller) and seeker (buyer) interest
-2. **Opportunities**: Convert qualified intentions into active pipeline opportunities
-3. **Validations**: Verify provider opportunity documentation (deed, authorization, etc.)
-4. **Operations**: Close deals and record final transactions
+2. **Valuations**: Deliver and review provider property valuations before promotion
+3. **Opportunities**: Convert qualified intentions into active pipeline opportunities
+4. **Validations**: Verify provider opportunity documentation (deed, authorization, etc.)
+5. **Operations**: Close deals and record final transactions
 
 State transitions use **django-fsm** with **django-fsm-log** for audit trails.
 
@@ -137,6 +138,7 @@ State transitions use **django-fsm** with **django-fsm-log** for audit trails.
 | `/admin/` | Django Admin | Admin interface |
 | `/graphql/` | config | GraphQL endpoint (GraphiQL UI) |
 | `/`, `/dashboard/` | core | Workflow dashboard and entity management |
+| `/dashboard/provider-valuations/` | core | Provider valuations dashboard section |
 | `/health/`, `/trigger-log/` | core | Health check and Dramatiq trigger endpoints |
 | `/agents/`, `/contacts/`, `/properties/` | core | Entity CRUD |
 | `/transitions/...` | core | FSM transition history |
@@ -152,6 +154,7 @@ State transitions use **django-fsm** with **django-fsm-log** for audit trails.
   - Re-run after `docker compose down -v` to reset state
 - **Live Reload**: `watchmedo` auto-restarts Gunicorn and Dramatiq on code changes in `source/`
 - **Management Commands**: `docker compose exec frontend python manage.py <command>`
+- **Migrations**: Do not handcraft migration files. Run `docker compose exec frontend python manage.py makemigrations` and let Django generate them deterministically.
 - **Dramatiq Worker**: `docker compose up dramatiq` keeps worker running; trigger via `/trigger-log/`
 - **Cloudflared Tunnel**: `docker compose --profile tunnel up` to enable
 

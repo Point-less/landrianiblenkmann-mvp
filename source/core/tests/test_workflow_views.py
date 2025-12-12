@@ -12,13 +12,13 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from core.models import Agent, Contact, Currency, Property
-from intentions.models import SaleProviderIntention, SaleSeekerIntention
+from intentions.models import ProviderIntention, SeekerIntention
 from integrations.models import TokkobrokerProperty
 from intentions.services import (
-    CreateSaleProviderIntentionService,
-    CreateSaleSeekerIntentionService,
-    DeliverSaleValuationService,
-    PromoteSaleProviderIntentionService,
+    CreateProviderIntentionService,
+    CreateSeekerIntentionService,
+    DeliverValuationService,
+    PromoteProviderIntentionService,
 )
 from opportunities.models import Operation, ProviderOpportunity, Validation, ValidationDocument, ValidationDocumentType
 from opportunities.services import (
@@ -59,14 +59,14 @@ class WorkflowViewSmokeTests(TestCase):
         self.operation_type = OperationType.objects.get(code="sale")
         self.file = SimpleUploadedFile('doc.pdf', b'content')
 
-        self.provider_intention = CreateSaleProviderIntentionService.call(
+        self.provider_intention = CreateProviderIntentionService.call(
             owner=self.owner,
             agent=self.agent,
             property=self.property,
             operation_type=self.operation_type,
             notes='Initial notes',
         )
-        DeliverSaleValuationService.call(
+        DeliverValuationService.call(
             intention=self.provider_intention,
             amount=Decimal('950000'),
             currency=self.currency,
@@ -74,7 +74,7 @@ class WorkflowViewSmokeTests(TestCase):
             close_value=Decimal('930000'),
         )
         self.tokko_property = TokkobrokerProperty.objects.create(tokko_id=77777, ref_code="AUTO-REF-77777")
-        self.provider_opportunity = PromoteSaleProviderIntentionService.call(
+        self.provider_opportunity = PromoteProviderIntentionService.call(
             intention=self.provider_intention,
             marketing_package_data={},
             gross_commission_pct=Decimal('0.05'),
@@ -112,7 +112,7 @@ class WorkflowViewSmokeTests(TestCase):
             uploaded_by=self.admin,
         )
 
-        self.seeker_intention = CreateSaleSeekerIntentionService.call(
+        self.seeker_intention = CreateSeekerIntentionService.call(
             contact=self.seeker_contact,
             agent=self.agent,
             operation_type=self.operation_type,

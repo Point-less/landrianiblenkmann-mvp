@@ -56,16 +56,16 @@ class AgreementCreationRulesTests(TestCase):
                 initial_offered_amount=Decimal("100"),
             )
 
-    def test_provider_must_be_other_agent(self):
+    def test_same_agent_skips_to_agreed(self):
         # Make provider opp belong to same agent
         self.provider_opp.source_intention.agent = self.agent_seeker
         self.provider_opp.source_intention.save(update_fields=["agent"])
-        with self.assertRaises(ValidationError):
-            CreateOperationAgreementService(actor=self.user_seeker)(
-                provider_opportunity=self.provider_opp,
-                seeker_opportunity=self.seeker_opp,
-                initial_offered_amount=Decimal("100"),
-            )
+        agreement = CreateOperationAgreementService(actor=self.user_seeker)(
+            provider_opportunity=self.provider_opp,
+            seeker_opportunity=self.seeker_opp,
+            initial_offered_amount=Decimal("100"),
+        )
+        self.assertEqual(agreement.state, agreement.State.AGREED)
 
     def test_initial_offer_stored(self):
         agreement = CreateOperationAgreementService(actor=self.user_seeker)(

@@ -31,10 +31,11 @@ class CreateOperationAgreementService(BaseService):
     ) -> OperationAgreement:
         """Create a new agreement in PENDING state with validations."""
         actor_agent = get_role_profile(self.actor, "agent") if self.actor else None
-        if actor_agent is None or seeker_opportunity.source_intention.agent_id != getattr(actor_agent, "id", None):
+        seeker_agent_id = seeker_opportunity.source_intention.agent_id
+        provider_agent_id = provider_opportunity.source_intention.agent_id
+
+        if actor_agent is None or seeker_agent_id != actor_agent.id:
             raise ValidationError({"seeker_opportunity": "You must represent the seeker to create an agreement."})
-        if provider_opportunity.source_intention.agent_id == getattr(actor_agent, "id", None):
-            raise ValidationError({"provider_opportunity": "Select a provider represented by a different agent."})
 
         agreement = OperationAgreement(
             provider_opportunity=provider_opportunity,
@@ -42,10 +43,10 @@ class CreateOperationAgreementService(BaseService):
             initial_offered_amount=initial_offered_amount,
             notes=notes or "",
         )
-        
+
         agreement.validate_operation_types_match()
         agreement.validate_opportunity_states()
-        
+
         # Check for existing active agreements
         existing = OperationAgreement.objects.filter(
             provider_opportunity=provider_opportunity,
@@ -65,8 +66,14 @@ class CreateOperationAgreementService(BaseService):
         
         if existing_operations:
             raise ValidationError("An active operation already exists for this opportunity pair.")
-        
+
         agreement.save()
+
+        # If same agent represents both sides, skip pending stage and mark agreed immediately.
+        if provider_agent_id == seeker_agent_id:
+            agreement.agree()
+            agreement.save(update_fields=["state", "agreed_at", "updated_at"])
+
         return agreement
 
 

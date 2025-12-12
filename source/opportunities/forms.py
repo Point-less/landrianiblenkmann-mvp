@@ -100,9 +100,7 @@ class OperationAgreementCreateForm(HTML5FormMixin, forms.ModelForm):
             seeker_qs = seeker_qs.filter(source_intention__agent=self.actor_agent)
         self.fields["seeker_opportunity"].queryset = seeker_qs
 
-        provider_qs = S.opportunities.AvailableProviderOpportunitiesForOperationsQuery(actor=actor, exclude_agent=True)
-        if self.actor_agent:
-            provider_qs = provider_qs.exclude(source_intention__agent=self.actor_agent)
+        provider_qs = S.opportunities.AvailableProviderOpportunitiesForOperationsQuery(actor=actor, exclude_agent=False)
 
         if self.is_bound and "seeker_opportunity" in self.data:
             try:

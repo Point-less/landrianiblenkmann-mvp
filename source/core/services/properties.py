@@ -18,9 +18,10 @@ class CreatePropertyService(BaseService):
         *,
         name: str,
         reference_code: str | None = None,
+        full_address: str | None = None,
     ) -> Property:
         # reference_code retained for backward call compatibility, but model no longer stores it.
-        return Property.objects.create(name=name)
+        return Property.objects.create(name=name, full_address=full_address or "")
 
 
 class RegisterTokkobrokerPropertyService(BaseService):

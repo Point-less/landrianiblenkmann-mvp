@@ -7,11 +7,13 @@ import shutil
 import tempfile
 
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from core.models import Agent, Contact, Currency, Property
+from users.models import Role, RoleMembership
 from intentions.models import ProviderIntention, SeekerIntention
 from integrations.models import TokkobrokerProperty
 from intentions.services import (
@@ -20,7 +22,7 @@ from intentions.services import (
     DeliverValuationService,
     PromoteProviderIntentionService,
 )
-from opportunities.models import Operation, ProviderOpportunity, Validation, ValidationDocument, ValidationDocumentType
+from opportunities.models import Operation, OperationAgreement, ProviderOpportunity, Validation, ValidationDocument, ValidationDocumentType
 from opportunities.services import (
     CreateValidationDocumentService,
     CreateOperationAgreementService,
@@ -33,6 +35,7 @@ from opportunities.services import (
 )
 
 
+@override_settings(BYPASS_SERVICE_AUTH_FOR_TESTS=True)
 class WorkflowViewSmokeTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -52,11 +55,14 @@ class WorkflowViewSmokeTests(TestCase):
         from opportunities.models import ValidationDocumentType
         ValidationDocumentType.objects.update(accepted_formats=[".pdf"])
         self.agent = Agent.objects.create(first_name='Alice', last_name='Agent')
+        agent_ct = ContentType.objects.get_for_model(Agent)
+        agent_role, _ = Role.objects.get_or_create(slug="agent", defaults={"name": "Agent", "profile_content_type": agent_ct})
         self.owner = Contact.objects.create(first_name='Owner', last_name='One')
         self.seeker_contact = Contact.objects.create(first_name='Buyer', last_name='Beta')
         self.property = Property.objects.create(name='Ocean View Loft')
         from opportunities.models import OperationType
         self.operation_type = OperationType.objects.get(code="sale")
+        RoleMembership.objects.create(user=self.admin, role=agent_role, profile=self.agent)
         self.file = SimpleUploadedFile('doc.pdf', b'content')
 
         self.provider_intention = CreateProviderIntentionService.call(
@@ -128,12 +134,14 @@ class WorkflowViewSmokeTests(TestCase):
         agreement = CreateOperationAgreementService.call(
             provider_opportunity=self.provider_opportunity,
             seeker_opportunity=self.seeker_opportunity,
+            initial_offered_amount=Decimal('930000'),
+            actor=self.admin,
         )
-        AgreeOperationAgreementService.call(agreement=agreement)
+        if agreement.state == OperationAgreement.State.PENDING:
+            AgreeOperationAgreementService.call(agreement=agreement)
         _, self.operation = SignOperationAgreementService.call(
             agreement=agreement,
             signed_document=SimpleUploadedFile("signed.pdf", b"pdf content"),
-            initial_offered_amount=Decimal('930000'),
             reserve_amount=Decimal('20000'),
             reserve_deadline=date.today(),
             currency=self.currency,
@@ -184,7 +192,7 @@ class WorkflowViewSmokeTests(TestCase):
             ('operation-reinforce', {'operation_id': self.operation.id}),
             ('operation-close', {'operation_id': self.operation.id}),
             ('operation-lose', {'operation_id': self.operation.id}),
-            ('transition-history', {'app_label': 'intentions', 'model': 'saleproviderintention', 'object_id': self.provider_intention.id}),
+            ('transition-history', {'app_label': 'intentions', 'model': 'providerintention', 'object_id': self.provider_intention.id}),
         ]
 
         for name, kwargs in url_specs:

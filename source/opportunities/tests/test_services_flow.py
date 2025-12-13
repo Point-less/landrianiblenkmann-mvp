@@ -6,6 +6,7 @@ from decimal import Decimal
 from datetime import date
 
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -19,6 +20,7 @@ from core.services import (
     LinkContactAgentService,
 )
 from integrations.models import TokkobrokerProperty
+from users.models import Role, RoleMembership
 from intentions.services import (
     CreateProviderIntentionService,
     CreateSeekerIntentionService,
@@ -29,6 +31,7 @@ from intentions.services import (
 from opportunities.models import (
     MarketingPackage,
     Operation,
+    OperationAgreement,
     ProviderOpportunity,
     SeekerOpportunity,
     Validation,
@@ -69,10 +72,13 @@ class IntentionFlowServiceTests(TestCase):
         ValidationDocumentType.objects.update(accepted_formats=[".pdf"])
         self.reviewer = get_user_model().objects.create_user(username="reviewer")
         self.agent = CreateAgentService.call(first_name="Alice", last_name="Agent", email="alice@example.com")
+        agent_ct = ContentType.objects.get_for_model(self.agent.__class__)
+        agent_role, _ = Role.objects.get_or_create(slug="agent", defaults={"name": "Agent", "profile_content_type": agent_ct})
         self.owner = CreateContactService.call(first_name="Oscar", last_name="Owner", email="owner@example.com")
         self.seeker_contact = CreateContactService.call(
             first_name="Stella", last_name="Seeker", email="stella@example.com"
         )
+        RoleMembership.objects.create(user=self.reviewer, role=agent_role, profile=self.agent)
         self.operation_type = OperationType.objects.get(code="sale")
         self.property = CreatePropertyService.call(name="Ocean View Loft")
         LinkContactAgentService.call(contact=self.owner, agent=self.agent)
@@ -209,12 +215,14 @@ class IntentionFlowServiceTests(TestCase):
         agreement = CreateOperationAgreementService.call(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
+            initial_offered_amount=Decimal("930000"),
+            actor=self.reviewer,
         )
-        AgreeOperationAgreementService.call(agreement=agreement)
+        if agreement.state == OperationAgreement.State.PENDING:
+            AgreeOperationAgreementService.call(agreement=agreement)
         _, operation = SignOperationAgreementService.call(
             agreement=agreement,
             signed_document=SimpleUploadedFile("signed.pdf", b"pdf content"),
-            initial_offered_amount=Decimal("930000"),
             reserve_amount=Decimal("20000"),
             reserve_deadline=date.today(),
             currency=self.currency,
@@ -302,12 +310,14 @@ class IntentionFlowServiceTests(TestCase):
         agreement = CreateOperationAgreementService.call(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
+            initial_offered_amount=Decimal("930000"),
+            actor=self.reviewer,
         )
-        AgreeOperationAgreementService.call(agreement=agreement)
+        if agreement.state == OperationAgreement.State.PENDING:
+            AgreeOperationAgreementService.call(agreement=agreement)
         _, operation = SignOperationAgreementService.call(
             agreement=agreement,
             signed_document=SimpleUploadedFile("signed.pdf", b"pdf content"),
-            initial_offered_amount=Decimal("930000"),
             reserve_amount=Decimal("20000"),
             reserve_deadline=date.today(),
             currency=self.currency,
@@ -380,12 +390,14 @@ class IntentionFlowServiceTests(TestCase):
         agreement = CreateOperationAgreementService.call(
             provider_opportunity=provider_opportunity,
             seeker_opportunity=seeker_opportunity,
+            initial_offered_amount=Decimal("930000"),
+            actor=self.reviewer,
         )
-        AgreeOperationAgreementService.call(agreement=agreement)
+        if agreement.state == OperationAgreement.State.PENDING:
+            AgreeOperationAgreementService.call(agreement=agreement)
         _, primary_operation = SignOperationAgreementService.call(
             agreement=agreement,
             signed_document=SimpleUploadedFile("signed.pdf", b"pdf content"),
-            initial_offered_amount=Decimal("930000"),
             reserve_amount=Decimal("20000"),
             reserve_deadline=date.today(),
             currency=self.currency,
@@ -395,12 +407,14 @@ class IntentionFlowServiceTests(TestCase):
         agreement_2 = CreateOperationAgreementService.call(
             provider_opportunity=second_provider_opportunity,
             seeker_opportunity=seeker_opportunity,
+            initial_offered_amount=Decimal("930000"),
+            actor=self.reviewer,
         )
-        AgreeOperationAgreementService.call(agreement=agreement_2)
+        if agreement_2.state == OperationAgreement.State.PENDING:
+            AgreeOperationAgreementService.call(agreement=agreement_2)
         _, secondary_operation = SignOperationAgreementService.call(
             agreement=agreement_2,
             signed_document=SimpleUploadedFile("signed.pdf", b"pdf content"),
-            initial_offered_amount=Decimal("910000"),
             reserve_amount=Decimal("15000"),
             reserve_deadline=date.today(),
             currency=self.currency,

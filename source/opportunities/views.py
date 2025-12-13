@@ -103,6 +103,7 @@ class ValidationDetailView(ValidationMixin, LoginRequiredMixin, PermissionedView
 
 
 class ValidationPresentView(ValidationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = ValidationPresentForm
     success_message = 'Validation presented.'
     form_title = 'Present validation'
@@ -124,6 +125,7 @@ class ValidationPresentView(ValidationMixin, PermissionedViewMixin, LoginRequire
 
 
 class ValidationRejectView(ValidationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = ValidationRejectForm
     success_message = 'Validation sent back to preparation.'
     form_title = 'Revoke validation'
@@ -146,6 +148,7 @@ class ValidationRejectView(ValidationMixin, PermissionedViewMixin, LoginRequired
 
 
 class ValidationAcceptView(ValidationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = ConfirmationForm
     success_message = 'Validation accepted and opportunity published.'
     form_title = 'Accept validation'
@@ -167,6 +170,7 @@ class ValidationAcceptView(ValidationMixin, PermissionedViewMixin, LoginRequired
 
 
 class ValidationDocumentUploadView(ValidationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = ValidationDocumentUploadForm
     success_message = 'Validation document uploaded.'
     form_title = 'Upload document'
@@ -210,6 +214,7 @@ class ValidationDocumentUploadView(ValidationMixin, PermissionedViewMixin, Login
 
 
 class ValidationAdditionalDocumentUploadView(ValidationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = ValidationAdditionalDocumentUploadForm
     success_message = 'Custom document uploaded.'
     form_title = 'Upload custom document'
@@ -236,6 +241,7 @@ class ValidationAdditionalDocumentUploadView(ValidationMixin, PermissionedViewMi
 
 
 class ValidationDocumentReviewView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     pk_url_kwarg = 'document_id'
     form_class = ValidationDocumentReviewForm
     success_message = 'Validation document reviewed.'
@@ -271,6 +277,7 @@ class ValidationDocumentReviewView(PermissionedViewMixin, LoginRequiredMixin, Su
 
 
 class MarketingPackageCreateView(MarketingOpportunityMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = MarketingPackageForm
     success_message = 'Marketing package created.'
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
@@ -290,6 +297,7 @@ class MarketingPackageCreateView(MarketingOpportunityMixin, PermissionedViewMixi
 
 
 class MarketingPackageUpdateView(MarketingPackageMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = MarketingPackageForm
     success_message = 'Marketing package updated.'
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
@@ -316,6 +324,7 @@ class MarketingPackageUpdateView(MarketingPackageMixin, PermissionedViewMixin, L
 
 
 class MarketingPackageActionView(MarketingPackageMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = ConfirmationForm
     service_class = None
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
@@ -368,6 +377,7 @@ class OperationMixin:
 
 
 class OperationReinforceView(OperationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = OperationReinforceForm
     success_message = 'Operation reinforced.'
     form_title = 'Reinforce operation'
@@ -389,6 +399,7 @@ class OperationReinforceView(OperationMixin, PermissionedViewMixin, LoginRequire
 
 
 class OperationCloseView(OperationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = ConfirmationForm
     success_message = 'Operation closed.'
     form_title = 'Close operation'
@@ -410,6 +421,7 @@ class OperationCloseView(OperationMixin, PermissionedViewMixin, LoginRequiredMix
 
 
 class OperationLoseView(OperationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+    template_name = 'workflow/form.html'
     form_class = OperationLoseForm
     success_message = 'Operation marked as lost.'
     form_title = 'Mark operation as lost'

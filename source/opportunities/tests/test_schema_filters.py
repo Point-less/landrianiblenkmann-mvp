@@ -84,6 +84,11 @@ class OpportunitiesSchemaFilterTests(TestCase):
         qs = _resolve_provider_opportunities(None, _ctx(self.user), filters)
         self.assertEqual(list(qs), [self.provider_opportunity])
 
+    def test_provider_opportunities_authorization_blocks_user_without_agent_role(self):
+        user = User.objects.create_user(username="viewer", email="viewer@example.com", password="pass")
+        qs = _resolve_provider_opportunities(None, _ctx(user), None)
+        self.assertEqual(list(qs), [])
+
     def test_seeker_opportunities_filtered_by_state(self):
         filters = SeekerOpportunityFilter(id=None, state=self.seeker_opportunity.state, source_intention_id=None)
         qs = _resolve_seeker_opportunities(None, _ctx(self.user), filters)

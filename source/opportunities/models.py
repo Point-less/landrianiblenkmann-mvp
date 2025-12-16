@@ -682,6 +682,16 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
         return self
 
 
+class OperationManager(models.Manager):
+    """Manager enforcing model-level invariants on creation."""
+
+    def create(self, **kwargs):
+        obj = self.model(**kwargs)
+        obj.full_clean()
+        obj.save(force_insert=True)
+        return obj
+
+
 class Operation(TimeStampedMixin, FSMTrackingMixin):
     class State(models.TextChoices):
         OFFERED = "offered", "Offered"
@@ -757,6 +767,8 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
     notes = models.TextField(blank=True)
     lost_reason = models.TextField(blank=True)
 
+    objects = OperationManager()
+
     class Meta:
         ordering = ("-created_at",)
         verbose_name = "operation"
@@ -764,6 +776,24 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
 
     def __str__(self) -> str:
         return f"Operation {self.get_state_display()} for {self.agreement.provider_opportunity}"
+
+    def clean(self):
+        errors = {}
+        if self.currency_id is None:
+            errors["currency"] = "Currency is required for the operation."
+        if self.initial_offered_amount is None:
+            errors["initial_offered_amount"] = "Initial offered amount is required."
+
+        agreement = getattr(self, "agreement", None)
+        if agreement is not None and agreement.provider_opportunity_id:
+            provider = agreement.provider_opportunity
+            if not provider.validations.filter(state=Validation.State.APPROVED).exists():
+                errors["agreement"] = "Provider validation must be approved before creating an operation."
+
+        if errors:
+            raise ValidationError(errors)
+
+        super().clean()
 
     @property
     def provider_opportunity(self):
@@ -780,14 +810,6 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
     @transition(field="state", source=State.REINFORCED, target=State.CLOSED)
     def close(self) -> None:
         self.occurred_at = timezone.now()
-        # Ensure the state is persisted as CLOSED before dependent transitions need it.
-        self.state = Operation.State.CLOSED
-        self.save(update_fields=["state", "occurred_at", "updated_at"])
-        self.provider_opportunity.close_opportunity()
-        self.provider_opportunity.save(update_fields=["state", "updated_at"])
-        if self.seeker_opportunity.state == SeekerOpportunity.State.NEGOTIATING:
-            self.seeker_opportunity.close()
-            self.seeker_opportunity.save(update_fields=["state", "updated_at"])
 
     @transition(field="state", source=[State.OFFERED, State.REINFORCED], target=State.LOST)
     def lose(self, reason: str | None = None) -> None:

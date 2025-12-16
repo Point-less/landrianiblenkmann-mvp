@@ -132,13 +132,9 @@ class ProviderIntention(TimeStampedMixin, FSMTrackingMixin):
     def is_promotable(self) -> bool:
         if self.state != self.State.VALUATED:
             return False
-        from opportunities.models import ProviderOpportunity  # inline to avoid circular import at module load
+        from intentions.services.repository import IntentionRepository
 
-        try:
-            _ = self.provider_opportunity
-        except ProviderOpportunity.DoesNotExist:
-            return True
-        return False
+        return not IntentionRepository().has_provider_opportunity(self)
 
 
 class SeekerIntention(TimeStampedMixin, FSMTrackingMixin):
@@ -206,14 +202,10 @@ class SeekerIntention(TimeStampedMixin, FSMTrackingMixin):
         super().clean()
         if self.budget_min and self.budget_max and self.budget_min > self.budget_max:
             raise ValidationError({"budget_max": "Max budget cannot be lower than min budget."})
-        from opportunities.models import SeekerOpportunity  # inline import to avoid circular load
+        from intentions.services.repository import IntentionRepository
 
-        try:
-            _ = self.seeker_opportunity
-            has_opportunity = True
-        except SeekerOpportunity.DoesNotExist:
-            has_opportunity = False
-        if has_opportunity and self.state != self.State.CONVERTED:
+        repo = IntentionRepository()
+        if repo.has_seeker_opportunity(self) and self.state != self.State.CONVERTED:
             raise ValidationError({
                 "seeker_opportunity": "Converted intentions should own a seeker opportunity only once converted.",
             })

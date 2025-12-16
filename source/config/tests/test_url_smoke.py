@@ -79,6 +79,8 @@ class UrlSmokeTests(TestCase):
         )
 
         cls.validation = Validation.objects.create(opportunity=cls.provider_opportunity)
+        cls.validation.state = Validation.State.APPROVED
+        cls.validation.save(update_fields=["state", "updated_at"])
         cls.validation_doc_type = ValidationDocumentType.objects.create(code="doc1", label="Doc 1")
         cls.validation_document = ValidationDocument.objects.create(
             validation=cls.validation,

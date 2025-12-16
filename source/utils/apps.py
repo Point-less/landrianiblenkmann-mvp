@@ -7,7 +7,4 @@ class UtilsConfig(AppConfig):
     verbose_name = 'Project Utilities'
 
     def ready(self):  # pragma: no cover
-        from utils.services import discover_services
         from . import signals  # noqa: F401
-
-        discover_services(force=True)

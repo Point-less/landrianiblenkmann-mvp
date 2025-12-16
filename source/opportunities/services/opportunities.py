@@ -112,7 +112,11 @@ class CreateSeekerOpportunityService(BaseService):
         notes: str | None = None,
         gross_commission_pct,
     ) -> SeekerOpportunity:
-        if hasattr(intention, "seeker_opportunity"):
+        try:
+            _ = intention.seeker_opportunity
+        except SeekerOpportunity.DoesNotExist:
+            pass
+        else:
             raise ValidationError("Intention already has a seeker opportunity attached.")
         if intention.state != SeekerIntention.State.QUALIFYING:
             raise ValidationError("Seeker intention must be qualifying before conversion.")

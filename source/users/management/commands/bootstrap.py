@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from django.contrib.auth import get_user_model
 from django.core.management import BaseCommand, call_command
@@ -15,7 +16,7 @@ ENV_PASSWORD = "BOOTSTRAP_ADMIN_PASSWORD"
 class Command(BaseCommand):
     help = "Apply migrations and ensure a default admin user exists."
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         self.stdout.write("Applying database migrations...")
         call_command("migrate", interactive=False)
 
@@ -31,7 +32,7 @@ class Command(BaseCommand):
             if password:
                 existing.set_password(password)
                 existing.email = email
-                existing.save(update_fields=["password", "email", "updated_at" if hasattr(existing, "updated_at") else "email"])
+                existing.save()
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"Superuser '{username}' already existed; password updated from {ENV_PASSWORD}."

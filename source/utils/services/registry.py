@@ -22,9 +22,10 @@ def _import_services_module(app_config: AppConfig):
             raise
         return None
 
-    if hasattr(module, "__path__"):
+    module_path = getattr(module, "__path__", None)
+    if module_path is not None:
         prefix = module.__name__ + "."
-        for _, name, _ in pkgutil.walk_packages(module.__path__, prefix):
+        for _, name, _ in pkgutil.walk_packages(module_path, prefix):
             import_module(name)
 
     return module

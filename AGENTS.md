@@ -4,6 +4,7 @@
 > **Documentation Consistency**: This file must be kept in sync with the actual project structure. Every time any modification is made to the project architecture (new apps, services, URL patterns, models, or configuration changes), this document MUST be updated to reflect those changes.
 > **Execution Policy**: From the host, only `docker` (including `docker compose`) and `git` commands should be run. All other commands (tests, manage.py, tooling, scripts) must be executed inside the `frontend` container via `docker compose exec frontend ...`.
 > **Engineering Stance**: We code for correct states, not silent fallbacks. Required domain data (like operation types) must be present; missing prerequisites should raise errors loudly rather than defaulting or masking issues.
+> **Object Interactions**: Follow OOP principles—functions expect the correct typed objects and interact through public interfaces; avoid attribute poking/duck-typing checks and assume inputs match the signature.
 
 ## Stack & Infrastructure
 

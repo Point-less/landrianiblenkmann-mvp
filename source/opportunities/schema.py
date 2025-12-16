@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Any, Iterable
 
 import strawberry
 import strawberry_django
 from strawberry import relay
+from strawberry_django import filters as dj_filters
+from django.db.models import QuerySet
 
 from opportunities.filters import OperationAgreementFilter, ProviderOpportunityFilter, SeekerOpportunityFilter
 from opportunities.types import OperationAgreementType, ProviderOpportunityType, SeekerOpportunityType
 from utils.services import S
+
+
+def _apply_filters(queryset: QuerySet, filters: Any, info: Any) -> QuerySet:
+    return dj_filters.apply(filters, queryset, info=info) if filters else queryset
 
 
 def _resolve_provider_opportunities(
@@ -17,7 +23,8 @@ def _resolve_provider_opportunities(
     filters: ProviderOpportunityFilter | None,
 ) -> Iterable[ProviderOpportunityType]:
     request = info.context.request
-    return S.opportunities.ProviderOpportunitiesQuery(actor=request.user)
+    queryset = S.opportunities.ProviderOpportunitiesQuery(actor=request.user)
+    return _apply_filters(queryset, filters, info)
 
 
 def _resolve_operation_agreements(
@@ -26,7 +33,8 @@ def _resolve_operation_agreements(
     filters: OperationAgreementFilter | None,
 ) -> Iterable[OperationAgreementType]:
     request = info.context.request
-    return S.opportunities.OperationAgreementsQuery(actor=request.user)
+    queryset = S.opportunities.OperationAgreementsQuery(actor=request.user)
+    return _apply_filters(queryset, filters, info)
 
 
 def _resolve_seeker_opportunities(
@@ -35,7 +43,8 @@ def _resolve_seeker_opportunities(
     filters: SeekerOpportunityFilter | None,
 ) -> Iterable[SeekerOpportunityType]:
     request = info.context.request
-    return S.opportunities.SeekerOpportunitiesQuery(actor=request.user)
+    queryset = S.opportunities.SeekerOpportunitiesQuery(actor=request.user)
+    return _apply_filters(queryset, filters, info)
 
 
 @strawberry.type

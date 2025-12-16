@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from core.models import Agent, Contact, Property
-from opportunities.models import OperationType, ProviderOpportunity, SeekerOpportunity, Operation
+from opportunities.models import OperationType, ProviderOpportunity, SeekerOpportunity, Operation, Validation
 from intentions.models import ProviderIntention, SeekerIntention
 from opportunities.services.agreements import CreateOperationAgreementService, SignOperationAgreementService
 from users.models import Role, RoleMembership, User
@@ -45,6 +45,7 @@ class AgreementCreationRulesTests(TestCase):
         self.provider_opp = ProviderOpportunity.objects.create(source_intention=sp_int, tokkobroker_property=self.tokko)
         self.provider_opp.state = ProviderOpportunity.State.MARKETING
         self.provider_opp.save(update_fields=["state"])
+        Validation.objects.create(opportunity=self.provider_opp, state=Validation.State.APPROVED)
         self.seeker_opp = SeekerOpportunity.objects.create(source_intention=ss_int)
 
     def test_actor_must_be_seeker_agent(self):

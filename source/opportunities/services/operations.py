@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django_fsm import TransitionNotAllowed
 
 from core.models import Currency
-from opportunities.models import MarketingPackage, Operation, ProviderOpportunity, SeekerOpportunity
+from opportunities.models import MarketingPackage, Operation, ProviderOpportunity, SeekerOpportunity, Validation
 from opportunities.services.marketing import MarketingPackagePauseService
 from opportunities.services.queries import (
     ActiveOperationsBetweenOpportunitiesQuery,
@@ -47,10 +47,19 @@ class CreateOperationService(BaseService):
         ).exists():
             raise ValidationError("An active operation already exists for this pair.")
 
+        if initial_offered_amount is None:
+            raise ValidationError({"initial_offered_amount": "Initial offered amount is required."})
+
+        if currency is None:
+            raise ValidationError({"currency": "Currency is required for the operation."})
+
         if reserve_amount is None:
             raise ValidationError({"reserve_amount": "Reserve amount is required."})
         if reserve_deadline is None:
             raise ValidationError({"reserve_deadline": "Reserve deadline is required."})
+
+        if not provider_opportunity.validations.filter(state=Validation.State.APPROVED).exists():
+            raise ValidationError({"validation": "Provider validation must be approved before creating an operation."})
 
         operation = Operation.objects.create(
             agreement=agreement,
@@ -80,10 +89,7 @@ class CreateOperationService(BaseService):
             state=MarketingPackage.State.PUBLISHED
         ).order_by('-created_at')
         for package in packages:
-            try:
-                self.s.opportunities.MarketingPackagePauseService(package=package)
-            except ValidationError:
-                continue
+            self.s.opportunities.MarketingPackagePauseService(package=package)
 
 
 class OperationReinforceService(BaseService):

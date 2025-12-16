@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
@@ -452,16 +454,16 @@ class WorkflowFormView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessage
         return super().get_success_url()
 
     def _attach_form_errors(self, form, exc: ValidationError):
-        if hasattr(exc, 'error_dict'):
-            for field_name, errors in exc.message_dict.items():
+        error_dict = getattr(exc, "error_dict", None)
+        if error_dict:
+            for field_name, errors in error_dict.items():
                 target_field = field_name if field_name in form.fields else None
                 for error in errors:
                     form.add_error(target_field, error)
-        elif hasattr(exc, 'messages'):
-            for message in exc.messages:
-                form.add_error(None, message)
-        else:
-            form.add_error(None, str(exc))
+            return
+
+        for message in exc.messages:
+            form.add_error(None, message)
 
     def _issue_idempotency_token(self) -> str:
         token = uuid.uuid4().hex
@@ -537,9 +539,10 @@ class ModelUpdateView(WorkflowFormView):
     model = None
     form_class = None
     pk_url_kwarg = 'pk'
+    _object: Any | None = None
 
     def get_object(self):
-        if not hasattr(self, '_object'):
+        if self._object is None:
             self._object = get_object_or_404(self.model, pk=self.kwargs[self.pk_url_kwarg])
         return self._object
 

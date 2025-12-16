@@ -4,14 +4,17 @@ from django.test import TestCase
 
 from core.models import Agent, Contact, Currency, Property
 from integrations.models import TokkobrokerProperty
-from intentions.models import ProviderIntention, SeekerIntention
-from intentions.services.repository import IntentionRepository
+from intentions.models import (
+    ProviderIntention,
+    SeekerIntention,
+    _has_provider_opportunity,
+    _has_seeker_opportunity,
+)
 from opportunities.models import OperationType, ProviderOpportunity, SeekerOpportunity
 
 
-class IntentionRepositoryTests(TestCase):
+class IntentionHelperTests(TestCase):
     def setUp(self):
-        self.repo = IntentionRepository()
         self.agent = Agent.objects.create(first_name="A", last_name="One")
         self.contact = Contact.objects.create(first_name="C", last_name="One", email="c1@example.com")
         self.property = Property.objects.create(name="House 1")
@@ -33,8 +36,8 @@ class IntentionRepositoryTests(TestCase):
             budget_max=Decimal("200"),
         )
 
-    def test_detects_provider_opportunity_presence(self):
-        self.assertFalse(self.repo.has_provider_opportunity(self.provider_intention))
+    def test_has_provider_opportunity(self):
+        self.assertFalse(_has_provider_opportunity(self.provider_intention))
 
         ProviderOpportunity.objects.create(
             source_intention=self.provider_intention,
@@ -42,14 +45,14 @@ class IntentionRepositoryTests(TestCase):
             state=ProviderOpportunity.State.MARKETING,
         )
 
-        self.assertTrue(self.repo.has_provider_opportunity(self.provider_intention))
+        self.assertTrue(_has_provider_opportunity(self.provider_intention))
 
-    def test_detects_seeker_opportunity_presence(self):
-        self.assertFalse(self.repo.has_seeker_opportunity(self.seeker_intention))
+    def test_has_seeker_opportunity(self):
+        self.assertFalse(_has_seeker_opportunity(self.seeker_intention))
 
         SeekerOpportunity.objects.create(
             source_intention=self.seeker_intention,
             state=SeekerOpportunity.State.MATCHING,
         )
 
-        self.assertTrue(self.repo.has_seeker_opportunity(self.seeker_intention))
+        self.assertTrue(_has_seeker_opportunity(self.seeker_intention))

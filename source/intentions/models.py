@@ -132,9 +132,7 @@ class ProviderIntention(TimeStampedMixin, FSMTrackingMixin):
     def is_promotable(self) -> bool:
         if self.state != self.State.VALUATED:
             return False
-        from intentions.services.repository import IntentionRepository
-
-        return not IntentionRepository().has_provider_opportunity(self)
+        return not _has_provider_opportunity(self)
 
 
 class SeekerIntention(TimeStampedMixin, FSMTrackingMixin):
@@ -202,10 +200,7 @@ class SeekerIntention(TimeStampedMixin, FSMTrackingMixin):
         super().clean()
         if self.budget_min and self.budget_max and self.budget_min > self.budget_max:
             raise ValidationError({"budget_max": "Max budget cannot be lower than min budget."})
-        from intentions.services.repository import IntentionRepository
-
-        repo = IntentionRepository()
-        if repo.has_seeker_opportunity(self) and self.state != self.State.CONVERTED:
+        if _has_seeker_opportunity(self) and self.state != self.State.CONVERTED:
             raise ValidationError({
                 "seeker_opportunity": "Converted intentions should own a seeker opportunity only once converted.",
             })
@@ -261,3 +256,18 @@ __all__ = [
     "SeekerIntention",
     "Valuation",
 ]
+from django.core.exceptions import ObjectDoesNotExist
+def _has_provider_opportunity(intention) -> bool:
+    try:
+        intention.provider_opportunity  # type: ignore[attr-defined]
+    except ObjectDoesNotExist:
+        return False
+    return True
+
+
+def _has_seeker_opportunity(intention) -> bool:
+    try:
+        intention.seeker_opportunity  # type: ignore[attr-defined]
+    except ObjectDoesNotExist:
+        return False
+    return True

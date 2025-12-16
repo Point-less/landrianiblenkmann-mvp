@@ -1,11 +1,13 @@
 [run]
-source = source
+source = .
 branch = True
 omit =
-    source/manage.py
-    source/config/*
-    source/*/migrations/*
-    source/**/tests.py
+    */migrations/*
+    */tests/*
+    */tests.py
+    */wsgi.py
+    */asgi.py
+    manage.py
 
 [report]
 show_missing = True

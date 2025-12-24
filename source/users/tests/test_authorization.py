@@ -26,7 +26,7 @@ class AuthorizationTests(TestCase):
 
         self.agent1 = Agent.objects.create(first_name="A1")
         self.agent2 = Agent.objects.create(first_name="A2")
-        self.user = User.objects.create_user(username="u1", password="x")
+        self.user = User.objects.create_user(username="u1", password="x", email="u1@example.com")
         RoleMembership.objects.create(user=self.user, role=self.agent_role, profile=self.agent1)
 
         # base permissions

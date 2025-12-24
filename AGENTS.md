@@ -92,7 +92,7 @@ Operational finance reporting.
 
 ### `users/`
 Authentication and user management with passwordless login.
-- **Models**: Custom `User` model (AUTH_USER_MODEL)
+- **Models**: Custom `User` model (AUTH_USER_MODEL) with required, case-insensitive unique emails
 - **Views** (`views.py`): Custom login view with password and passwordless options, magic link request handler, logout
 - **URLs** (`urls.py`): Login (`/auth/login/`), request magic link (`/auth/request-magic-link/`), sesame login endpoint (`/auth/sesame/login/`), logout
 - **Schema** (`schema.py`): `UsersQuery` mixin for GraphQL

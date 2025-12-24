@@ -20,11 +20,11 @@ class AgreementCreationRulesTests(TestCase):
         self.agent_seeker = Agent.objects.create(first_name="SeekerAgent")
         self.agent_provider = Agent.objects.create(first_name="ProviderAgent")
 
-        self.user_seeker = User.objects.create_user(username="seeker_agent", password="pwd")
+        self.user_seeker = User.objects.create_user(username="seeker_agent", password="pwd", email="seeker_agent@example.com")
         RoleMembership.objects.create(user=self.user_seeker, role=self.agent_role, profile=self.agent_seeker)
 
         # provider belongs to other agent
-        self.user_provider = User.objects.create_user(username="provider_agent", password="pwd")
+        self.user_provider = User.objects.create_user(username="provider_agent", password="pwd", email="provider_agent@example.com")
         RoleMembership.objects.create(user=self.user_provider, role=self.agent_role, profile=self.agent_provider)
 
         contact = Contact.objects.create(first_name="Owner", email="o@example.com")

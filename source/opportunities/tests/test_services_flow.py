@@ -70,7 +70,7 @@ class IntentionFlowServiceTests(TestCase):
         self.currency = Currency.objects.create(code="USD", name="US Dollar", symbol="$")
         from opportunities.models import ValidationDocumentType
         ValidationDocumentType.objects.update(accepted_formats=[".pdf"])
-        self.reviewer = get_user_model().objects.create_user(username="reviewer")
+        self.reviewer = get_user_model().objects.create_user(username="reviewer", email="reviewer@example.com")
         self.agent = CreateAgentService.call(first_name="Alice", last_name="Agent", email="alice@example.com")
         agent_ct = ContentType.objects.get_for_model(self.agent.__class__)
         agent_role, _ = Role.objects.get_or_create(slug="agent", defaults={"name": "Agent", "profile_content_type": agent_ct})

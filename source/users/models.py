@@ -4,6 +4,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Lower
 
 from utils.mixins import TimeStampedMixin
 
@@ -124,7 +125,15 @@ class ObjectGrant(TimeStampedMixin):
 
 
 class User(AbstractUser):
-    pass
+    email = models.EmailField(unique=True)
+
+    class Meta(AbstractUser.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                Lower("email"),
+                name="users_user_email_ci_unique",
+            )
+        ]
 
 
 __all__ = [

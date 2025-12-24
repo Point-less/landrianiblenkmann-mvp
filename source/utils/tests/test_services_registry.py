@@ -16,7 +16,7 @@ class ServiceRegistryTests(TestCase):
     def test_service_invoker_binds_actor(self):
         from django.contrib.auth import get_user_model
 
-        actor = get_user_model().objects.create_user(username="u", password="pass")
+        actor = get_user_model().objects.create_user(username="u", password="pass", email="u@example.com")
         invoker = ServiceInvoker(actor=actor, app_label="opportunities")
         instance = invoker.get("CreateOperationService")
         self.assertEqual(instance.actor, actor)

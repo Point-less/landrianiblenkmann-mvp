@@ -346,8 +346,10 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
         }
 
     def _context_provider_opportunities(self):
+        scoped = S.opportunities.ProviderOpportunitiesForActorQuery(actor=self.request.user)
+        provider_opportunities = scoped.select_related('source_intention__property', 'source_intention__owner').prefetch_related('state_transitions', 'validations').order_by('-created_at')
         return {
-            'provider_opportunities': S.opportunities.DashboardProviderOpportunitiesQuery(actor=self.request.user),
+            'provider_opportunities': provider_opportunities,
         }
 
     def _context_provider_validations(self):
@@ -367,8 +369,10 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
         }
 
     def _context_seeker_opportunities(self):
+        scoped = S.opportunities.SeekerOpportunitiesForActorQuery(actor=self.request.user)
+        seeker_opportunities = scoped.select_related('source_intention__contact', 'source_intention__agent').prefetch_related('state_transitions').order_by('-created_at')
         return {
-            'seeker_opportunities': S.opportunities.DashboardSeekerOpportunitiesQuery(actor=self.request.user),
+            'seeker_opportunities': seeker_opportunities,
         }
 
     def _context_operations(self):
@@ -377,8 +381,9 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
         }
 
     def _context_operation_agreements(self):
+        scoped = S.opportunities.OperationAgreementsForActorQuery(actor=self.request.user)
         return {
-            'operation_agreements': S.opportunities.OperationAgreementsQuery(actor=self.request.user),
+            'operation_agreements': scoped.order_by('-created_at'),
         }
 
     def _context_reports_operations(self):

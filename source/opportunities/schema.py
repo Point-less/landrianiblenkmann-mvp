@@ -23,7 +23,7 @@ def _resolve_provider_opportunities(
     filters: ProviderOpportunityFilter | None,
 ) -> Iterable[ProviderOpportunityType]:
     request = info.context.request
-    queryset = S.opportunities.ProviderOpportunitiesQuery(actor=request.user)
+    queryset = S.opportunities.ProviderOpportunitiesForActorQuery(actor=request.user)
     return _apply_filters(queryset, filters, info)
 
 
@@ -33,7 +33,7 @@ def _resolve_operation_agreements(
     filters: OperationAgreementFilter | None,
 ) -> Iterable[OperationAgreementType]:
     request = info.context.request
-    queryset = S.opportunities.OperationAgreementsQuery(actor=request.user)
+    queryset = S.opportunities.OperationAgreementsForActorQuery(actor=request.user)
     return _apply_filters(queryset, filters, info)
 
 
@@ -43,7 +43,7 @@ def _resolve_seeker_opportunities(
     filters: SeekerOpportunityFilter | None,
 ) -> Iterable[SeekerOpportunityType]:
     request = info.context.request
-    queryset = S.opportunities.SeekerOpportunitiesQuery(actor=request.user)
+    queryset = S.opportunities.SeekerOpportunitiesForActorQuery(actor=request.user)
     return _apply_filters(queryset, filters, info)
 
 

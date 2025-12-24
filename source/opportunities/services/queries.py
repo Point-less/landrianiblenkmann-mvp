@@ -70,26 +70,14 @@ class AvailableSeekerOpportunitiesForOperationsQuery(BaseService):
 
 class DashboardProviderOpportunitiesQuery(BaseService):
     def run(self, *, actor=None):
-        queryset = ProviderOpportunity.objects.select_related('source_intention__property', 'source_intention__owner').prefetch_related('state_transitions', 'validations').order_by('-created_at')
-        return filter_queryset(
-            actor,
-            PROVIDER_OPPORTUNITY_VIEW,
-            queryset,
-            owner_field='source_intention__agent',
-            view_all_action=PROVIDER_OPPORTUNITY_VIEW_ALL,
-        )
+        queryset = ProviderOpportunitiesForActorQuery()(actor=actor)
+        return queryset.select_related('source_intention__property', 'source_intention__owner').prefetch_related('state_transitions', 'validations').order_by('-created_at')
 
 
 class DashboardSeekerOpportunitiesQuery(BaseService):
     def run(self, *, actor=None):
-        queryset = SeekerOpportunity.objects.select_related('source_intention__contact', 'source_intention__agent').prefetch_related('state_transitions').order_by('-created_at')
-        return filter_queryset(
-            actor,
-            SEEKER_OPPORTUNITY_VIEW,
-            queryset,
-            owner_field='source_intention__agent',
-            view_all_action=SEEKER_OPPORTUNITY_VIEW_ALL,
-        )
+        queryset = SeekerOpportunitiesForActorQuery()(actor=actor)
+        return queryset.select_related('source_intention__contact', 'source_intention__agent').prefetch_related('state_transitions').order_by('-created_at')
 
 
 class DashboardOperationsQuery(BaseService):
@@ -164,59 +152,25 @@ class ProviderOpportunitiesQuery(BaseService):
     """Generic provider opportunities listing (GraphQL / API)."""
 
     def run(self, *, actor=None):
-        queryset = ProviderOpportunity.objects.select_related(
+        return ProviderOpportunitiesForActorQuery()(actor=actor).select_related(
             'source_intention__property', 'source_intention__owner'
         ).order_by('-created_at')
-        return filter_queryset(
-            actor,
-            PROVIDER_OPPORTUNITY_VIEW,
-            queryset,
-            owner_field='source_intention__agent',
-            view_all_action=PROVIDER_OPPORTUNITY_VIEW_ALL,
-        )
 
 
 class SeekerOpportunitiesQuery(BaseService):
     """Generic seeker opportunities listing (GraphQL / API)."""
 
     def run(self, *, actor=None):
-        queryset = SeekerOpportunity.objects.select_related(
+        return SeekerOpportunitiesForActorQuery()(actor=actor).select_related(
             'source_intention__contact', 'source_intention__agent'
         ).order_by('-created_at')
-        return filter_queryset(
-            actor,
-            SEEKER_OPPORTUNITY_VIEW,
-            queryset,
-            owner_field='source_intention__agent',
-            view_all_action=SEEKER_OPPORTUNITY_VIEW_ALL,
-        )
 
 
 class OperationAgreementsQuery(BaseService):
     """Generic operation agreements listing (GraphQL / API)."""
 
     def run(self, *, actor=None):
-        check(actor, OPERATION_VIEW)
-        queryset = OperationAgreement.objects.select_related(
-            'provider_opportunity', 'seeker_opportunity'
-        ).order_by('-created_at')
-
-        try:
-            check(actor, OPERATION_VIEW_ALL)
-            return queryset
-        except PermissionDenied:
-            pass
-
-        from utils.authorization import get_role_profile
-
-        owner = get_role_profile(actor, "agent") if actor else None
-        if owner is None:
-            return queryset.none()
-
-        return queryset.filter(
-            Q(provider_opportunity__source_intention__agent=owner)
-            | Q(seeker_opportunity__source_intention__agent=owner)
-        )
+        return OperationAgreementsForActorQuery()(actor=actor).order_by('-created_at')
 
 
 class ProviderOpportunityByTokkobrokerPropertyQuery(BaseService):
@@ -256,6 +210,67 @@ class SeekerActiveOperationsQuery(BaseService):
         )
 
 
+class ProviderOpportunitiesForActorQuery(BaseService):
+    """Scoped provider opportunities with consistent authorization filtering."""
+
+    atomic = False
+
+    def run(self, *, actor=None):
+        queryset = ProviderOpportunity.objects.all()
+        return filter_queryset(
+            actor,
+            PROVIDER_OPPORTUNITY_VIEW,
+            queryset,
+            owner_field='source_intention__agent',
+            view_all_action=PROVIDER_OPPORTUNITY_VIEW_ALL,
+        )
+
+
+class SeekerOpportunitiesForActorQuery(BaseService):
+    """Scoped seeker opportunities with consistent authorization filtering."""
+
+    atomic = False
+
+    def run(self, *, actor=None):
+        queryset = SeekerOpportunity.objects.all()
+        return filter_queryset(
+            actor,
+            SEEKER_OPPORTUNITY_VIEW,
+            queryset,
+            owner_field='source_intention__agent',
+            view_all_action=SEEKER_OPPORTUNITY_VIEW_ALL,
+        )
+
+
+class OperationAgreementsForActorQuery(BaseService):
+    """Scoped operation agreements with consistent authorization filtering."""
+
+    atomic = False
+
+    def run(self, *, actor=None):
+        check(actor, OPERATION_VIEW)
+        queryset = OperationAgreement.objects.select_related(
+            'provider_opportunity', 'seeker_opportunity'
+        )
+
+        try:
+            check(actor, OPERATION_VIEW_ALL)
+            return queryset
+        except PermissionDenied:
+            pass
+
+        from utils.authorization import get_role_profile
+
+        owner = get_role_profile(actor, "agent") if actor else None
+        if owner is None:
+            return queryset.none()
+
+        return queryset.filter(
+            Q(provider_opportunity__source_intention__agent=owner)
+            | Q(seeker_opportunity__source_intention__agent=owner)
+        )
+
+
 __all__ = [
     "AvailableProviderOpportunitiesForOperationsQuery",
     "AvailableSeekerOpportunitiesForOperationsQuery",
@@ -272,4 +287,7 @@ __all__ = [
     "ActiveOperationsBetweenOpportunitiesQuery",
     "SeekerActiveOperationsQuery",
     "OperationAgreementsQuery",
+    "ProviderOpportunitiesForActorQuery",
+    "SeekerOpportunitiesForActorQuery",
+    "OperationAgreementsForActorQuery",
 ]

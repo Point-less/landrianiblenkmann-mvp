@@ -199,6 +199,7 @@ class TokkoPropertiesExtractor:
         self.objects_per_page = objects_per_page
 
     def extract_all_data(self) -> TokkoExtractionResult:
+        logger.info("Tokkobroker extraction started (page_size=%s)", self.objects_per_page)
         properties = self._fetch_properties()
         if properties:
             self._enrich_properties(properties)
@@ -206,6 +207,13 @@ class TokkoPropertiesExtractor:
         branch_ids = self._fetch_branch_ids()
         property_type_ids = self._fetch_property_type_ids()
         reservations = self._fetch_reservations(branch_ids, property_type_ids)
+
+        logger.info(
+            "Tokkobroker metadata fetched (branches=%s property_types=%s reservations=%s)",
+            len(branch_ids),
+            len(property_type_ids),
+            len(reservations),
+        )
 
         unmatched_reservations = self._assign_reservations(properties, reservations)
         metadata = {
@@ -301,10 +309,16 @@ class TokkoPropertiesExtractor:
             return []
 
         if isinstance(data, list):
+            logger.info("Tokkobroker reservations payload returned %s entries", len(data))
             return data
         if isinstance(data, dict):
             for field in ["reservations", "results", "data", "objects", "aaData"]:
                 if field in data and isinstance(data[field], list):
+                    logger.info(
+                        "Tokkobroker reservations payload returned %s entries via '%s'",
+                        len(data[field]),
+                        field,
+                    )
                     return data[field]
             return [data]
         return []
@@ -381,6 +395,7 @@ class TokkoPropertiesExtractor:
         for item in items:
             if isinstance(item, Mapping) and "id" in item:
                 ids.append(str(item["id"]))
+        logger.info("Tokkobroker %s ids extracted: %s", fallback_label, len(ids))
         return ids
 
 

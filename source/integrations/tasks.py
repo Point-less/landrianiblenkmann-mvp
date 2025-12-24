@@ -55,7 +55,10 @@ def sync_tokkobroker_registry(
     """
 
     if payloads is None:
+        logger.info("Tokkobroker registry sync started (fetching remote payloads)")
         payloads = fetch_tokkobroker_properties()
+    else:
+        logger.info("Tokkobroker registry sync started with provided payloads")
     count = 0
 
     for payload in payloads:
@@ -84,13 +87,16 @@ def sync_tokkobroker_registry(
         )
         count += 1
 
+    logger.info("Tokkobroker registry sync completed; processed=%s", count)
+
     return count
 
 
 @dramatiq.actor
 def sync_tokkobroker_properties_task() -> None:
+    logger.info("Tokkobroker properties task enqueued processing started")
     processed = sync_tokkobroker_registry()
-    logger.info("Synced %s Tokkobroker properties", processed)
+    logger.info("Tokkobroker properties task finished; synced=%s", processed)
 
 
 def _format_tokko_price(price: Decimal) -> str:

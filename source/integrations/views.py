@@ -41,7 +41,7 @@ class TokkoPropertySearchView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        q = self.request.GET.get("q", "").strip()
+        q = self.request.GET.get("term", self.request.GET.get("q", "")).strip()
         queryset = S.core.AvailableTokkobrokerPropertiesQuery(actor=self.request.user)
         if q:
             queryset = queryset.filter(
@@ -52,27 +52,23 @@ class TokkoPropertySearchView(LoginRequiredMixin, ListView):
         return queryset.order_by("-tokko_id")
 
     def render_to_response(self, context, **response_kwargs):
-        selected_id = self.request.GET.get("selected")
-        results = list(context["object_list"][: self.paginate_by])
-
-        if selected_id:
-            try:
-                selected_obj = S.core.AvailableTokkobrokerPropertiesQuery(actor=self.request.user).get(pk=selected_id)
-                if selected_obj not in results:
-                    results = [selected_obj] + results[: self.paginate_by - 1]
-            except Exception:
-                pass
+        page = int(self.request.GET.get("page", "1") or 1)
+        start = (page - 1) * self.paginate_by
+        end = start + self.paginate_by
+        qs = context["object_list"]
+        total = qs.count()
+        results = list(qs[start:end])
+        more = total > end
 
         payload = {
             "results": [
                 {
                     "id": obj.pk,
-                    "ref_code": obj.ref_code,
-                    "tokko_id": obj.tokko_id,
-                    "label": f"{obj.ref_code or 'No ref'} (ID {obj.tokko_id}) — {obj.address}".strip(),
+                    "text": f"{obj.ref_code or 'No ref'} (ID {obj.tokko_id}) — {obj.address}".strip(),
                 }
                 for obj in results
-            ]
+            ],
+            "pagination": {"more": more},
         }
         return JsonResponse(payload)
 

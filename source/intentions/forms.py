@@ -121,8 +121,12 @@ class ProviderPromotionForm(HTML5WidgetMixin, forms.Form):
         self.fields["tokkobroker_property"].queryset = property_queryset
         self.fields["tokkobroker_property"].widget.attrs.update(
             {
-                "data-search-url": reverse("integration-tokko-properties-search"),
-                "data-search-placeholder": "Search by ref code, address or ID",
+                "class": "admin-autocomplete",
+                "data-ajax--url": reverse("integration-tokko-properties-search"),
+                "data-ajax--cache": "true",
+                "data-placeholder": "Search Tokkobroker properties",
+                "data-allow-clear": "true",
+                "data-theme": "admin-autocomplete",
             }
         )
         # Pre-fill with default commission (%)

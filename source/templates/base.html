@@ -322,8 +322,6 @@
         .document-list li { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
         .status-missing { background: var(--surface-dark); color: var(--text-muted); }
         .page-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-        .async-select { display: flex; flex-direction: column; gap: 0.35rem; }
-        .async-select__search { padding: 0.5rem 0.65rem; border-radius: 0.35rem; border: 1px solid var(--border-soft); }
     </style>
 </head>
 <body>
@@ -371,9 +369,8 @@
     {% endif %}
 </div>
 <script src="{% static 'admin/js/vendor/jquery/jquery.min.js' %}"></script>
-<script src="{% static 'admin/js/vendor/jquery/jquery.init.js' %}"></script>
-<script src="{% static 'admin/js/vendor/select2/select2.full.min.js' %}"></script>
 <script src="{% static 'admin/js/jquery.init.js' %}"></script>
+<script src="{% static 'admin/js/vendor/select2/select2.full.min.js' %}"></script>
 <script src="{% static 'admin/js/autocomplete.js' %}"></script>
 <script>
   // Auto-remove toasts when animations finish

@@ -271,6 +271,7 @@ class TokkoPropertiesExtractor:
             property_id = prop.get("id")
             if not property_id:
                 continue
+            logger.info("Enriching Tokkobroker property %s with files and quick data", property_id)
             prop["image_files"] = self._safe_json(self.client._api_get("/api3/property/files", params={"properties": property_id, "file_type": "image"}))
             prop["files"] = self._safe_json(self.client._api_get("/api3/property/files", params={"properties": property_id, "file_type": "files"}))
             prop["quick_data"] = self._safe_json(self.client._api_get(f"/api3/property/{property_id}/quick"))

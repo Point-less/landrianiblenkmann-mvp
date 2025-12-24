@@ -319,6 +319,8 @@
         .document-list li { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
         .status-missing { background: var(--surface-dark); color: var(--text-muted); }
         .page-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .async-select { display: flex; flex-direction: column; gap: 0.35rem; }
+        .async-select__search { padding: 0.5rem 0.65rem; border-radius: 0.35rem; border: 1px solid var(--border-soft); }
     </style>
 </head>
 <body>
@@ -373,6 +375,69 @@
       if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
     }
   });
+
+  // Lightweight async search select (used for Tokkobroker property picker)
+  (function() {
+    const debounce = (fn, wait = 250) => {
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), wait);
+      };
+    };
+
+    const attachAsyncSelect = (select) => {
+      const searchUrl = select.dataset.searchUrl;
+      if (!searchUrl) return;
+
+      const placeholder = select.dataset.searchPlaceholder || 'Search';
+      const wrapper = document.createElement('div');
+      wrapper.className = 'async-select';
+      const search = document.createElement('input');
+      search.type = 'search';
+      search.className = 'async-select__search';
+      search.placeholder = placeholder;
+
+      const parent = select.parentNode;
+      parent.insertBefore(wrapper, select);
+      wrapper.appendChild(search);
+      wrapper.appendChild(select);
+
+      const load = async (query = '') => {
+        try {
+          const url = new URL(searchUrl, window.location.origin);
+          if (query) url.searchParams.set('q', query);
+          const selected = select.value;
+          if (selected) url.searchParams.set('selected', selected);
+          const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          select.innerHTML = '<option value="">Select a property…</option>';
+          data.results.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.label;
+            select.appendChild(opt);
+          });
+          if (selected) {
+            select.value = selected;
+          }
+        } catch (err) {
+          console.error('Tokkobroker async select load failed', err);
+        }
+      };
+
+      search.addEventListener('input', debounce((evt) => {
+        load(evt.target.value);
+      }, 300));
+
+      load();
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('select[data-search-url]').forEach(attachAsyncSelect);
+    });
+  })();
 </script>
 </body>
 </html>

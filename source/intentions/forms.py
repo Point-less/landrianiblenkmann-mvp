@@ -11,6 +11,7 @@ from integrations.models import TokkobrokerProperty
 from intentions.models import ProviderIntention, SeekerIntention
 from opportunities.models import OperationType
 from core.models import Contact, Agent
+from django.urls import reverse
 from utils.authorization import (
     CONTACT_VIEW,
     CONTACT_VIEW_ALL,
@@ -118,6 +119,12 @@ class ProviderPromotionForm(HTML5WidgetMixin, forms.Form):
             tokkobroker_property_queryset if tokkobroker_property_queryset is not None else TokkobrokerProperty.objects.none()
         )
         self.fields["tokkobroker_property"].queryset = property_queryset
+        self.fields["tokkobroker_property"].widget.attrs.update(
+            {
+                "data-search-url": reverse("integration-tokko-properties-search"),
+                "data-search-placeholder": "Search by ref code, address or ID",
+            }
+        )
         # Pre-fill with default commission (%)
         default_pct = Decimal(getattr(settings, "DEFAULT_GROSS_COMMISSION_PCT", Decimal("0.04"))) * 100
         self.fields["gross_commission_pct"].initial = default_pct

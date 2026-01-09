@@ -34,28 +34,7 @@
                 {{ agreement.created_at|date:"Y-m-d H:i" }}
             </td>
             <td class="actions-column">
-                {% if agreement.state == 'pending' %}
-                <a class="icon-button" data-icon="👍"
-                    href="{% url 'agreement-agree' agreement.id %}?next={{ current_url|urlencode }}" title="Agree">
-                    <span class="sr-only">Agree</span>
-                </a>
-                {% endif %}
-                {% if agreement.state == 'agreed' %}
-                <a class="icon-button" data-icon="✍️"
-                    href="{% url 'agreement-sign' agreement.id %}?next={{ current_url|urlencode }}" title="Sign">
-                    <span class="sr-only">Sign</span>
-                </a>
-                <a class="icon-button" data-icon="↩️"
-                    href="{% url 'agreement-revoke' agreement.id %}?next={{ current_url|urlencode }}" title="Revoke">
-                    <span class="sr-only">Revoke</span>
-                </a>
-                {% endif %}
-                {% if agreement.state != 'signed' and agreement.state != 'cancelled' %}
-                <a class="icon-button" data-icon="🚫" data-variant="danger"
-                    href="{% url 'agreement-cancel' agreement.id %}?next={{ current_url|urlencode }}" title="Cancel">
-                    <span class="sr-only">Cancel</span>
-                </a>
-                {% endif %}
+                {% include "workflow/partials/operation_agreement_actions.html" with agreement=agreement current_url=current_url %}
             </td>
         </tr>
         {% empty %}

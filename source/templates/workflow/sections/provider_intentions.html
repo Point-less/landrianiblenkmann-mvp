@@ -26,21 +26,7 @@
                     {% include "workflow/partials/latest_transition.html" with transitions=intention.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
-                    {% if intention|can_transition:'deliver_valuation' %}
-                        <a class="icon-button" data-icon="📈" href="{% url 'provider-deliver-valuation' intention.id %}?next={{ current_url|urlencode }}" title="Deliver valuation">
-                            <span class="sr-only">Deliver valuation</span>
-                        </a>
-                    {% endif %}
-                    {% if intention.is_promotable %}
-                        <a class="icon-button" data-icon="🚀" href="{% url 'provider-promote' intention.id %}?next={{ current_url|urlencode }}" title="Promote">
-                            <span class="sr-only">Promote</span>
-                        </a>
-                    {% endif %}
-                    {% if intention|can_transition:'withdraw' %}
-                        <a class="icon-button" data-icon="✖" data-variant="danger" href="{% url 'provider-withdraw' intention.id %}?next={{ current_url|urlencode }}" title="Withdraw intention">
-                            <span class="sr-only">Withdraw intention</span>
-                        </a>
-                    {% endif %}
+                    {% include "workflow/partials/provider_intention_actions.html" with intention=intention current_url=current_url %}
                 </td>
             </tr>
         {% empty %}

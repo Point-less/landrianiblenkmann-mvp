@@ -28,16 +28,7 @@
                     {% include "workflow/partials/latest_transition.html" with transitions=opportunity.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
-                    {% with validation=opportunity.validations.first %}
-                        {% if validation %}
-                            <a class="icon-button" data-icon="📄" href="{% url 'validation-detail' validation.id %}?next={{ current_url|urlencode }}" title="Open validation">
-                                <span class="sr-only">Open validation</span>
-                            </a>
-                        {% endif %}
-                    {% endwith %}
-                    <a class="icon-button" data-icon="🗂" href="{% url 'marketing-package-history' opportunity.id %}?next={{ current_url|urlencode }}" title="Marketing packages & revisions">
-                        <span class="sr-only">Marketing packages</span>
-                    </a>
+                    {% include "workflow/partials/provider_opportunity_actions.html" with opportunity=opportunity current_url=current_url %}
                 </td>
             </tr>
         {% empty %}

@@ -15,7 +15,6 @@ from integrations.models import TokkobrokerProperty
 from intentions.models import ProviderIntention, SeekerIntention
 from intentions.services import (
     AbandonSeekerIntentionService,
-    CreateProviderIntentionService,
     CreateSeekerIntentionService,
     DeliverValuationService,
     PromoteProviderIntentionService,
@@ -34,7 +33,6 @@ from opportunities.services import (
     CreateSeekerOpportunityService,
     CreateValidationDocumentService,
     MarketingPackageActivateService,
-    OperationCloseService,
     OperationReinforceService,
     AgreeOperationAgreementService,
     OpportunityPublishService,

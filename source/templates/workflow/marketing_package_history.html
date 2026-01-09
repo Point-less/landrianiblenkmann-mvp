@@ -16,9 +16,7 @@
             <div class="table-subtext">Current state: {{ package.get_state_display }}{% if package.price %} · {{ package.price }} {{ package.currency }}{% endif %}</div>
         </div>
         <div class="actions">
-            <a class="icon-button" data-icon="✏" href="{% url 'marketing-package-edit' package.id %}?next={{ current_url|urlencode }}" title="Edit package">
-                <span class="sr-only">Edit marketing package</span>
-            </a>
+            {% include "workflow/partials/marketing_package_actions.html" with package=package current_url=current_url %}
         </div>
     </div>
     <table>

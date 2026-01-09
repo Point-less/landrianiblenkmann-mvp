@@ -9,7 +9,6 @@ from integrations.models import TokkobrokerProperty
 from intentions.models import ProviderIntention
 from opportunities.models import (
     MarketingPackage,
-    MarketingPackageRevision,
     OperationType,
     ProviderOpportunity,
     Validation,

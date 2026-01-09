@@ -1,0 +1,11 @@
+{% load workflow_extras %}
+{% if intention.can_create_opportunity %}
+    <a class="icon-button" data-icon="🚀" href="{% url 'seeker-create-opportunity' intention.id %}?next={{ current_url|urlencode }}" title="Promote">
+        <span class="sr-only">Promote</span>
+    </a>
+{% endif %}
+{% if intention|can_transition:'abandon' %}
+    <a class="icon-button" data-icon="✖" data-variant="danger" href="{% url 'seeker-abandon' intention.id %}?next={{ current_url|urlencode }}" title="Abandon intention">
+        <span class="sr-only">Abandon seeker intention</span>
+    </a>
+{% endif %}

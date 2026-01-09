@@ -1,0 +1,19 @@
+{% load workflow_extras %}
+<a class="icon-button" data-icon="🔍" href="{% url 'validation-detail' validation.id %}?next={{ current_url|urlencode }}" title="View validation detail">
+    <span class="sr-only">View details</span>
+</a>
+{% if validation|can_transition:'present' and validation.missing_required_documents|length == 0 %}
+    <a class="icon-button" data-icon="📤" href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}" title="Present validation">
+        <span class="sr-only">Present validation</span>
+    </a>
+{% endif %}
+{% if validation.ready_for_approval and validation|can_transition:'approve' %}
+    <a class="icon-button" data-icon="✅" href="{% url 'validation-accept' validation.id %}?next={{ current_url|urlencode }}" title="Approve">
+        <span class="sr-only">Approve validation</span>
+    </a>
+{% endif %}
+{% if validation|can_transition:'revoke' %}
+    <a class="icon-button" data-icon="↺" data-variant="warning" href="{% url 'validation-reject' validation.id %}?next={{ current_url|urlencode }}" title="Revoke">
+        <span class="sr-only">Revoke validation</span>
+    </a>
+{% endif %}

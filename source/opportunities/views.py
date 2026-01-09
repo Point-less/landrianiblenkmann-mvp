@@ -27,7 +27,6 @@ from opportunities.models import (
     ProviderOpportunity,
     Validation,
     ValidationDocument,
-    MarketingPackageRevision,
 )
 from utils.services import S
 from utils.authorization import (

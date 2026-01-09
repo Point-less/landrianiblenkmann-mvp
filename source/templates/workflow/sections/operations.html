@@ -30,21 +30,7 @@
                     {% include "workflow/partials/latest_transition.html" with transitions=operation.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
-                    {% if operation|can_transition:'reinforce' %}
-                        <a class="icon-button" data-icon="🛠" href="{% url 'operation-reinforce' operation.id %}?next={{ current_url|urlencode }}" title="Reinforce operation">
-                            <span class="sr-only">Reinforce operation</span>
-                        </a>
-                    {% endif %}
-                    {% if operation|can_transition:'close' %}
-                        <a class="icon-button" data-icon="✅" href="{% url 'operation-close' operation.id %}?next={{ current_url|urlencode }}" title="Close operation">
-                            <span class="sr-only">Close operation</span>
-                        </a>
-                    {% endif %}
-                    {% if operation|can_transition:'lose' %}
-                        <a class="icon-button" data-icon="✖" data-variant="danger" href="{% url 'operation-lose' operation.id %}?next={{ current_url|urlencode }}" title="Mark as lost">
-                            <span class="sr-only">Mark operation as lost</span>
-                        </a>
-                    {% endif %}
+                    {% include "workflow/partials/operation_actions.html" with operation=operation current_url=current_url %}
                 </td>
             </tr>
         {% empty %}

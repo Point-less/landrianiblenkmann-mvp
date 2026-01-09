@@ -17,6 +17,7 @@ class MarketingPackageActivateService(BaseService):
             new_package = package.activate()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
+        new_package.snapshot_revision()
         return new_package
 
 
@@ -30,6 +31,7 @@ class MarketingPackageReleaseService(BaseService):
             new_package = package.publish()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
+        new_package.snapshot_revision()
         return new_package
 
 
@@ -42,6 +44,7 @@ class MarketingPackageCreateService(BaseService):
         if opportunity.state != ProviderOpportunity.State.MARKETING:
             raise ValidationError("Opportunity must be in marketing stage to add packages.")
         package = MarketingPackage.objects.create(opportunity=opportunity, **attrs)
+        package.snapshot_revision()
         return package
 
 
@@ -64,6 +67,7 @@ class MarketingPackageUpdateService(BaseService):
         if not updatable:
             return package
         package.save(update_fields=[*updatable.keys(), 'updated_at'])
+        package.snapshot_revision()
         return package
 
 
@@ -77,4 +81,5 @@ class MarketingPackagePauseService(BaseService):
             new_package = package.pause()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
+        new_package.snapshot_revision()
         return new_package

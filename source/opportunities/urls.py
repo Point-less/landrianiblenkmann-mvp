@@ -15,6 +15,7 @@ urlpatterns = [
     path('validation-documents/<int:document_id>/review/', opp_views.ValidationDocumentReviewView.as_view(), name='validation-document-review'),
     # Marketing packages
     path('provider/<int:opportunity_id>/marketing-packages/new/', opp_views.MarketingPackageCreateView.as_view(), name='marketing-package-create'),
+    path('provider/<int:opportunity_id>/marketing-packages/', opp_views.MarketingPackageHistoryView.as_view(), name='marketing-package-history'),
     path('marketing-packages/<int:package_id>/edit/', opp_views.MarketingPackageUpdateView.as_view(), name='marketing-package-edit'),
     path('marketing-packages/<int:package_id>/activate/', opp_views.MarketingPackageActivateView.as_view(), name='marketing-package-activate'),
     path('marketing-packages/<int:package_id>/pause/', opp_views.MarketingPackagePauseView.as_view(), name='marketing-package-pause'),

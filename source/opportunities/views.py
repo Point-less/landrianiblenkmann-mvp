@@ -27,6 +27,7 @@ from opportunities.models import (
     ProviderOpportunity,
     Validation,
     ValidationDocument,
+    MarketingPackageRevision,
 )
 from utils.services import S
 from utils.authorization import (
@@ -39,6 +40,7 @@ from utils.authorization import (
     AGREEMENT_SIGN,
     AGREEMENT_REVOKE,
     AGREEMENT_CANCEL,
+    PROVIDER_OPPORTUNITY_VIEW,
 )
 
 
@@ -72,6 +74,33 @@ class MarketingPackageMixin:
         context = super().get_context_data(**kwargs)
         context['package'] = self.get_package()
         return context
+
+
+class MarketingPackageHistoryView(ProviderOpportunityMixin, PermissionedViewMixin, LoginRequiredMixin, FormView):
+    """Detail page for an opportunity's marketing packages and their revisions."""
+
+    template_name = "workflow/marketing_package_history.html"
+    form_class = ConfirmationForm  # unused; FormView for convenience of template context
+    required_action = PROVIDER_OPPORTUNITY_VIEW
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        opportunity = context["opportunity"]
+        packages = S.opportunities.MarketingPackagesWithRevisionsForOpportunityQuery(
+            actor=self.request.user,
+            opportunity=opportunity,
+        )
+        # Prefetch revisions ordered descending
+        pkg_data = []
+        for pkg in packages:
+            revisions = list(pkg.revisions.order_by("-version"))
+            pkg_data.append((pkg, revisions))
+        context["package_revision_rows"] = pkg_data
+        context["current_url"] = self.request.get_full_path()
+        return context
+
+    def get_success_url(self):
+        return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
 
 
 class ValidationMixin:

@@ -214,6 +214,25 @@ class MarketingPackageByIdQuery(BaseService):
         return MarketingPackage.objects.select_related("currency").get(pk=pk)
 
 
+class MarketingPackagesWithRevisionsForOpportunityQuery(BaseService):
+    """Packages (and their revisions) for a given provider opportunity."""
+
+    def run(self, *, opportunity, actor=None):
+        queryset = MarketingPackage.objects.filter(opportunity=opportunity).select_related(
+            "currency",
+            "opportunity__source_intention__property",
+            "opportunity__source_intention__owner",
+        ).prefetch_related("revisions").order_by("-updated_at", "-id")
+
+        return filter_queryset(
+            actor,
+            PROVIDER_OPPORTUNITY_VIEW,
+            queryset,
+            owner_field="opportunity__source_intention__agent",
+            view_all_action=PROVIDER_OPPORTUNITY_VIEW_ALL,
+        )
+
+
 class ActiveOperationsBetweenOpportunitiesQuery(BaseService):
     """Active operations between a provider and seeker opportunity pair."""
 

@@ -61,10 +61,11 @@ class CreateOpportunityService(BaseService):
 
         marketing_payload.setdefault("headline", f"Listing for {intention.property}")
 
-        MarketingPackage.objects.create(
+        package = MarketingPackage.objects.create(
             opportunity=opportunity,
             **marketing_payload,
         )
+        package.snapshot_revision()
 
         Validation.objects.create(opportunity=opportunity)
 

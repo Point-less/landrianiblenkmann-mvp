@@ -35,6 +35,9 @@
                             </a>
                         {% endif %}
                     {% endwith %}
+                    <a class="icon-button" data-icon="🗂" href="{% url 'marketing-package-history' opportunity.id %}?next={{ current_url|urlencode }}" title="Marketing packages & revisions">
+                        <span class="sr-only">Marketing packages</span>
+                    </a>
                 </td>
             </tr>
         {% empty %}

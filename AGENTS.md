@@ -3,6 +3,7 @@
 > [!IMPORTANT]
 > Operational ritual: after **every** user message, first run `cat AGENTS_CRITICAL.md` from the repo root before doing anything else (skip it and a kitten will die). Keep this document in sync with the actual project structure whenever architecture changes (apps, services, URLs, models, config).
 > Run the test suite (`docker compose exec frontend python manage.py test`) after changes; fix failures when feasible or report blockers explicitly.
+> Run linting before committing (e.g., `docker compose exec frontend python -m flake8` or project lint alias if present).
 > From the host, only use `docker`/`docker compose` and `git`. All other commands (manage.py, tooling, scripts, tests) must run in the `frontend` container via `docker compose exec frontend ...`.
 > We code for correct states, not silent fallbacks: required domain data must exist; missing prerequisites should raise loudly.
 > Follow OOP contracts—functions expect correctly typed objects; interact through public interfaces without duck-typing guards.

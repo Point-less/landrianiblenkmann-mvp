@@ -22,6 +22,7 @@ from opportunities.forms import (
 )
 from opportunities.models import (
     MarketingPackage,
+    MarketingPublication,
     Operation,
     OperationAgreement,
     ProviderOpportunity,
@@ -89,7 +90,13 @@ class MarketingPackageHistoryView(ProviderOpportunityMixin, PermissionedViewMixi
             actor=self.request.user,
             opportunity=opportunity,
         )
-        context["packages"] = packages
+        publication = opportunity.marketing_publication
+        current_package = publication.package
+        revisions = packages.exclude(pk=current_package.pk)
+
+        context["publication"] = publication
+        context["current_package"] = current_package
+        context["revisions"] = revisions
         context["current_url"] = self.request.get_full_path()
         return context
 

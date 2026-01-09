@@ -58,3 +58,4 @@ def trigger_tokko_publication_on_state_change(
 
     if target in {MarketingPublication.State.PUBLISHED, MarketingPublication.State.PAUSED}:
         sync_marketing_package_publication_task.send(instance.package_id)
+

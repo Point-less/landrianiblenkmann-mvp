@@ -61,10 +61,7 @@ class CreateOpportunityService(BaseService):
 
         marketing_payload.setdefault("headline", f"Listing for {intention.property}")
 
-        package = MarketingPackage.objects.create(
-            opportunity=opportunity,
-            **marketing_payload,
-        )
+        package = self.s.opportunities.MarketingPackageCreateService(opportunity=opportunity, **marketing_payload)
 
         Validation.objects.create(opportunity=opportunity)
 

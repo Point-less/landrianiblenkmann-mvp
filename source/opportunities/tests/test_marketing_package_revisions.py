@@ -156,8 +156,7 @@ class MarketingPackageHistoryViewTests(TestCase):
         url = reverse("marketing-package-history", kwargs={"opportunity_id": self.opportunity.id})
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
-        # Should list both versions
         content = resp.content.decode()
-        self.assertIn("Version #1", content)
-        self.assertIn("Version #2", content)
+        self.assertIn("Package version #2", content)
+        self.assertIn("#1", content)
         self.assertIn("Second", content)

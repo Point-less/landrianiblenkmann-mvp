@@ -175,7 +175,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
                 ('provider-intentions', 'Provider Intentions'),
                 ('provider-valuations', 'Valuations'),
                 ('provider-opportunities', 'Provider Opportunities'),
-                ('marketing-packages', 'Marketing Packages'),
+                ('marketing-packages', 'Marketing Publications'),
                 ('provider-validations', 'Documental Validations'),
             ],
         ),
@@ -338,8 +338,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
 
     def _context_marketing_packages(self):
         return {
-            'marketing_packages': S.opportunities.DashboardMarketingPackagesQuery(actor=self.request.user),
-            'archived_marketing_packages': S.opportunities.DashboardArchivedMarketingPackagesQuery(actor=self.request.user),
+            'marketing_publications': S.opportunities.DashboardMarketingPackagesQuery(actor=self.request.user),
             'marketing_opportunities_without_packages': S.opportunities.DashboardMarketingOpportunitiesWithoutPackagesQuery(actor=self.request.user),
         }
 

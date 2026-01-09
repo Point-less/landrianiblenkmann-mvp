@@ -1,19 +1,23 @@
 {% extends "base.html" %}
 {% load workflow_extras %}
-{% block title %}Marketing Packages | {{ block.super }}{% endblock %}
+{% block title %}Marketing Publications | {{ block.super }}{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2>Marketing Packages</h2>
+    <h2>Marketing Publications</h2>
 </div>
 <div class="card">
     <table>
-        <tr><th>Property</th><th>Details</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
-        {% for package in marketing_packages %}
-            {% with publication=package.publication %}
+        <tr><th>Property</th><th>Publication</th><th>Current package</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
+        {% for publication in marketing_publications %}
+            {% with package=publication.package %}
             <tr>
                 <td>
-                    <div class="table-title">{{ package.opportunity.source_intention.property }}</div>
-                    <div class="table-subtext">Owner: {{ package.opportunity.source_intention.owner }}</div>
+                    <div class="table-title">{{ publication.opportunity.source_intention.property }}</div>
+                    <div class="table-subtext">Owner: {{ publication.opportunity.source_intention.owner }}</div>
+                </td>
+                <td>
+                    <div class="table-title">Publication: {{ publication.get_state_display }}</div>
+                    <div class="table-subtext">Package version {{ package.version }}</div>
                 </td>
                 <td>
                     <div class="table-title">{{ package.headline|default:"Unnamed package" }}</div>
@@ -23,20 +27,13 @@
                     {% if package.features %}
                         <div class="table-subtext">Features: {{ package.features }}</div>
                     {% endif %}
-                </td>
-                <td>
-                    <span class="pill">{{ publication.get_state_display|default:"—" }}</span>
                     {% if package.price %}
                         <div class="table-subtext">{{ package.price }} {{ package.currency }}</div>
                     {% endif %}
                 </td>
                 <td class="latest-activity">
-                    {% if publication %}
-                        {% url 'transition-history' 'opportunities' 'marketingpublication' publication.id as history_url %}
-                        {% include "workflow/partials/latest_transition.html" with transitions=publication.state_transitions.all history_url=history_url next_url=current_url %}
-                    {% else %}
-                        <div class="transition-text">No publication yet.</div>
-                    {% endif %}
+                    {% url 'transition-history' 'opportunities' 'marketingpublication' publication.id as history_url %}
+                    {% include "workflow/partials/latest_transition.html" with transitions=publication.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
                     {% include "workflow/partials/marketing_package_actions.html" with package=package current_url=current_url %}
@@ -44,44 +41,10 @@
             </tr>
             {% endwith %}
         {% empty %}
-            <tr><td colspan="5">No marketing packages yet.</td></tr>
+            <tr><td colspan="5">No marketing publications yet.</td></tr>
         {% endfor %}
     </table>
 </div>
-
-{% if archived_marketing_packages %}
-<div class="card">
-    <h3>Past Marketing Packages</h3>
-    <table>
-        <tr><th>Property</th><th>Details</th><th>Status</th><th class="actions-column">History</th></tr>
-        {% for package in archived_marketing_packages %}
-            {% with publication=package.publication %}
-            <tr>
-                <td>
-                    <div class="table-title">{{ package.opportunity.source_intention.property }}</div>
-                    <div class="table-subtext">Owner: {{ package.opportunity.source_intention.owner }}</div>
-                </td>
-                <td>
-                    <div class="table-title">{{ package.headline|default:"Unnamed package" }}</div>
-                    {% if package.description %}
-                        <div class="table-subtext">{{ package.description }}</div>
-                    {% endif %}
-                </td>
-                <td><span class="pill">{{ publication.get_state_display|default:"—" }}</span></td>
-                <td class="actions-column">
-                    {% if publication %}
-                        {% url 'transition-history' 'opportunities' 'marketingpublication' publication.id as history_url %}
-                        <a class="icon-button" data-icon="↺" href="{{ history_url }}?next={{ current_url|urlencode }}" title="View history">
-                            <span class="sr-only">View history</span>
-                        </a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endwith %}
-        {% endfor %}
-    </table>
-</div>
-{% endif %}
 
 {% if marketing_opportunities_without_packages %}
 <div class="card">

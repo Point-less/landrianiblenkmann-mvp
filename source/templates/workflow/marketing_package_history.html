@@ -1,56 +1,60 @@
 {% extends "base.html" %}
 {% load workflow_extras %}
-{% block title %}Marketing Packages History | {{ block.super }}{% endblock %}
+{% block title %}Marketing Publication | {{ block.super }}{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2>Marketing Packages for {{ opportunity.source_intention.property }}</h2>
+    <h2>Marketing Publication for {{ opportunity.source_intention.property }}</h2>
     <div class="table-subtext">Owner: {{ opportunity.source_intention.owner }}</div>
     <div class="table-subtext">Opportunity state: {{ opportunity.get_state_display }}</div>
 </div>
 
-{% for package in packages %}
-{% with publication=package.publication %}
 <div class="card">
     <div class="card-header">
         <div>
-            <div class="table-title">{{ package.headline|default:"Unnamed package" }}</div>
-            <div class="table-subtext">Version #{{ package.version }} · State: {{ publication.get_state_display|default:"—" }}{% if package.price %} · {{ package.price }} {{ package.currency }}{% endif %}</div>
+            <div class="table-title">Current publication</div>
+            <div class="table-subtext">State: {{ publication.get_state_display }} · Package version #{{ current_package.version }}</div>
         </div>
         <div class="actions">
-            {% if publication %}
-                {% url 'transition-history' 'opportunities' 'marketingpublication' publication.id as history_url %}
-                <a class="icon-button" data-icon="↺" href="{{ history_url }}?next={{ current_url|urlencode }}" title="View transition log">
-                    <span class="sr-only">View transition log</span>
-                </a>
-            {% endif %}
-            {% if package.is_active and publication %}
-                {% include "workflow/partials/marketing_package_actions.html" with package=package current_url=current_url show_details_button=False %}
-            {% endif %}
+            {% include "workflow/partials/marketing_package_actions.html" with package=current_package current_url=current_url show_details_button=False %}
         </div>
     </div>
     <table>
-        <tr><th>State</th><th>Headline</th><th>Price</th><th>Updated</th><th>Transitions</th></tr>
+        <tr><th>Headline</th><th>Description</th><th>Price</th><th>Features</th><th>Media</th><th>Updated</th><th>Transitions</th></tr>
         <tr>
-            <td>{{ publication.get_state_display|default:"—" }}</td>
-            <td>{{ package.headline|default:"—" }}</td>
-            <td>
-                {% if package.price %}{{ package.price }} {{ package.currency }}{% else %}—{% endif %}
-            </td>
-            <td>{{ package.updated_at|date:"Y-m-d H:i" }}</td>
+            <td>{{ current_package.headline|default:"—" }}</td>
+            <td>{{ current_package.description|default:"—" }}</td>
+            <td>{% if current_package.price %}{{ current_package.price }} {{ current_package.currency }}{% else %}—{% endif %}</td>
+            <td>{% if current_package.features %}{{ current_package.features }}{% else %}—{% endif %}</td>
+            <td>{% if current_package.media_assets %}{{ current_package.media_assets|length }} asset(s){% else %}—{% endif %}</td>
+            <td>{{ current_package.updated_at|date:"Y-m-d H:i" }}</td>
             <td class="latest-activity">
-                {% if publication %}
-                    {% include "workflow/partials/latest_transition.html" with transitions=publication.state_transitions.all history_url=history_url next_url=current_url %}
-                {% else %}
-                    <div class="transition-text">No publication yet.</div>
-                {% endif %}
+                {% include "workflow/partials/latest_transition.html" with transitions=publication.state_transitions.all history_url=None next_url=current_url %}
             </td>
         </tr>
     </table>
 </div>
-{% endwith %}
-{% empty %}
-<div class="card"><p>No marketing packages for this opportunity.</p></div>
-{% endfor %}
+
+<div class="card">
+    <div class="card-header">
+        <div class="table-title">Previous package revisions</div>
+        <div class="table-subtext">Older content snapshots (not currently published).</div>
+    </div>
+    <table>
+        <tr><th>Version</th><th>Headline</th><th>Description</th><th>Price</th><th>Features</th><th>Updated</th></tr>
+        {% for package in revisions %}
+            <tr>
+                <td>#{{ package.version }}</td>
+                <td>{{ package.headline|default:"—" }}</td>
+                <td>{{ package.description|default:"—" }}</td>
+                <td>{% if package.price %}{{ package.price }} {{ package.currency }}{% else %}—{% endif %}</td>
+                <td>{% if package.features %}{{ package.features }}{% else %}—{% endif %}</td>
+                <td>{{ package.updated_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="6">No previous revisions.</td></tr>
+        {% endfor %}
+    </table>
+</div>
 
 <div class="actions" style="margin-top:1rem;">
     <a class="button" href="{% url 'workflow-dashboard-section' section='provider-opportunities' %}">Back to opportunities</a>

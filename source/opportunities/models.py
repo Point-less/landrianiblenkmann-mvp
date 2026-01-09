@@ -680,20 +680,12 @@ class MarketingPackage(TimeStampedMixin):
 
     @property
     def state(self) -> str:
-        publication = getattr(self, "publication", None)
-        if publication:
-            return publication.state
-        from opportunities.models import MarketingPublication  # local import to avoid circular
-
-        return MarketingPublication.State.PREPARING
+        return self.publication.state
 
     def get_state_display(self) -> str:
         from opportunities.models import MarketingPublication  # local import to avoid circular
 
-        try:
-            return MarketingPublication.State(self.state).label
-        except ValueError:
-            return self.state
+        return MarketingPublication.State(self.state).label
 
 
 class MarketingPublication(TimeStampedMixin, FSMTrackingMixin):

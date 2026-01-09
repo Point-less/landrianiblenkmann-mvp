@@ -6,17 +6,16 @@ import django_fsm
 import utils.mixins
 
 
-def copy_package_state_to_publication(apps, schema_editor):
+def backfill_publications(apps, schema_editor):
     MarketingPackage = apps.get_model('opportunities', 'MarketingPackage')
     MarketingPublication = apps.get_model('opportunities', 'MarketingPublication')
 
-    for pkg in MarketingPackage.objects.filter(is_active=True).select_related('opportunity'):
-        state = getattr(pkg, 'state', 'preparing')
+    for pkg in MarketingPackage.objects.all().select_related('opportunity'):
         MarketingPublication.objects.update_or_create(
             opportunity=pkg.opportunity,
             defaults={
                 'package': pkg,
-                'state': state,
+                'state': getattr(pkg, 'state', 'preparing'),
             },
         )
 
@@ -49,7 +48,7 @@ class Migration(migrations.Migration):
             },
             bases=(utils.mixins.FSMTransitionMixin, models.Model),
         ),
-        migrations.RunPython(copy_package_state_to_publication, migrations.RunPython.noop),
+        migrations.RunPython(backfill_publications, migrations.RunPython.noop),
         migrations.RemoveField(
             model_name='marketingpackage',
             name='state',

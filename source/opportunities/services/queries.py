@@ -19,6 +19,7 @@ from utils.authorization import (
 from utils.services import BaseService
 from opportunities.models import (
     MarketingPackage,
+    MarketingPublication,
     Operation,
     OperationAgreement,
     ProviderOpportunity,
@@ -127,35 +128,14 @@ class DashboardProviderValidationsQuery(BaseService):
 
 
 class DashboardMarketingPackagesQuery(BaseService):
-    def run(self, *, actor=None):
-        queryset = MarketingPackage.objects.select_related(
-            'opportunity__source_intention__property',
-            'opportunity__source_intention__owner',
-            'publication',
-        ).prefetch_related('publication__state_transitions').filter(
-            opportunity__state=ProviderOpportunity.State.MARKETING,
-            is_active=True,
-        ).order_by('-updated_at')
-        return filter_queryset(
-            actor,
-            PROVIDER_OPPORTUNITY_VIEW,
-            queryset,
-            owner_field='opportunity__source_intention__agent',
-            view_all_action=PROVIDER_OPPORTUNITY_VIEW_ALL,
-        )
-
-
-class DashboardArchivedMarketingPackagesQuery(BaseService):
-    """Packages whose opportunities are no longer marketing (e.g., closed)."""
+    """List all marketing publications (one per opportunity)."""
 
     def run(self, *, actor=None):
-        queryset = MarketingPackage.objects.select_related(
+        queryset = MarketingPublication.objects.select_related(
+            'package__currency',
             'opportunity__source_intention__property',
             'opportunity__source_intention__owner',
-            'publication',
-        ).prefetch_related('publication__state_transitions').exclude(
-            opportunity__state=ProviderOpportunity.State.MARKETING
-        ).filter(is_active=True).order_by('-updated_at')
+        ).prefetch_related('state_transitions').order_by('-updated_at')
         return filter_queryset(
             actor,
             PROVIDER_OPPORTUNITY_VIEW,

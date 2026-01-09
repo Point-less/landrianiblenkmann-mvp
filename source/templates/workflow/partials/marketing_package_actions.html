@@ -1,6 +1,10 @@
 {% load workflow_extras %}
 {% with publication=package.publication %}
 {% if package.is_active and publication %}
+    {% url 'transition-history' 'opportunities' 'marketingpublication' publication.id as publication_history_url %}
+    <a class="icon-button" data-icon="↺" href="{{ publication_history_url }}?next={{ current_url|urlencode }}" title="View publication history">
+        <span class="sr-only">View publication history</span>
+    </a>
     {% if show_details_button|default_if_none:True %}
         {% url 'marketing-package-history' package.opportunity.id as package_history_url %}
         <a class="icon-button" data-icon="🗂" href="{{ package_history_url }}?next={{ current_url|urlencode }}" title="View package details">

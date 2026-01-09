@@ -58,8 +58,8 @@ class MarketingPackageCreateService(BaseService):
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, opportunity: ProviderOpportunity, **attrs) -> MarketingPackage:
-        if opportunity.state != ProviderOpportunity.State.MARKETING:
-            raise ValidationError("Opportunity must be in marketing stage to add packages.")
+        if opportunity.state not in (ProviderOpportunity.State.MARKETING, ProviderOpportunity.State.VALIDATING):
+            raise ValidationError("Opportunity must be in marketing or validating stage to add packages.")
         package = MarketingPackage.objects.create(opportunity=opportunity, **attrs)
         MarketingPublication.objects.update_or_create(
             opportunity=opportunity,

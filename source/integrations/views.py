@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
@@ -97,9 +96,7 @@ class TokkoClearView(PermissionedViewMixin, LoginRequiredMixin, View):
     required_action = INTEGRATION_MANAGE
 
     def post(self, request):
-        from integrations.models import TokkobrokerProperty
-
-        deleted, _ = TokkobrokerProperty.objects.all().delete()
+        deleted = S.integrations.ClearTokkobrokerRegistryService()
         messages.warning(request, f'Cleared {deleted} Tokkobroker properties.')
         return self._redirect_back(request)
 

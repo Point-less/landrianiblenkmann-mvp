@@ -6,6 +6,7 @@ from django import forms
 from decimal import Decimal
 
 from core.models import Agent, Contact, Property
+from utils.services import S
 
 
 class TypedFormMixin:
@@ -66,7 +67,7 @@ class AgentEditForm(AgentForm):
     pass
 
 class ContactForm(TypedFormMixin, forms.ModelForm):
-    agent = forms.ModelChoiceField(queryset=Agent.objects.all())
+    agent = forms.ModelChoiceField(queryset=None)
 
     class Meta:
         model = Contact
@@ -83,12 +84,14 @@ class ContactForm(TypedFormMixin, forms.ModelForm):
 
     def __init__(self, *args, actor=None, **kwargs):
         super().__init__(*args, **kwargs)
+        qs = S.core.AgentsQuery(actor=actor)
+        self.fields["agent"].queryset = qs
         if actor and not getattr(actor, "is_superuser", False):
             from utils.authorization import get_role_profile
 
             actor_agent = get_role_profile(actor, "agent")
             if actor_agent:
-                self.fields["agent"].queryset = Agent.objects.filter(pk=actor_agent.pk)
+                self.fields["agent"].queryset = qs.filter(pk=actor_agent.pk)
                 self.fields["agent"].initial = actor_agent
 
 

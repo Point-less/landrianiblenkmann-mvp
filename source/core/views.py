@@ -95,16 +95,7 @@ from opportunities.forms import (
     ValidationRejectForm,
     ValidationAdditionalDocumentUploadForm,
 )
-from opportunities.models import (
-    MarketingPackage,
-    Operation,
-    OperationAgreement,
-    ProviderOpportunity,
-    SeekerOpportunity,
-    Validation,
-    ValidationDocument,
-    ValidationDocumentType,
-)
+from opportunities.models import MarketingPackage, Operation, OperationAgreement
 from opportunities.services import (  # noqa: F401  # retained for registry discovery
     MarketingPackageActivateService,
     MarketingPackageCreateService,
@@ -844,7 +835,7 @@ class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
         initial = super().get_initial()
         requested_type = self.request.GET.get('document_type')
         if requested_type:
-            doc_type = ValidationDocumentType.objects.filter(code=requested_type).first()
+            doc_type = S.opportunities.ValidationDocumentTypesQuery().filter(code=requested_type).first()
             if doc_type:
                 initial['document_type'] = doc_type
         return initial
@@ -1053,7 +1044,7 @@ class TokkoClearView(PermissionedViewMixin, LoginRequiredMixin, View):
     required_action = INTEGRATION_MANAGE
 
     def post(self, request):
-        deleted, _ = TokkobrokerProperty.objects.all().delete()
+        deleted = S.integrations.ClearTokkobrokerRegistryService()
         messages.warning(request, f'Cleared {deleted} Tokkobroker properties.')
         return self._redirect_back(request)
 
@@ -1088,21 +1079,15 @@ class ObjectTransitionHistoryView(PermissionedViewMixin, LoginRequiredMixin, Tem
         model = self.kwargs['model']
         object_id = self.kwargs['object_id']
         try:
-            content_type = ContentType.objects.get(app_label=app_label, model=model)
-        except ContentType.DoesNotExist as exc:  # pragma: no cover - defensive
+            obj = S.core.ObjectByNaturalKeyQuery(app_label=app_label, model=model, pk=object_id)
+        except Exception as exc:  # pragma: no cover - defensive
             raise Http404("Unknown object type") from exc
-        model_class = content_type.model_class()
-        if model_class is None:
-            raise Http404("Model unavailable")
-        return get_object_or_404(model_class, pk=object_id)
+        return obj
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         obj = self.get_object()
-        transitions = FSMStateTransition.objects.filter(
-            content_type=ContentType.objects.get_for_model(obj, for_concrete_model=False),
-            object_id=obj.pk,
-        ).order_by('occurred_at')
+        transitions = S.core.FSMTransitionsForObjectQuery(obj=obj)
         context.update(
             object=obj,
             transitions=transitions,

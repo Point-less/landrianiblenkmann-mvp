@@ -124,7 +124,7 @@ class SignOperationAgreementForm(HTML5FormMixin, forms.ModelForm):
     signed_document = forms.FileField(required=True)
     reserve_amount = forms.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=True)
     reserve_deadline = forms.DateField(required=True, widget=forms.DateInput(attrs={'type': 'date'}))
-    currency = forms.ModelChoiceField(queryset=Currency.objects.all())
+    currency = forms.ModelChoiceField(queryset=None)
 
     class Meta:
         model = OperationAgreement
@@ -133,12 +133,13 @@ class SignOperationAgreementForm(HTML5FormMixin, forms.ModelForm):
             "notes": forms.Textarea(attrs={'rows': 2}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, currency_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["currency"].queryset = Currency.objects.order_by("code")
+        qs = currency_queryset if currency_queryset is not None else S.core.CurrenciesQuery()
+        self.fields["currency"].queryset = qs
 
 class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
-    document_type = forms.ModelChoiceField(queryset=ValidationDocumentType.objects.none(), widget=forms.Select())
+    document_type = forms.ModelChoiceField(queryset=None, widget=forms.Select())
 
     class Meta:
         model = ValidationDocument
@@ -147,14 +148,17 @@ class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
             "observations": forms.Textarea(attrs={'rows': 2}),
         }
 
-    def __init__(self, *args, forced_document_type: str | None = None, validation=None, **kwargs):
+    def __init__(self, *args, forced_document_type: str | None = None, validation=None, document_types_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["observations"].required = False
         op_type = validation.opportunity.source_intention.operation_type if validation else None
-        required_qs = validation.required_document_types() if validation else ValidationDocumentType.objects.filter(required=True)
-        if op_type:
-            required_qs = required_qs.filter(models.Q(operation_type__isnull=True) | models.Q(operation_type=op_type))
-        allowed_qs = required_qs.distinct()
+        if document_types_queryset is not None:
+            allowed_qs = document_types_queryset
+        else:
+            allowed_qs = validation.required_document_types() if validation else S.opportunities.ValidationDocumentTypesQuery(required=True)
+            if op_type:
+                allowed_qs = allowed_qs.filter(models.Q(operation_type__isnull=True) | models.Q(operation_type=op_type))
+            allowed_qs = allowed_qs.distinct()
         self.fields["document_type"].queryset = allowed_qs
         if forced_document_type:
             forced_obj = None
@@ -171,7 +175,7 @@ class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
                 if not self.is_bound:
                     # Hide only on first render when the type was forced by the caller
                     self.fields["document_type"].widget = forms.HiddenInput()
-                    self.fields["document_type"].queryset = ValidationDocumentType.objects.filter(pk=forced_obj.pk)
+                    self.fields["document_type"].queryset = allowed_qs.filter(pk=forced_obj.pk)
                 else:
                     # On re-render (e.g., after validation errors) keep the selector visible to let users change it
                     self.fields["document_type"].queryset = allowed_qs
@@ -210,9 +214,10 @@ class MarketingPackageForm(HTML5FormMixin, forms.ModelForm):
             "media_assets",
         ]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, currency_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["currency"].queryset = Currency.objects.order_by("code")
+        qs = currency_queryset if currency_queryset is not None else S.core.CurrenciesQuery()
+        self.fields["currency"].queryset = qs
 
 
 __all__ = [

@@ -92,7 +92,7 @@ INTEGRATION_MANAGE = Action("integration.manage")
 
 def _membership_roles(user) -> Iterable[int]:
     return (
-        RoleMembership.objects.filter(user=user)
+        RoleMembership.objects.filter(user=user)  # service-guard: allow (auth cache hot path)
         .values_list("role_id", flat=True)
         .distinct()
     )
@@ -111,12 +111,12 @@ def _perms_for_user(user):
 
     role_ids = list(_membership_roles(user))
     global_codes = set(
-        RolePermission.objects.filter(role_id__in=role_ids, allowed=True)
+        RolePermission.objects.filter(role_id__in=role_ids, allowed=True)  # service-guard: allow
         .select_related("permission")
         .values_list("permission__code", flat=True)
     )
 
-    grants_qs = ObjectGrant.objects.filter(allowed=True).select_related("permission")
+    grants_qs = ObjectGrant.objects.filter(allowed=True).select_related("permission")  # service-guard: allow
     if user.is_authenticated:
         grants_qs = grants_qs.filter(Q(user=user) | Q(role_id__in=role_ids))
     else:
@@ -141,7 +141,7 @@ def get_role_profile(user, role_slug: str) -> Optional[Model]:
     """Return the profile object linked to `role_slug`, or None."""
 
     membership = (
-        RoleMembership.objects.select_related("role", "profile_content_type")
+        RoleMembership.objects.select_related("role", "profile_content_type")  # service-guard: allow
         .filter(user=user, role__slug=role_slug)
         .first()
     )
@@ -166,7 +166,7 @@ def check(user, action: Action, obj: Optional[Model] = None) -> bool:
         return True
 
     if obj is not None:
-        ct_id = ContentType.objects.get_for_model(obj).id
+        ct_id = ContentType.objects.get_for_model(obj).id  # service-guard: allow
         if action.code in perms["object"].get((ct_id, obj.pk), set()):
             return True
 

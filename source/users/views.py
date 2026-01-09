@@ -12,6 +12,7 @@ import sesame.utils
 from sesame import settings as sesame_settings
 
 from users.models import User
+from utils.services import S
 
 
 class EmailForm(forms.Form):
@@ -43,7 +44,7 @@ class RequestMagicLinkView(FormView):
         email = form.cleaned_data['email']
         
         try:
-            user = User.objects.get(email=email, is_active=True)
+            user = S.users.ActiveUserByEmailQuery(email=email)
             
             # Generate magic link using sesame
             token = sesame.utils.get_token(user)

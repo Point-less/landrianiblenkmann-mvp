@@ -28,7 +28,6 @@ from opportunities.models import (
     SeekerOpportunity,
     Validation,
     ValidationDocument,
-    ValidationDocumentType,
 )
 from utils.services import S
 from utils.authorization import (
@@ -181,7 +180,7 @@ class ValidationDocumentUploadView(ValidationMixin, PermissionedViewMixin, Login
         initial = super().get_initial()
         requested_type = self.request.GET.get('document_type')
         if requested_type:
-            doc_type = ValidationDocumentType.objects.filter(code=requested_type).first()
+            doc_type = S.opportunities.ValidationDocumentTypesQuery().filter(code=requested_type).first()
             if doc_type:
                 initial['document_type'] = doc_type
         return initial

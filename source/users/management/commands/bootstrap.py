@@ -1,8 +1,8 @@
 import os
 from typing import Any
 
-from django.contrib.auth import get_user_model
 from django.core.management import BaseCommand, call_command
+from utils.services import S
 
 DEFAULT_USERNAME = "admin"
 DEFAULT_EMAIL = "admin@example.com"
@@ -20,48 +20,15 @@ class Command(BaseCommand):
         self.stdout.write("Applying database migrations...")
         call_command("migrate", interactive=False)
 
-        user_model = get_user_model()
-
         username = os.environ.get(ENV_USERNAME, DEFAULT_USERNAME)
         email = os.environ.get(ENV_EMAIL, DEFAULT_EMAIL)
         password = os.environ.get(ENV_PASSWORD)
 
-        existing = user_model.objects.filter(username=username).first()
-
-        if existing:
-            if password:
-                existing.set_password(password)
-                existing.email = email
-                existing.save()
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Superuser '{username}' already existed; password updated from {ENV_PASSWORD}."
-                    )
-                )
-            else:
-                self.stdout.write(
-                    self.style.WARNING(
-                        f"Superuser '{username}' already exists; set {ENV_PASSWORD} to update its password."
-                    )
-                )
-            return
-
-        if not password:
-            # Avoid creating a predictable password if operator forgot to set one.
+        try:
+            S.users.BootstrapSuperuserService(username=username, email=email, password=password)
+            self.stdout.write(self.style.SUCCESS("Bootstrap complete."))
+        except ValueError as exc:
+            self.stdout.write(self.style.ERROR(str(exc)))
             self.stdout.write(
-                self.style.ERROR(
-                    f"Environment variable {ENV_PASSWORD} is required to create superuser '{username}'."
-                )
+                "Set BOOTSTRAP_ADMIN_PASSWORD and re-run `docker compose exec frontend python manage.py bootstrap`."
             )
-            self.stdout.write(
-                "Set it and re-run `docker compose exec frontend python manage.py bootstrap`."
-            )
-            return
-
-        self.stdout.write(f"Creating superuser '{username}'")
-        user_model.objects.create_superuser(
-            username=username,
-            email=email,
-            password=password,
-        )
-        self.stdout.write(self.style.SUCCESS("Bootstrap complete."))

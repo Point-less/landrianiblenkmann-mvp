@@ -18,6 +18,7 @@ from utils.authorization import (
     filter_queryset,
     get_role_profile,
 )
+from utils.services import S
 
 
 class HTML5WidgetMixin:
@@ -47,17 +48,20 @@ class ProviderIntentionForm(HTML5WidgetMixin, forms.ModelForm):
 
     def __init__(self, *args, actor=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["operation_type"].queryset = OperationType.objects.all()
+        self.fields["operation_type"].queryset = S.opportunities.OperationTypesQuery()
         if actor is not None:
+            contact_qs = S.core.ContactsQuery(actor=actor).order_by("last_name", "first_name")
             self.fields["owner"].queryset = filter_queryset(
                 actor,
                 CONTACT_VIEW,
-                Contact.objects.order_by("last_name", "first_name"),
+                contact_qs,
                 owner_field="agents",
                 view_all_action=CONTACT_VIEW_ALL,
             )
             agent_profile = get_role_profile(actor, "agent")
-            agent_qs = Agent.objects.filter(pk=agent_profile.pk) if agent_profile else Agent.objects.none()
+            agent_qs = S.core.AgentsQuery(actor=actor)
+            if agent_profile:
+                agent_qs = agent_qs.filter(pk=agent_profile.pk)
             self.fields["agent"].queryset = agent_qs
             if agent_profile:
                 self.fields["agent"].initial = agent_profile
@@ -107,7 +111,7 @@ class ProviderPromotionForm(HTML5WidgetMixin, forms.Form):
     )
     tokkobroker_property = forms.ModelChoiceField(
         required=True,
-        queryset=TokkobrokerProperty.objects.none(),
+        queryset=None,
         label="Tokkobroker property",
         help_text="Select the linked Tokkobroker listing to promote.",
     )
@@ -116,7 +120,7 @@ class ProviderPromotionForm(HTML5WidgetMixin, forms.Form):
     def __init__(self, *args, currency_queryset=None, tokkobroker_property_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
         property_queryset = (
-            tokkobroker_property_queryset if tokkobroker_property_queryset is not None else TokkobrokerProperty.objects.none()
+            tokkobroker_property_queryset if tokkobroker_property_queryset is not None else S.core.AvailableTokkobrokerPropertiesQuery()
         )
         self.fields["tokkobroker_property"].queryset = property_queryset
         self.fields["tokkobroker_property"].widget.attrs.update(
@@ -165,17 +169,20 @@ class SeekerIntentionForm(HTML5WidgetMixin, forms.ModelForm):
 
     def __init__(self, *args, actor=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["operation_type"].queryset = OperationType.objects.all()
+        self.fields["operation_type"].queryset = S.opportunities.OperationTypesQuery()
         if actor is not None:
+            contact_qs = S.core.ContactsQuery(actor=actor).order_by("last_name", "first_name")
             self.fields["contact"].queryset = filter_queryset(
                 actor,
                 CONTACT_VIEW,
-                Contact.objects.order_by("last_name", "first_name"),
+                contact_qs,
                 owner_field="agents",
                 view_all_action=CONTACT_VIEW_ALL,
             )
             agent_profile = get_role_profile(actor, "agent")
-            agent_qs = Agent.objects.filter(pk=agent_profile.pk) if agent_profile else Agent.objects.none()
+            agent_qs = S.core.AgentsQuery(actor=actor)
+            if agent_profile:
+                agent_qs = agent_qs.filter(pk=agent_profile.pk)
             self.fields["agent"].queryset = agent_qs
             if agent_profile:
                 self.fields["agent"].initial = agent_profile

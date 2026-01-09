@@ -1,9 +1,7 @@
 from django.core.management.base import BaseCommand
-from django.contrib.contenttypes.models import ContentType
 
-from core.models import Agent
 from utils import authorization
-from users.models import Permission, Role, RolePermission
+from utils.services import S
 
 
 ROLE_MATRIX = {
@@ -71,8 +69,6 @@ class Command(BaseCommand):
     help = "Seed canonical roles and permissions. Safe to run multiple times."
 
     def handle(self, *args, **options):
-        agent_ct = ContentType.objects.get_for_model(Agent)
-
         all_actions = [
             authorization.AGENT_VIEW,
             authorization.AGENT_VIEW_ALL,
@@ -122,39 +118,5 @@ class Command(BaseCommand):
             authorization.INTEGRATION_MANAGE,
         ]
 
-        perm_map = {}
-        for action in all_actions:
-            perm, _ = Permission.objects.get_or_create(code=action.code, defaults={"description": action.code})
-            perm_map[action.code] = perm
-
-        for slug, data in ROLE_MATRIX.items():
-            profile_ct = agent_ct if data.get("profile_ct") is ContentType else None
-            role, _ = Role.objects.get_or_create(
-                slug=slug,
-                defaults={
-                    "name": data["name"],
-                    "profile_content_type": profile_ct,
-                },
-            )
-            if role.profile_content_type != profile_ct:
-                role.profile_content_type = profile_ct
-                role.save(update_fields=["profile_content_type"])
-
-            perms = data["permissions"]
-            if perms == "ALL":
-                perms = all_actions
-
-            target_codes = {action.code for action in perms}
-
-            # prune permissions not in target set
-            RolePermission.objects.filter(role=role).exclude(permission__code__in=target_codes).delete()
-
-            for action in perms:
-                perm = perm_map[action.code]
-                RolePermission.objects.update_or_create(
-                    role=role,
-                    permission=perm,
-                    defaults={"allowed": True},
-                )
-
+        S.users.SeedPermissionsService(actions=all_actions)
         self.stdout.write(self.style.SUCCESS("Roles and permissions seeded."))

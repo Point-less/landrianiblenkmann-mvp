@@ -10,7 +10,6 @@ from datetime import datetime
 import dramatiq
 from django.conf import settings
 
-from integrations.models import TokkobrokerProperty
 from integrations.tokkobroker import (
     TokkoAuthenticationError,
     TokkoClient,
@@ -75,15 +74,11 @@ def sync_tokkobroker_registry(
             logger.debug("Skipping Tokkobroker payload without integer 'id': %r", payload)
             continue
 
-        defaults = {
-            "ref_code": str(ref_code or ""),
-            "address": str(address or ""),
-            "tokko_created_at": _parse_tokkobroker_date(created_at_raw),
-        }
-
-        TokkobrokerProperty.objects.update_or_create(
+        S.integrations.UpsertTokkobrokerPropertyService(
             tokko_id=tokko_id,
-            defaults=defaults,
+            ref_code=str(ref_code or ""),
+            address=str(address or ""),
+            tokko_created_at=_parse_tokkobroker_date(created_at_raw),
         )
         count += 1
 

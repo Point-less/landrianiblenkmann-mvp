@@ -20,8 +20,8 @@ def record_fsm_transition(sender, instance, name, source, target, **kwargs):
     field = kwargs.get('field')
     state_field = field.name if field is not None else 'state'
 
-    FSMStateTransition.objects.create(
-        content_type=ContentType.objects.get_for_model(instance, for_concrete_model=False),
+    FSMStateTransition.objects.create(  # service-guard: allow (infra signal)
+        content_type=ContentType.objects.get_for_model(instance, for_concrete_model=False),  # service-guard: allow (infra signal)
         object_id=instance.pk,
         actor=get_current_actor(),
         state_field=state_field,

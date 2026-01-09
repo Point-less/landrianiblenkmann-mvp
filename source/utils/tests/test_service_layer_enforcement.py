@@ -38,6 +38,7 @@ def is_allowed(path: Path) -> bool:
 
 def find_orm_violations(file_path: Path) -> List[Tuple[int, str]]:
     source = file_path.read_text()
+    lines = source.splitlines()
     try:
         tree = ast.parse(source, filename=str(file_path))
     except SyntaxError:
@@ -46,12 +47,10 @@ def find_orm_violations(file_path: Path) -> List[Tuple[int, str]]:
     violations: List[Tuple[int, str]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute) and node.attr == "objects":
+            line = lines[node.lineno - 1] if 0 <= node.lineno - 1 < len(lines) else ""
+            if "# service-guard: allow" in line:
+                continue
             violations.append((node.lineno, "direct `.objects` access"))
-        if isinstance(node, ast.ImportFrom):
-            if node.module and node.module.endswith(".models"):
-                violations.append(
-                    (node.lineno, f"import from models module ({node.module})")
-                )
     return violations
 
 

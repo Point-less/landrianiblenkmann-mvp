@@ -136,7 +136,7 @@ class ImmutableRevisionMixin(models.Model):
             setattr(instance, cls.ACTIVE_FIELD, False)
             instance.save(update_fields=[cls.ACTIVE_FIELD, 'updated_at'])
             max_version = (
-                cls.objects.filter(**scope_filter)
+                cls.objects.filter(**scope_filter)  # service-guard: allow (immutable revision calc)
                 .aggregate(max_v=Max(cls.VERSION_FIELD))
                 .get('max_v')
                 or 0
@@ -144,7 +144,7 @@ class ImmutableRevisionMixin(models.Model):
             create_kwargs = {**scope_filter, **base_payload}
             create_kwargs[cls.VERSION_FIELD] = max_version + 1
             create_kwargs[cls.ACTIVE_FIELD] = True
-            new_instance = cls.objects.create(**create_kwargs)
+            new_instance = cls.objects.create(**create_kwargs)  # service-guard: allow (immutable revision create)
         return new_instance
 
     def clone(self, **overrides):

@@ -115,4 +115,31 @@ __all__ = [
     'TokkobrokerPropertiesQuery',
     'AvailableTokkobrokerPropertiesQuery',
     'CurrenciesQuery',
+    'ObjectByNaturalKeyQuery',
+    'FSMTransitionsForObjectQuery',
 ]
+
+
+class ObjectByNaturalKeyQuery(BaseService):
+    """Resolve an object by app_label, model, and primary key."""
+
+    def run(self, *, app_label: str, model: str, pk):
+        from django.apps import apps
+
+        model_class = apps.get_model(app_label=app_label, model_name=model)
+        if model_class is None:
+            raise ValueError(f"Unknown model {app_label}.{model}")
+        return model_class.objects.get(pk=pk)
+
+
+class FSMTransitionsForObjectQuery(BaseService):
+    """Return FSM state transitions for a given object."""
+
+    def run(self, *, obj):
+        from utils.models import FSMStateTransition
+        from django.contrib.contenttypes.models import ContentType
+
+        return FSMStateTransition.objects.filter(
+            content_type=ContentType.objects.get_for_model(obj, for_concrete_model=False),
+            object_id=obj.pk,
+        ).order_by('occurred_at')

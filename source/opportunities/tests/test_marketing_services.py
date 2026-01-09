@@ -96,6 +96,21 @@ class MarketingServiceTests(TestCase):
         with self.assertRaises(ValidationError):
             svc(package=self.package)
 
+    def test_release_blocked_when_opportunity_closed(self):
+        self.package.state = MarketingPackage.State.PAUSED
+        self.package.save(update_fields=["state", "updated_at"])
+
+        self.opportunity.state = ProviderOpportunity.State.CLOSED
+        self.opportunity.save(update_fields=["state", "updated_at"])
+
+        self.assertFalse(self.package.can_transition("publish"))
+
+        svc = MarketingPackageReleaseService(actor=None)
+        with self.assertRaises(ValidationError):
+            svc(package=self.package, use_atomic=False)
+        self.package.refresh_from_db()
+        self.assertEqual(self.package.state, MarketingPackage.State.PAUSED)
+
     def _dummy_seeker_intention(self):
         # kept for potential reuse; not used in current tests
         from intentions.models import SeekerIntention

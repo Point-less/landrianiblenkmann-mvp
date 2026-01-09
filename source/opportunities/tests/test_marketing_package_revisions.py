@@ -53,26 +53,27 @@ class MarketingPackageRevisionTests(TestCase):
             price=Decimal("100000"),
             currency=self.currency,
         )
-        revisions = list(pkg.revisions.order_by("version"))
-        self.assertEqual(len(revisions), 1)
-        self.assertEqual(revisions[0].version, 1)
-        self.assertTrue(revisions[0].is_active)
-        self.assertEqual(revisions[0].headline, "Initial")
+        self.assertEqual(pkg.version, 1)
+        self.assertTrue(pkg.is_active)
 
-        pkg = MarketingPackageUpdateService.call(
+        new_pkg = MarketingPackageUpdateService.call(
             actor=None,
             package=pkg,
             headline="Updated headline",
             price=Decimal("105000"),
         )
-        revisions = list(pkg.revisions.order_by("version"))
-        self.assertEqual(len(revisions), 2)
-        self.assertEqual(revisions[-1].version, 2)
-        self.assertTrue(revisions[-1].is_active)
-        self.assertEqual(revisions[-1].headline, "Updated headline")
-        self.assertFalse(revisions[0].is_active)
+        self.assertEqual(new_pkg.version, 2)
+        self.assertTrue(new_pkg.is_active)
 
-    def test_transition_snapshots(self):
+        pkg.refresh_from_db()
+        self.assertFalse(pkg.is_active)
+
+        versions = MarketingPackage.objects.filter(opportunity=self.opportunity).order_by("version")
+        self.assertEqual(versions.count(), 2)
+        self.assertEqual(versions[0].headline, "Initial")
+        self.assertEqual(versions[1].headline, "Updated headline")
+
+    def test_transitions_do_not_create_revisions(self):
         pkg = MarketingPackage.objects.create(
             opportunity=self.opportunity,
             state=MarketingPackage.State.PREPARING,
@@ -80,14 +81,15 @@ class MarketingPackageRevisionTests(TestCase):
             currency=self.currency,
             headline="Prep",
         )
-        pkg.snapshot_revision()  # initial snapshot
-
         pkg = MarketingPackageActivateService.call(actor=None, package=pkg)
         pkg = MarketingPackagePauseService.call(actor=None, package=pkg)
-        revisions = list(pkg.revisions.order_by("version"))
-        self.assertEqual(len(revisions), 3)  # initial + activate + pause
-        states = [rev.state for rev in revisions]
-        self.assertEqual(states[-1], MarketingPackage.State.PAUSED)
+
+        versions = MarketingPackage.objects.filter(opportunity=self.opportunity)
+        self.assertEqual(versions.count(), 1)
+        self.assertEqual(versions.first().state, MarketingPackage.State.PAUSED)
+
+        transitions = list(pkg.state_transitions.order_by("-occurred_at"))
+        self.assertGreaterEqual(len(transitions), 2)
 
     def test_query_includes_revisions(self):
         pkg = MarketingPackageCreateService.call(
@@ -97,7 +99,7 @@ class MarketingPackageRevisionTests(TestCase):
             price=Decimal("100000"),
             currency=self.currency,
         )
-        MarketingPackageUpdateService.call(actor=None, package=pkg, headline="Second")
+        pkg = MarketingPackageUpdateService.call(actor=None, package=pkg, headline="Second")
         user = get_user_model().objects.create_superuser("admin2", "admin2@example.com", "pass")
 
         qs = MarketingPackagesWithRevisionsForOpportunityQuery.call(
@@ -105,8 +107,9 @@ class MarketingPackageRevisionTests(TestCase):
             opportunity=self.opportunity,
         )
         packages = list(qs)
-        self.assertEqual(len(packages), 1)
-        self.assertEqual(packages[0].revisions.count(), 2)
+        self.assertEqual(len(packages), 2)
+        self.assertTrue(any(p.is_active and p.version == 2 for p in packages))
+        self.assertTrue(any((not p.is_active) and p.version == 1 for p in packages))
 
 
 @override_settings(BYPASS_SERVICE_AUTH_FOR_TESTS=True)
@@ -150,6 +153,6 @@ class MarketingPackageHistoryViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         # Should list both versions
         content = resp.content.decode()
-        self.assertIn("#1", content)
-        self.assertIn("#2", content)
+        self.assertIn("Version #1", content)
+        self.assertIn("Version #2", content)
         self.assertIn("Second", content)

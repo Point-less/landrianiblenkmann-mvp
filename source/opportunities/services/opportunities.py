@@ -65,7 +65,6 @@ class CreateOpportunityService(BaseService):
             opportunity=opportunity,
             **marketing_payload,
         )
-        package.snapshot_revision()
 
         Validation.objects.create(opportunity=opportunity)
 

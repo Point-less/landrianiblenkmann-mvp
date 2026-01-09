@@ -131,7 +131,10 @@ class DashboardMarketingPackagesQuery(BaseService):
         queryset = MarketingPackage.objects.select_related(
             'opportunity__source_intention__property',
             'opportunity__source_intention__owner'
-        ).prefetch_related('state_transitions').filter(opportunity__state=ProviderOpportunity.State.MARKETING).order_by('-updated_at')
+        ).prefetch_related('state_transitions').filter(
+            opportunity__state=ProviderOpportunity.State.MARKETING,
+            is_active=True,
+        ).order_by('-updated_at')
         return filter_queryset(
             actor,
             PROVIDER_OPPORTUNITY_VIEW,
@@ -150,7 +153,7 @@ class DashboardArchivedMarketingPackagesQuery(BaseService):
             'opportunity__source_intention__owner'
         ).prefetch_related('state_transitions').exclude(
             opportunity__state=ProviderOpportunity.State.MARKETING
-        ).order_by('-updated_at')
+        ).filter(is_active=True).order_by('-updated_at')
         return filter_queryset(
             actor,
             PROVIDER_OPPORTUNITY_VIEW,
@@ -215,14 +218,14 @@ class MarketingPackageByIdQuery(BaseService):
 
 
 class MarketingPackagesWithRevisionsForOpportunityQuery(BaseService):
-    """Packages (and their revisions) for a given provider opportunity."""
+    """All marketing package revisions for a given provider opportunity."""
 
     def run(self, *, opportunity, actor=None):
         queryset = MarketingPackage.objects.filter(opportunity=opportunity).select_related(
             "currency",
             "opportunity__source_intention__property",
             "opportunity__source_intention__owner",
-        ).prefetch_related("revisions").order_by("-updated_at", "-id")
+        ).prefetch_related("state_transitions").order_by("-version", "-id")
 
         return filter_queryset(
             actor,

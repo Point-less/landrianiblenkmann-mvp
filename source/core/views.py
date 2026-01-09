@@ -911,35 +911,44 @@ class MarketingPackageUpdateView(MarketingPackageMixin, WorkflowFormView):
 
 class MarketingPackageActionView(MarketingPackageMixin, WorkflowFormView):
     form_class = ConfirmationForm
-    service_class = None
+    service_name = None
+    service_app = "opportunities"
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
+    def get_service(self):
+        if not self.service_name:
+            raise RuntimeError('service_name not configured')
+        try:
+            namespace = getattr(S, self.service_app)
+            return getattr(namespace, self.service_name)
+        except AttributeError as exc:  # pragma: no cover - defensive guard for misconfiguration
+            raise RuntimeError(f"Service {self.service_app}.{self.service_name} not found") from exc
+
     def perform_action(self, form):
-        if not self.service_class:
-            raise RuntimeError('service_class not configured')
-        self.service_class.call(package=self.get_package())
+        service = self.get_service()
+        service(package=self.get_package())
 
 
 class MarketingPackageActivateView(MarketingPackageActionView):
     success_message = 'Marketing package activated.'
     form_title = 'Publish package'
     submit_label = 'Publish'
-    service_class = MarketingPackageActivateService
+    service_name = "MarketingPackageActivateService"
 
 
 class MarketingPackageReleaseView(MarketingPackageActionView):
     success_message = 'Marketing package resumed.'
     form_title = 'Publish package'
     submit_label = 'Publish'
-    service_class = MarketingPackageReleaseService
+    service_name = "MarketingPackageReleaseService"
 
 
 class MarketingPackagePauseView(MarketingPackageActionView):
     success_message = 'Marketing package paused.'
     form_title = 'Pause package'
     submit_label = 'Pause'
-    service_class = MarketingPackagePauseService
+    service_name = "MarketingPackagePauseService"
 
 
 

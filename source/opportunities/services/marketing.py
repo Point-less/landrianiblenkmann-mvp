@@ -13,11 +13,12 @@ class MarketingPackageActivateService(BaseService):
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
+        if not package.is_active:
+            raise ValidationError("Cannot transition an inactive marketing package revision.")
         try:
             new_package = package.activate()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
-        new_package.snapshot_revision()
         return new_package
 
 
@@ -27,11 +28,14 @@ class MarketingPackageReleaseService(BaseService):
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
+        if package.opportunity.state == ProviderOpportunity.State.CLOSED:
+            raise ValidationError("Cannot resume a marketing package for a closed opportunity.")
+        if not package.is_active:
+            raise ValidationError("Cannot transition an inactive marketing package revision.")
         try:
             new_package = package.publish()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
-        new_package.snapshot_revision()
         return new_package
 
 
@@ -43,9 +47,7 @@ class MarketingPackageCreateService(BaseService):
     def run(self, *, opportunity: ProviderOpportunity, **attrs) -> MarketingPackage:
         if opportunity.state != ProviderOpportunity.State.MARKETING:
             raise ValidationError("Opportunity must be in marketing stage to add packages.")
-        package = MarketingPackage.objects.create(opportunity=opportunity, **attrs)
-        package.snapshot_revision()
-        return package
+        return MarketingPackage.objects.create(opportunity=opportunity, **attrs)
 
 
 class MarketingPackageUpdateService(BaseService):
@@ -54,6 +56,8 @@ class MarketingPackageUpdateService(BaseService):
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, package: MarketingPackage, **attrs) -> MarketingPackage:
+        if not package.is_active:
+            raise ValidationError("Cannot edit an inactive marketing package revision.")
         updatable = {key: value for key, value in attrs.items() if key in {
             'headline',
             'description',
@@ -62,13 +66,9 @@ class MarketingPackageUpdateService(BaseService):
             'features',
             'media_assets',
         }}
-        for field, value in updatable.items():
-            setattr(package, field, value)
         if not updatable:
             return package
-        package.save(update_fields=[*updatable.keys(), 'updated_at'])
-        package.snapshot_revision()
-        return package
+        return package.clone_as_revision(**updatable)
 
 
 class MarketingPackagePauseService(BaseService):
@@ -77,9 +77,10 @@ class MarketingPackagePauseService(BaseService):
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, package: MarketingPackage) -> MarketingPackage:
+        if not package.is_active:
+            raise ValidationError("Cannot transition an inactive marketing package revision.")
         try:
             new_package = package.pause()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
-        new_package.snapshot_revision()
         return new_package

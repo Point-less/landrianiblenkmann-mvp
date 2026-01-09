@@ -1,19 +1,21 @@
 {% load workflow_extras %}
-<a class="icon-button" data-icon="✏" href="{% url 'marketing-package-edit' package.id %}?next={{ current_url|urlencode }}" title="Edit package">
-    <span class="sr-only">Edit marketing package</span>
-</a>
-{% if package|can_transition:'activate' %}
-    <a class="icon-button" data-icon="▶" href="{% url 'marketing-package-activate' package.id %}?next={{ current_url|urlencode }}" title="Activate package">
-        <span class="sr-only">Activate marketing package</span>
+{% if package.is_active %}
+    <a class="icon-button" data-icon="✏" href="{% url 'marketing-package-edit' package.id %}?next={{ current_url|urlencode }}" title="Edit package">
+        <span class="sr-only">Edit marketing package</span>
     </a>
-{% endif %}
-{% if package|can_transition:'pause' %}
-    <a class="icon-button" data-icon="⏸" data-variant="warning" href="{% url 'marketing-package-pause' package.id %}?next={{ current_url|urlencode }}" title="Pause package">
-        <span class="sr-only">Pause marketing package</span>
-    </a>
-{% endif %}
-{% if package|can_transition:'publish' %}
-    <a class="icon-button" data-icon="⏯" href="{% url 'marketing-package-release' package.id %}?next={{ current_url|urlencode }}" title="Resume package">
-        <span class="sr-only">Resume marketing package</span>
-    </a>
+    {% if package|can_transition:'activate' %}
+        <a class="icon-button" data-icon="▶" href="{% url 'marketing-package-activate' package.id %}?next={{ current_url|urlencode }}" title="Activate package">
+            <span class="sr-only">Activate marketing package</span>
+        </a>
+    {% endif %}
+    {% if package|can_transition:'pause' %}
+        <a class="icon-button" data-icon="⏸" data-variant="warning" href="{% url 'marketing-package-pause' package.id %}?next={{ current_url|urlencode }}" title="Pause package">
+            <span class="sr-only">Pause marketing package</span>
+        </a>
+    {% endif %}
+    {% if package|can_transition:'publish' %}
+        <a class="icon-button" data-icon="⏯" href="{% url 'marketing-package-release' package.id %}?next={{ current_url|urlencode }}" title="Resume package">
+            <span class="sr-only">Resume marketing package</span>
+        </a>
+    {% endif %}
 {% endif %}

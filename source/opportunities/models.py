@@ -10,13 +10,13 @@ from pathlib import Path
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django_fsm import FSMField, transition
 
 from core.models import Currency
 from integrations.models import TokkobrokerProperty
-from utils.mixins import FSMTrackingMixin, TimeStampedMixin, ImmutableRevisionMixin
+from utils.mixins import FSMTrackingMixin, TimeStampedMixin
 
 OPERATION_STATE_CHOICES = (
     ("offered", "Offered"),
@@ -605,7 +605,7 @@ class OperationAgreement(TimeStampedMixin, FSMTrackingMixin):
 
 class MarketingPackageQuerySet(models.QuerySet):
     def active(self):
-        return self.filter(state=self.model.State.PUBLISHED)
+        return self.filter(is_active=True)
 
 
 class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
@@ -619,6 +619,8 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
         on_delete=models.CASCADE,
         related_name="marketing_packages",
     )
+    version = models.PositiveIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
     state = FSMField(
         max_length=20,
         choices=State.choices,
@@ -647,13 +649,51 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
     objects = MarketingPackageQuerySet.as_manager()
 
     class Meta:
-        ordering = ("-created_at",)
+        ordering = ("-is_active", "-version", "-created_at")
         verbose_name = "marketing package"
         verbose_name_plural = "marketing packages"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["opportunity", "version"],
+                name="uniq_marketing_package_version_per_opportunity",
+            ),
+            models.UniqueConstraint(
+                fields=["opportunity"],
+                condition=models.Q(is_active=True),
+                name="uniq_active_marketing_package_per_opportunity",
+            ),
+        ]
 
     def __str__(self) -> str:
         base = self.headline or f"Marketing package for {self.opportunity}"
         return base
+
+    def clone_as_revision(self, **overrides) -> "MarketingPackage":
+        """Create a new revision row, deactivating the current one."""
+
+        base_attrs = {
+            "opportunity": self.opportunity,
+            "version": self.version + 1,
+            "is_active": True,
+            "state": self.state,
+            "headline": self.headline,
+            "description": self.description,
+            "price": self.price,
+            "currency": self.currency,
+            "features": deepcopy(self.features) if self.features is not None else [],
+            "media_assets": deepcopy(self.media_assets) if self.media_assets is not None else [],
+        }
+        base_attrs.update(overrides)
+
+        with transaction.atomic():
+            MarketingPackage.objects.filter(pk=self.pk).update(is_active=False, updated_at=timezone.now())
+            new_pkg = MarketingPackage.objects.create(**base_attrs)
+        return new_pkg
+
+    def opportunity_in_marketing(self) -> bool:
+        """True when the owning opportunity is still in marketing stage."""
+
+        return self.opportunity.state == ProviderOpportunity.State.MARKETING
 
     @transition(field="state", source=State.PREPARING, target=State.PUBLISHED)
     def activate(self) -> "MarketingPackage":
@@ -669,7 +709,12 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
         self.save(update_fields=["state", "updated_at"])
         return self
 
-    @transition(field="state", source=State.PAUSED, target=State.PUBLISHED)
+    @transition(
+        field="state",
+        source=State.PAUSED,
+        target=State.PUBLISHED,
+        conditions=[opportunity_in_marketing],
+    )
     def publish(self) -> "MarketingPackage":
         has_active_operation = self.opportunity.operation_agreements.filter(
             operation__state__in=[Operation.State.OFFERED, Operation.State.REINFORCED]
@@ -681,75 +726,6 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
         self.state = MarketingPackage.State.PUBLISHED
         self.save(update_fields=["state", "updated_at"])
         return self
-
-    def snapshot_revision(self):
-        """Persist an immutable revision of the current package state."""
-        MarketingPackageRevision.snapshot_from_package(self)
-
-
-class MarketingPackageRevision(ImmutableRevisionMixin, TimeStampedMixin):
-    """Immutable snapshots of marketing package content/state over time."""
-
-    VERSION_FIELD = "version"
-    ACTIVE_FIELD = "is_active"
-    REVISION_SCOPE = ("package",)
-
-    package = models.ForeignKey(
-        MarketingPackage,
-        on_delete=models.CASCADE,
-        related_name="revisions",
-    )
-    version = models.PositiveIntegerField(default=1)
-    is_active = models.BooleanField(default=True)
-
-    headline = models.CharField(max_length=255, blank=True)
-    description = models.TextField(blank=True)
-    price = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0)],
-    )
-    currency = models.ForeignKey(
-        Currency,
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="+",
-    )
-    state = models.CharField(max_length=20, choices=MarketingPackage.State.choices)
-    features = models.JSONField(blank=True, default=list)
-    media_assets = models.JSONField(blank=True, default=list)
-
-    class Meta:
-        ordering = ("-package_id", "-version")
-        verbose_name = "marketing package revision"
-        verbose_name_plural = "marketing package revisions"
-
-    @classmethod
-    def _payload_from_package(cls, package: MarketingPackage) -> dict:
-        return {
-            "package": package,
-            "headline": package.headline or "",
-            "description": package.description or "",
-            "price": package.price,
-            "currency": package.currency,
-            "state": package.state,
-            "features": deepcopy(package.features) if package.features is not None else [],
-            "media_assets": deepcopy(package.media_assets) if package.media_assets is not None else [],
-        }
-
-    @classmethod
-    def snapshot_from_package(cls, package: MarketingPackage):
-        """Create a new active revision from the current package data."""
-        payload = cls._payload_from_package(package)
-        active = cls.objects.filter(package=package, is_active=True).order_by("-version").first()  # service-guard: allow (revision scope)
-        if active:
-            return cls.create_revision(active, **payload)
-        payload.setdefault("version", 1)
-        payload.setdefault("is_active", True)
-        return cls.objects.create(**payload)  # service-guard: allow (initial revision)
 
 
 class OperationManager(models.Manager):
@@ -890,7 +866,6 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
 
 __all__ = [
     "MarketingPackage",
-    "MarketingPackageRevision",
     "Operation",
     "OperationAgreement",
     "ProviderOpportunity",

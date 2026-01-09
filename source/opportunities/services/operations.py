@@ -82,7 +82,8 @@ class CreateOperationService(BaseService):
 
     def _reserve_marketing_packages(self, provider_opportunity: ProviderOpportunity) -> None:
         packages = provider_opportunity.marketing_packages.filter(
-            state=MarketingPackage.State.PUBLISHED
+            state=MarketingPackage.State.PUBLISHED,
+            is_active=True,
         ).order_by('-created_at')
         for package in packages:
             self.s.opportunities.MarketingPackagePauseService(package=package)

@@ -89,12 +89,7 @@ class MarketingPackageHistoryView(ProviderOpportunityMixin, PermissionedViewMixi
             actor=self.request.user,
             opportunity=opportunity,
         )
-        # Prefetch revisions ordered descending
-        pkg_data = []
-        for pkg in packages:
-            revisions = list(pkg.revisions.order_by("-version"))
-            pkg_data.append((pkg, revisions))
-        context["package_revision_rows"] = pkg_data
+        context["packages"] = packages
         context["current_url"] = self.request.get_full_path()
         return context
 
@@ -350,19 +345,23 @@ class MarketingPackageUpdateView(MarketingPackageMixin, PermissionedViewMixin, L
 class MarketingPackageActionView(MarketingPackageMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
     template_name = 'workflow/form.html'
     form_class = ConfirmationForm
-    service_class = None
+    service_name = None
+    service_app = "opportunities"
     success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
+    def get_service(self):
+        if not self.service_name:
+            raise RuntimeError('service_name not configured')
+        try:
+            namespace = getattr(S, self.service_app)
+            return getattr(namespace, self.service_name)
+        except AttributeError as exc:  # pragma: no cover - defensive guard for misconfiguration
+            raise RuntimeError(f"Service {self.service_app}.{self.service_name} not found") from exc
+
     def perform_action(self, form):
-        if not self.service_class:
-            raise RuntimeError('service_class not configured')
-        service = self.service_class
-        # Service proxy functions are callables; service classes expose `.call`.
-        if callable(getattr(service, "call", None)):
-            service.call(package=self.get_package())
-        else:
-            service(package=self.get_package())
+        service = self.get_service()
+        service(package=self.get_package())
 
     def form_valid(self, form):
         try:
@@ -376,21 +375,21 @@ class MarketingPackageActivateView(MarketingPackageActionView):
     success_message = 'Marketing package activated.'
     form_title = 'Publish package'
     submit_label = 'Publish'
-    service_class = S.opportunities.MarketingPackageActivateService
+    service_name = "MarketingPackageActivateService"
 
 
 class MarketingPackageReleaseView(MarketingPackageActionView):
     success_message = 'Marketing package resumed.'
     form_title = 'Publish package'
     submit_label = 'Publish'
-    service_class = S.opportunities.MarketingPackageReleaseService
+    service_name = "MarketingPackageReleaseService"
 
 
 class MarketingPackagePauseView(MarketingPackageActionView):
     success_message = 'Marketing package paused.'
     form_title = 'Pause package'
     submit_label = 'Pause'
-    service_class = S.opportunities.MarketingPackagePauseService
+    service_name = "MarketingPackagePauseService"
 
 
 class OperationMixin:

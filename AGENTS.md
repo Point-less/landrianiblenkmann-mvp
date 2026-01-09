@@ -8,6 +8,7 @@
 > We code for correct states, not silent fallbacks: required domain data must exist; missing prerequisites should raise loudly.
 > Follow OOP contracts—functions expect correctly typed objects; interact through public interfaces without duck-typing guards.
 > All services must be covered by tests; add or update service-layer tests alongside behavior changes.
+> Service layer coverage target: 100%—add tests until services are fully covered.
 
 ## Stack & Infrastructure
 

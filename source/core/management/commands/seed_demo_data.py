@@ -33,6 +33,7 @@ from opportunities.services import (
     CreateSeekerOpportunityService,
     CreateValidationDocumentService,
     MarketingPackageActivateService,
+    MarketingPackageUpdateService,
     OperationReinforceService,
     AgreeOperationAgreementService,
     OpportunityPublishService,
@@ -151,11 +152,13 @@ class Command(BaseCommand):
             "recoleta": self._upsert_property("Recoleta Townhouse", "Av. Alvear 1500, Recoleta, CABA"),
             "belgrano": self._upsert_property("Belgrano Office", "Av. Libertador 6100, Belgrano, CABA"),
             "nunez": self._upsert_property("Nuñez Studio", "Vedia 1800, Nuñez, CABA"),
+            "caballito": self._upsert_property("Caballito Loft", "Av. Pedro Goyena 1200, Caballito, CABA"),
         }
         tokko = {
             "palermo": self._upsert_tokko(1001, "PAL-1001", properties["palermo"]),
             "recoleta": self._upsert_tokko(1002, "REC-1002", properties["recoleta"]),
             "belgrano": self._upsert_tokko(1003, "BEL-1003", properties["belgrano"]),
+            "caballito": self._upsert_tokko(1004, "CAB-1004", properties["caballito"]),
         }
         return properties, tokko
 
@@ -228,6 +231,25 @@ class Command(BaseCommand):
                 intention=intentions["withdrawn"],
                 reason=ProviderIntention.WithdrawReason.CANNOT_SELL,
                 notes="Title survey pending.",
+            )
+
+        intentions["marketing_demo"] = self._ensure_provider_intention(
+            slug="marketing_demo",
+            owner=owners["valentina"],
+            agent=agents["agent"],
+            property=properties["caballito"],
+            operation_type=op_sale,
+            notes="Showcase listing with multiple marketing revisions.",
+        )
+        if intentions["marketing_demo"].state == ProviderIntention.State.ASSESSING:
+            DeliverValuationService.call(
+                actor=self.admin_user,
+                intention=intentions["marketing_demo"],
+                amount=Decimal("320000.00"),
+                currency=usd,
+                notes="Caballito loft with balcony.",
+                test_value=Decimal("330000.00"),
+                close_value=Decimal("315000.00"),
             )
 
         # Promote the promotable intention into an opportunity if missing.
@@ -364,6 +386,62 @@ class Command(BaseCommand):
             )
         # Leave reinforced (do not close) so the opportunity remains in MARKETING for demo lists.
 
+        self._seed_marketing_revision_demo(provider_intentions, tokko)
+
+    def _seed_marketing_revision_demo(self, provider_intentions, tokko):
+        intention = provider_intentions["marketing_demo"]
+        try:
+            opportunity = intention.provider_opportunity
+        except ProviderOpportunity.DoesNotExist:
+            opportunity = PromoteProviderIntentionService.call(
+                actor=self.admin_user,
+                intention=intention,
+                marketing_package_data={"headline": "Modern Caballito loft"},
+                gross_commission_pct=Decimal("0.05"),
+                tokkobroker_property=tokko["caballito"],
+                listing_kind=ProviderOpportunity.ListingKind.EXCLUSIVE,
+                contract_expires_on=date.today() + timedelta(days=180),
+            )
+
+        validation = Validation.objects.get(opportunity=opportunity)  # service-guard: allow
+        self._ensure_validation_documents(validation)
+        self._ensure_validation_approval(validation)
+        if opportunity.state == ProviderOpportunity.State.VALIDATING:
+            OpportunityPublishService.call(actor=self.admin_user, opportunity=opportunity)
+
+        package = opportunity.marketing_packages.filter(is_active=True).first()
+        if package and package.state == package.State.PREPARING:
+            package.headline = package.headline or "Modern Caballito loft"
+            package.price = package.price or Decimal("325000.00")
+            package.currency = package.currency or self.currencies["USD"]
+            package.description = package.description or "Bright 2BR with open kitchen and balcony."
+            package.features = ["2 bedrooms", "Balcony", "Open kitchen", "Low expenses"]
+            package.media_assets = [
+                "https://picsum.photos/seed/cab1/1200/800",
+                "https://picsum.photos/seed/cab2/1200/800",
+            ]
+            package.save()
+            MarketingPackageActivateService.call(actor=self.admin_user, package=package)
+
+        # Create a couple of content revisions while still in marketing
+        if package:
+            package = MarketingPackageUpdateService.call(
+                actor=self.admin_user,
+                package=package,
+                headline="Caballito loft with balcony",
+                price=Decimal("335000.00"),
+                features=["2 bedrooms", "Balcony", "Refitted kitchen", "Laundry"],
+            )
+            MarketingPackageUpdateService.call(
+                actor=self.admin_user,
+                package=package,
+                description="Staged unit ready to show; near subway line A.",
+                media_assets=[
+                    "https://picsum.photos/seed/cab3/1200/800",
+                    "https://picsum.photos/seed/cab4/1200/800",
+                ],
+            )
+
     # --- validation helpers --------------------------------------------
     def _ensure_validation_documents(self, validation: Validation):
         required_types = list(validation.required_document_types())
@@ -409,15 +487,16 @@ class Command(BaseCommand):
 
     # --- persistence helpers -------------------------------------------
     def _upsert_currency(self, code: str, name: str, symbol: str) -> Currency:
-        currency, _ = Currency.objects.update_or_create(  # service-guard: allow
-            code=code,
+        return self._get_or_fix_single(
+            model=Currency,
+            lookup={"code": code},
             defaults={"name": name, "symbol": symbol},
         )
-        return currency
 
     def _upsert_agent(self, email: str, first_name: str, last_name: str, phone_number: str, commission_split: Decimal):
-        agent, _ = Agent.objects.update_or_create(  # service-guard: allow
-            email=email,
+        return self._get_or_fix_single(
+            model=Agent,
+            lookup={"email": email},
             defaults={
                 "first_name": first_name,
                 "last_name": last_name,
@@ -425,31 +504,51 @@ class Command(BaseCommand):
                 "commission_split": commission_split,
             },
         )
-        return agent
 
     def _upsert_contact(self, email: str, first_name: str, last_name: str, tax_condition: str | None = None):
-        contact, _ = Contact.objects.update_or_create(  # service-guard: allow
-            email=email,
+        return self._get_or_fix_single(
+            model=Contact,
+            lookup={"email": email},
             defaults={
                 "first_name": first_name,
                 "last_name": last_name,
                 "tax_condition": tax_condition or "",
             },
         )
-        return contact
 
     def _upsert_property(self, name: str, full_address: str):
-        prop, _ = Property.objects.update_or_create(  # service-guard: allow
-            name=name,
+        return self._get_or_fix_single(
+            model=Property,
+            lookup={"name": name},
             defaults={"full_address": full_address},
         )
-        return prop
 
     def _upsert_tokko(self, tokko_id: int, ref_code: str, property: Property):
-        return TokkobrokerProperty.objects.update_or_create(  # service-guard: allow
-            tokko_id=tokko_id,
+        return self._get_or_fix_single(
+            model=TokkobrokerProperty,
+            lookup={"tokko_id": tokko_id},
             defaults={"ref_code": ref_code, "address": property.full_address},
-        )[0]
+        )
+
+    def _get_or_fix_single(self, *, model, lookup: dict, defaults: dict):
+        """Return a single instance, updating or cleaning duplicates instead of raising."""
+
+        qs = model.objects.filter(**lookup)  # service-guard: allow
+        if not qs.exists():
+            return model.objects.create(**lookup, **defaults)  # service-guard: allow
+
+        obj = qs.order_by("id").first()
+        if qs.count() > 1:
+            qs.exclude(pk=obj.pk).delete()  # service-guard: allow (dedupe seeded data)
+
+        updated_fields = []
+        for field, value in defaults.items():
+            if getattr(obj, field) != value:
+                setattr(obj, field, value)
+                updated_fields.append(field)
+        if updated_fields:
+            obj.save(update_fields=updated_fields)
+        return obj
 
     def _ensure_provider_intention(self, slug: str, owner, agent, property, operation_type, notes: str):
         intention, created = ProviderIntention.objects.update_or_create(  # service-guard: allow

@@ -319,7 +319,6 @@ class MarketingPackageUpdateView(MarketingPackageMixin, PermissionedViewMixin, L
     template_name = 'workflow/form.html'
     form_class = MarketingPackageForm
     success_message = 'Marketing package updated.'
-    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
     form_title = 'Update marketing package'
     submit_label = 'Save changes'
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
@@ -340,6 +339,10 @@ class MarketingPackageUpdateView(MarketingPackageMixin, PermissionedViewMixin, L
         except ValidationError:
             return self.form_invalid(form)
         return super().form_valid(form)
+
+    def get_success_url(self):
+        # Stay on the same package after saving edits
+        return self.request.get_full_path()
 
 
 class MarketingPackageActionView(MarketingPackageMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):

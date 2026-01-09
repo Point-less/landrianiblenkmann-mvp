@@ -893,7 +893,6 @@ class MarketingPackageCreateView(MarketingOpportunityMixin, WorkflowFormView):
 class MarketingPackageUpdateView(MarketingPackageMixin, WorkflowFormView):
     form_class = MarketingPackageForm
     success_message = 'Marketing package updated.'
-    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
     form_title = 'Update marketing package'
     submit_label = 'Save changes'
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
@@ -907,6 +906,10 @@ class MarketingPackageUpdateView(MarketingPackageMixin, WorkflowFormView):
 
     def perform_action(self, form):
         S.opportunities.MarketingPackageUpdateService(package=self.get_package(), **form.cleaned_data)
+
+    def get_success_url(self):
+        # Stay on the same package after saving edits
+        return self.request.get_full_path()
 
 
 class MarketingPackageActionView(MarketingPackageMixin, WorkflowFormView):

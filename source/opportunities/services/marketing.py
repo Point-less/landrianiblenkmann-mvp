@@ -56,6 +56,8 @@ class MarketingPackageUpdateService(BaseService):
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, package: MarketingPackage, **attrs) -> MarketingPackage:
+        if package.opportunity.state != ProviderOpportunity.State.MARKETING:
+            raise ValidationError("Cannot edit marketing packages outside marketing stage.")
         if not package.is_active:
             raise ValidationError("Cannot edit an inactive marketing package revision.")
         updatable = {key: value for key, value in attrs.items() if key in {

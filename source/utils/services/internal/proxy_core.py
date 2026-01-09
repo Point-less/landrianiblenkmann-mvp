@@ -1,12 +1,6 @@
 """Lightweight proxy to access services by app label via the registry.
 
-Usage:
-    from utils.services import service_proxy
-    service_proxy.opportunities.SeekerOpportunitiesQuery(actor=actor)
-
-By default, it will use the context actor from ``utils.actors.get_current_actor``
-unless an explicit ``actor`` kwarg is provided on the call or the proxy/namespace
-is instantiated with a default actor.
+Split into internal module to avoid circular imports with BaseService.
 """
 
 from __future__ import annotations

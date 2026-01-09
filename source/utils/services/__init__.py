@@ -9,7 +9,7 @@ from .registry import (
     iter_services,
     resolve_service,
 )
-from .proxy import service_proxy, ServiceProxy, for_actor as proxy_for_actor
+from utils.services.internal.proxy_core import service_proxy, ServiceProxy, for_actor as proxy_for_actor
 
 # Concise alias for the default proxy
 S = service_proxy

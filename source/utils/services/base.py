@@ -1,13 +1,10 @@
 from contextlib import contextmanager
 import inspect
-from typing import TYPE_CHECKING
+from typing import Any
 
 from django.db import DEFAULT_DB_ALIAS, transaction
 
 from utils.actors import actor_context
-
-if TYPE_CHECKING:
-    from utils.services.proxy import ServiceProxy
 
 @contextmanager
 def service_atomic(using: str | None = None):
@@ -32,7 +29,8 @@ class BaseService:
 
     def __init__(self, *, actor=None):
         self.actor = actor
-        self._services_proxy: "ServiceProxy | None" = None
+        # Avoid importing ServiceProxy here to prevent cycles; type kept broad.
+        self._services_proxy: Any = None
 
     def __call__(self, *args, **kwargs):
         call_actor = kwargs.pop("actor", None)
@@ -53,7 +51,7 @@ class BaseService:
     def services(self):
         """Lazy service proxy bound to this service's actor."""
 
-        from utils.services.proxy import ServiceProxy  # inline import to avoid circular dependency
+        from utils.services.internal.proxy_core import ServiceProxy  # inline import to avoid circular dependency
 
         return ServiceProxy(actor=self.actor)
 

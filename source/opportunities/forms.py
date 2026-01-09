@@ -137,33 +137,11 @@ class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
             "observations": forms.Textarea(attrs={'rows': 2}),
         }
 
-    def __init__(self, *args, forced_document_type: str | None = None, validation=None, document_types_queryset=None, **kwargs):
+    def __init__(self, *args, validation=None, document_types_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["observations"].required = False
-        if document_types_queryset is not None:
-            allowed_qs = document_types_queryset
-        else:
-            allowed_qs = S.opportunities.AllowedValidationDocumentTypesQuery(validation=validation)
+        allowed_qs = document_types_queryset if document_types_queryset is not None else S.opportunities.AllowedValidationDocumentTypesQuery(validation=validation)
         self.fields["document_type"].queryset = allowed_qs
-        if forced_document_type:
-            forced_obj = None
-            if isinstance(forced_document_type, ValidationDocumentType):
-                forced_obj = forced_document_type
-            else:
-                lookups = models.Q(code=forced_document_type)
-                # Only attempt PK lookup when the value looks numeric to avoid ValueError.
-                if str(forced_document_type).isdigit():
-                    lookups |= models.Q(pk=forced_document_type)
-                forced_obj = allowed_qs.filter(lookups).first()
-            if forced_obj:
-                self.fields["document_type"].initial = forced_obj
-                if not self.is_bound:
-                    # Hide only on first render when the type was forced by the caller
-                    self.fields["document_type"].widget = forms.HiddenInput()
-                    self.fields["document_type"].queryset = allowed_qs.filter(pk=forced_obj.pk)
-                else:
-                    # On re-render (e.g., after validation errors) keep the selector visible to let users change it
-                    self.fields["document_type"].queryset = allowed_qs
 
 
 class ValidationDocumentReviewForm(HTML5FormMixin, forms.Form):

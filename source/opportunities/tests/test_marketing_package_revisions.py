@@ -1,7 +1,8 @@
+import json
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from core.models import Agent, Contact, Currency, Property
@@ -96,6 +97,31 @@ class MarketingPackageRevisionTests(TestCase):
         transitions = list(publication.state_transitions.order_by("-occurred_at"))
         self.assertGreaterEqual(len(transitions), 2)
 
+    def test_no_revision_created_when_values_unchanged(self):
+        pkg = MarketingPackageCreateService.call(
+            actor=None,
+            opportunity=self.opportunity,
+            headline="Initial",
+            price=Decimal("100000"),
+            currency=self.currency,
+        )
+
+        returned = MarketingPackageUpdateService.call(
+            actor=None,
+            package=pkg,
+            headline="Initial",
+            price=Decimal("100000"),
+            currency=self.currency,
+            features=[],
+            media_assets=[],
+        )
+
+        pkg.refresh_from_db()
+        self.assertEqual(returned.pk, pkg.pk)
+        self.assertEqual(pkg.version, 1)
+        self.assertTrue(pkg.is_active)
+        self.assertEqual(MarketingPackage.objects.filter(opportunity=self.opportunity).count(), 1)
+
     def test_query_includes_revisions(self):
         pkg = MarketingPackageCreateService.call(
             actor=None,
@@ -160,3 +186,107 @@ class MarketingPackageHistoryViewTests(TestCase):
         self.assertIn("Package version #2", content)
         self.assertIn("#1", content)
         self.assertIn("Second", content)
+
+
+@override_settings(BYPASS_SERVICE_AUTH_FOR_TESTS=True)
+class MarketingPublicationUpdateViewTests(TransactionTestCase):
+    def setUp(self):
+        self.currency = Currency.objects.create(code="USD", name="US Dollar")
+        self.op_type, _ = OperationType.objects.get_or_create(code="sale", defaults={"label": "Sale"})
+        self.agent = Agent.objects.create(first_name="Alice", last_name="Agent")
+        self.contact = Contact.objects.create(first_name="Owner", last_name="One", email="owner@example.com")
+        self.property = Property.objects.create(name="123 Main")
+        self.tokko = TokkobrokerProperty.objects.create(tokko_id=77, ref_code="TK77")
+        self.user = get_user_model().objects.create_superuser("admin3", "admin3@example.com", "pass")
+
+    def _make_package(self, *, state):
+        intention = ProviderIntention.objects.create(
+            owner=self.contact,
+            agent=self.agent,
+            property=self.property,
+            operation_type=self.op_type,
+        )
+        opportunity = ProviderOpportunity.objects.create(
+            source_intention=intention,
+            tokkobroker_property=self.tokko,
+            state=state,
+        )
+        Validation.objects.create(opportunity=opportunity, state=Validation.State.APPROVED)
+        return MarketingPackageCreateService.call(
+            actor=None,
+            opportunity=opportunity,
+            headline="Initial",
+            price=Decimal("120000"),
+            currency=self.currency,
+        )
+
+    def _form_payload(self):
+        return {
+            "headline": "Updated",
+            "description": "",
+            "price": "125000",
+            "currency": str(self.currency.id),
+            "features": "{}",
+            "media_assets": "[]",
+        }
+
+    def _post_with_token(self, url, data):
+        # Prime idempotency token
+        self.client.get(url)
+        token = self.client.session.get("_form_tokens_issued", [])[-1]
+        data_with_token = {**data, "_idempotency_token": token}
+        return self.client.post(url, data=data_with_token)
+
+    def test_validation_error_is_added_to_form(self):
+        package = self._make_package(state=ProviderOpportunity.State.VALIDATING)
+        self.client.force_login(self.user)
+        url = reverse("marketing-publication-edit", kwargs={"package_id": package.id})
+
+        response = self._post_with_token(url, self._form_payload())
+
+        self.assertEqual(response.status_code, 200)
+        form = response.context["form"]
+        self.assertIn("Cannot edit marketing packages outside marketing stage.", form.non_field_errors())
+
+    def test_success_redirects_to_detail_view(self):
+        package = self._make_package(state=ProviderOpportunity.State.MARKETING)
+        self.client.force_login(self.user)
+        url = reverse("marketing-publication-edit", kwargs={"package_id": package.id})
+
+        response = self._post_with_token(url, self._form_payload())
+
+        self.assertEqual(response.status_code, 302)
+        expected = reverse("marketing-publication-detail", kwargs={"opportunity_id": package.opportunity_id})
+        self.assertEqual(response.url, expected)
+
+    def test_success_redirects_to_next_when_present(self):
+        package = self._make_package(state=ProviderOpportunity.State.MARKETING)
+        self.client.force_login(self.user)
+        next_url = "/dashboard/"
+        url = reverse("marketing-publication-edit", kwargs={"package_id": package.id}) + f"?next={next_url}"
+
+        response = self._post_with_token(url, self._form_payload())
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, next_url)
+
+    def test_no_revision_created_when_payload_unchanged(self):
+        package = self._make_package(state=ProviderOpportunity.State.MARKETING)
+        self.client.force_login(self.user)
+        url = reverse("marketing-publication-edit", kwargs={"package_id": package.id})
+
+        payload = {
+            "headline": package.headline,
+            "description": package.description or "",
+            "price": str(package.price),
+            "currency": str(package.currency_id),
+            "features": json.dumps(package.features or []),
+            "media_assets": json.dumps(package.media_assets or []),
+        }
+
+        before_count = MarketingPackage.objects.filter(opportunity=package.opportunity).count()
+        response = self._post_with_token(url, payload)
+        after_count = MarketingPackage.objects.filter(opportunity=package.opportunity).count()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(before_count, after_count)

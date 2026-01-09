@@ -88,7 +88,16 @@ class MarketingPackageUpdateService(BaseService):
         }}
         if not updatable:
             return package
-        new_package = package.clone_as_revision(**updatable)
+        # Skip creating a new revision when nothing actually changed
+        changed = {}
+        for field, value in updatable.items():
+            if getattr(package, field) != value:
+                changed[field] = value
+
+        if not changed:
+            return package
+
+        new_package = package.clone_as_revision(**changed)
         MarketingPublication.objects.update_or_create(
             opportunity=package.opportunity,
             defaults={"package": new_package},

@@ -2,10 +2,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views.generic.edit import FormView
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from core.mixins import PermissionedViewMixin
+from core.views import WorkflowFormView
 from core.forms import ConfirmationForm
 from opportunities.forms import (
     MarketingPackageForm,
@@ -302,7 +304,7 @@ class ValidationDocumentReviewView(PermissionedViewMixin, LoginRequiredMixin, Su
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-validations'})
 
 
-class MarketingPublicationCreateView(MarketingOpportunityMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class MarketingPublicationCreateView(MarketingOpportunityMixin, WorkflowFormView):
     template_name = 'workflow/form.html'
     form_class = MarketingPackageForm
     success_message = 'Marketing publication created.'
@@ -314,15 +316,7 @@ class MarketingPublicationCreateView(MarketingOpportunityMixin, PermissionedView
     def perform_action(self, form):
         S.opportunities.MarketingPackageCreateService(opportunity=self.get_opportunity(), **form.cleaned_data)
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
-
-
-class MarketingPublicationUpdateView(MarketingPublicationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class MarketingPublicationUpdateView(MarketingPublicationMixin, WorkflowFormView):
     template_name = 'workflow/form.html'
     form_class = MarketingPackageForm
     success_message = 'Marketing publication updated.'
@@ -340,19 +334,15 @@ class MarketingPublicationUpdateView(MarketingPublicationMixin, PermissionedView
     def perform_action(self, form):
         S.opportunities.MarketingPackageUpdateService(package=self.get_package(), **form.cleaned_data)
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
-
     def get_success_url(self):
-        # Stay on the same package after saving edits
-        return self.request.get_full_path()
+        next_url = self.request.POST.get('next') or self.request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={self.request.get_host()}):
+            return next_url
+        package = self.get_package()
+        return reverse('marketing-publication-detail', kwargs={'opportunity_id': package.opportunity_id})
 
 
-class MarketingPublicationActionView(MarketingPublicationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class MarketingPublicationActionView(MarketingPublicationMixin, WorkflowFormView):
     template_name = 'workflow/form.html'
     form_class = ConfirmationForm
     service_name = None
@@ -372,13 +362,6 @@ class MarketingPublicationActionView(MarketingPublicationMixin, PermissionedView
     def perform_action(self, form):
         service = self.get_service()
         service(package=self.get_package())
-
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
 
 
 class MarketingPublicationActivateView(MarketingPublicationActionView):

@@ -9,7 +9,7 @@ def _invalidate_for_role(role_id):
     from users.models import RoleMembership  # local import to avoid import loops
 
     user_ids = (
-        RoleMembership.objects.filter(role_id=role_id)
+        RoleMembership.objects.filter(role_id=role_id)  # service-guard: allow (cache invalidation)
         .values_list("user_id", flat=True)
         .distinct()
     )

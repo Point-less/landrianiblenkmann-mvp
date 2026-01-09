@@ -90,29 +90,18 @@ class OperationAgreementCreateForm(HTML5FormMixin, forms.ModelForm):
             "initial_offered_amount",
         ]
 
-    def __init__(self, *args, actor=None, **kwargs):
+    def __init__(self, *args, actor=None, choices=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.actor = actor
-        self.actor_agent = get_role_profile(actor, "agent") if actor else None
-
-        seeker_qs = S.opportunities.AvailableSeekerOpportunitiesForOperationsQuery(actor=actor, only_actor=True)
-        if self.actor_agent:
-            seeker_qs = seeker_qs.filter(source_intention__agent=self.actor_agent)
-        self.fields["seeker_opportunity"].queryset = seeker_qs
-
-        provider_qs = S.opportunities.AvailableProviderOpportunitiesForOperationsQuery(actor=actor, exclude_agent=False)
-
-        if self.is_bound and "seeker_opportunity" in self.data:
+        seeker_id = None
+        if self.is_bound:
             try:
                 seeker_id = int(self.data.get("seeker_opportunity"))
-                seeker = seeker_qs.filter(pk=seeker_id).select_related("source_intention__operation_type", "source_intention__agent").first()
-                if seeker:
-                    op_type = seeker.source_intention.operation_type
-                    provider_qs = provider_qs.filter(source_intention__operation_type=op_type)
             except (TypeError, ValueError):
-                pass
+                seeker_id = None
 
-        self.fields["provider_opportunity"].queryset = provider_qs
+        data = choices or S.opportunities.OperationAgreementChoicesQuery(actor=actor, seeker_id=seeker_id)
+        self.fields["seeker_opportunity"].queryset = data["seeker_qs"]
+        self.fields["provider_opportunity"].queryset = data["provider_qs"]
 
 
 class CancelOperationAgreementForm(HTML5FormMixin, forms.Form):

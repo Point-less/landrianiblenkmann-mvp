@@ -14,9 +14,19 @@ from utils.authorization import (
     SEEKER_OPPORTUNITY_VIEW_ALL,
     check,
     filter_queryset,
+    get_role_profile,
 )
 from utils.services import BaseService
-from opportunities.models import MarketingPackage, Operation, OperationAgreement, ProviderOpportunity, SeekerOpportunity, Validation
+from opportunities.models import (
+    MarketingPackage,
+    Operation,
+    OperationAgreement,
+    OperationType,
+    ProviderOpportunity,
+    SeekerOpportunity,
+    Validation,
+    ValidationDocumentType,
+)
 
 
 class AvailableProviderOpportunitiesForOperationsQuery(BaseService):
@@ -271,6 +281,32 @@ class OperationAgreementsForActorQuery(BaseService):
         )
 
 
+class OperationAgreementChoicesQuery(BaseService):
+    """Prepare seeker/provider opportunity querysets for agreement creation."""
+
+    atomic = False
+
+    def run(self, *, actor=None, seeker_id: int | None = None):
+        seeker_qs = AvailableSeekerOpportunitiesForOperationsQuery()(actor=actor, only_actor=True)
+        actor_agent = get_role_profile(actor, "agent") if actor else None
+        if actor_agent:
+            seeker_qs = seeker_qs.filter(source_intention__agent=actor_agent)
+
+        provider_qs = AvailableProviderOpportunitiesForOperationsQuery()(actor=actor, exclude_agent=False)
+
+        if seeker_id:
+            seeker = (
+                seeker_qs.filter(pk=seeker_id)
+                .select_related("source_intention__operation_type", "source_intention__agent")
+                .first()
+            )
+            if seeker:
+                op_type = seeker.source_intention.operation_type
+                provider_qs = provider_qs.filter(source_intention__operation_type=op_type)
+
+        return {"seeker_qs": seeker_qs, "provider_qs": provider_qs}
+
+
 __all__ = [
     "AvailableProviderOpportunitiesForOperationsQuery",
     "AvailableSeekerOpportunitiesForOperationsQuery",
@@ -290,4 +326,5 @@ __all__ = [
     "ProviderOpportunitiesForActorQuery",
     "SeekerOpportunitiesForActorQuery",
     "OperationAgreementsForActorQuery",
+    "OperationAgreementChoicesQuery",
 ]

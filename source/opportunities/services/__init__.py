@@ -47,6 +47,7 @@ from .queries import (  # noqa: F401
     ProviderOpportunityByTokkobrokerPropertyQuery,
     MarketingPackageByIdQuery,
     OperationAgreementsQuery,
+    OperationAgreementChoicesQuery,
 )
 from .validation_docs import (  # noqa: F401
     CreateValidationDocumentService,
@@ -93,6 +94,7 @@ __all__ = [
     "ProviderOpportunityByTokkobrokerPropertyQuery",
     "MarketingPackageByIdQuery",
     "OperationAgreementsQuery",
+    "OperationAgreementChoicesQuery",
     "CreateValidationDocumentService",
     "CreateAdditionalValidationDocumentService",
     "ReviewValidationDocumentService",

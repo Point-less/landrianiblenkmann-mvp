@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from utils.actors import get_current_actor
-from utils.services.registry import resolve_service
 
 
 class _ServiceNamespace:
@@ -19,6 +18,8 @@ class _ServiceNamespace:
         self._default_actor = actor
 
     def __getattr__(self, name: str) -> Callable[..., Any]:
+        from utils.services.registry import resolve_service  # local import to avoid cycles
+
         try:
             service_cls = resolve_service(name, app_label=self._app_label)
         except LookupError as exc:  # pragma: no cover - defensive

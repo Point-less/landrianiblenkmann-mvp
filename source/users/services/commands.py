@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 
+from utils import authorization
 from core.models import Agent
 from users.models import Permission, Role, RoleMembership, RolePermission
 from utils.services import BaseService
@@ -48,11 +49,54 @@ class SeedPermissionsService(BaseService):
             perm, _ = Permission.objects.get_or_create(code=action.code, defaults={"description": action.code})
             perm_map[action.code] = perm
 
+        # Keep role permissions aligned with ROLE_MATRIX expectations & tests:
+        # - admin/manager: everything
+        # - agent: operational permissions only (no user.* and no integration.manage)
+        # - viewer: read-only reports + integration view
+        agent_allowed_codes = {
+            authorization.AGENT_VIEW.code,
+            authorization.CONTACT_VIEW.code,
+            authorization.CONTACT_CREATE.code,
+            authorization.CONTACT_UPDATE.code,
+            authorization.PROPERTY_VIEW.code,
+            authorization.PROPERTY_CREATE.code,
+            authorization.PROVIDER_INTENTION_VIEW.code,
+            authorization.PROVIDER_INTENTION_CREATE.code,
+            authorization.PROVIDER_INTENTION_VALUATE.code,
+            authorization.PROVIDER_INTENTION_WITHDRAW.code,
+            authorization.PROVIDER_INTENTION_PROMOTE.code,
+            authorization.SEEKER_INTENTION_VIEW.code,
+            authorization.SEEKER_INTENTION_CREATE.code,
+            authorization.SEEKER_INTENTION_ABANDON.code,
+            authorization.PROVIDER_OPPORTUNITY_VIEW.code,
+            authorization.PROVIDER_OPPORTUNITY_CREATE.code,
+            authorization.PROVIDER_OPPORTUNITY_PUBLISH.code,
+            authorization.PROVIDER_OPPORTUNITY_CLOSE.code,
+            authorization.SEEKER_OPPORTUNITY_VIEW.code,
+            authorization.SEEKER_OPPORTUNITY_CREATE.code,
+            authorization.OPERATION_VIEW.code,
+            authorization.OPERATION_CREATE.code,
+            authorization.OPERATION_REINFORCE.code,
+            authorization.OPERATION_LOSE.code,
+            authorization.OPERATION_CLOSE.code,
+            authorization.AGREEMENT_CREATE.code,
+            authorization.AGREEMENT_AGREE.code,
+            authorization.AGREEMENT_SIGN.code,
+            authorization.AGREEMENT_REVOKE.code,
+            authorization.AGREEMENT_CANCEL.code,
+            authorization.REPORT_VIEW.code,
+            authorization.INTEGRATION_VIEW.code,
+        }
+        viewer_allowed_codes = {
+            authorization.REPORT_VIEW.code,
+            authorization.INTEGRATION_VIEW.code,
+        }
+
         role_targets = {
             "admin": list(perm_map.values()),
             "manager": list(perm_map.values()),
-            "agent": [p for code, p in perm_map.items() if not code.startswith("user.")],
-            "viewer": [p for code, p in perm_map.items() if code.startswith("report.")],
+            "agent": [perm_map[code] for code in agent_allowed_codes if code in perm_map],
+            "viewer": [perm_map[code] for code in viewer_allowed_codes if code in perm_map],
         }
 
         for slug, perm_list in role_targets.items():

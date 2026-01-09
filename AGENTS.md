@@ -105,7 +105,7 @@ Authentication and user management with passwordless login.
 - **Models** (`users.models`): `Role`, `Permission`, `RolePermission`, `RoleMembership` (user ↔ role ↔ existing profile like `core.Agent`, enforced one-per-role), `ObjectGrant` (optional per-object allow/deny).
 - **Policy helpers** (`utils/authorization.py`): Single-source `Action` constants, `check`, `filter_queryset`, `get_role_profile`, `explain`; superusers bypass.
 - **Template tags** (`core/templatetags/authorization_tags.py`): `{% can "action.code" obj %}` uses the same `check`.
-- **Seed command**: `docker compose exec frontend python manage.py seed_permissions` seeds canonical roles (admin/manager/agent/viewer) and permissions; admin/manager get ALL, agent all except user-listing, viewer only reports.
+- **Seed command**: `docker compose exec frontend python manage.py seed_permissions` seeds canonical roles (admin/manager/agent/viewer) and permissions; admin/manager get ALL, agent gets operational permissions only (no `user.*`, no `integration.manage`, no `*.view_all` extras), viewer can see reports and integration dashboards but not manage them.
 
 ### `utils/`
 Shared utilities and mixins.

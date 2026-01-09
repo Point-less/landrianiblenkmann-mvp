@@ -186,8 +186,6 @@ class ValidationDocumentUploadView(ValidationMixin, PermissionedViewMixin, Login
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        doc_type = self.request.GET.get('document_type') or self.request.POST.get('document_type')
-        kwargs['forced_document_type'] = doc_type
         kwargs['validation'] = self.get_validation()
         return kwargs
 

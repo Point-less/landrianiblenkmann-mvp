@@ -72,9 +72,6 @@ def _build_test_class(file_path: Path):
             cls._rel_path = rel_path
 
         def test_no_direct_model_access(self):
-            if is_allowed(self._rel_path):
-                self.skipTest("Allowed path for direct model access.")
-
             violations = find_orm_violations(self._file_path)
             if violations:
                 formatted = "; ".join(
@@ -86,8 +83,11 @@ def _build_test_class(file_path: Path):
     return FileServiceLayerTest
 
 
-# Dynamically create a test class per file so failures point to the file.
+# Dynamically create a test class per non-allowed file so failures point to the file.
 for _path in iter_project_python_files():
+    rel = _path.relative_to(PROJECT_ROOT)
+    if is_allowed(rel):
+        continue
     globals()[_build_test_class(_path).__name__] = _build_test_class(_path)
 
 

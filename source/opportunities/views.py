@@ -357,7 +357,12 @@ class MarketingPackageActionView(MarketingPackageMixin, PermissionedViewMixin, L
     def perform_action(self, form):
         if not self.service_class:
             raise RuntimeError('service_class not configured')
-        self.service_class.call(package=self.get_package())
+        service = self.service_class
+        # Service proxy functions are callables; service classes expose `.call`.
+        if callable(getattr(service, "call", None)):
+            service.call(package=self.get_package())
+        else:
+            service(package=self.get_package())
 
     def form_valid(self, form):
         try:

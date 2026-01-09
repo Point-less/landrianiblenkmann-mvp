@@ -130,8 +130,9 @@ class DashboardMarketingPackagesQuery(BaseService):
     def run(self, *, actor=None):
         queryset = MarketingPackage.objects.select_related(
             'opportunity__source_intention__property',
-            'opportunity__source_intention__owner'
-        ).prefetch_related('state_transitions').filter(
+            'opportunity__source_intention__owner',
+            'publication',
+        ).prefetch_related('publication__state_transitions').filter(
             opportunity__state=ProviderOpportunity.State.MARKETING,
             is_active=True,
         ).order_by('-updated_at')
@@ -150,8 +151,9 @@ class DashboardArchivedMarketingPackagesQuery(BaseService):
     def run(self, *, actor=None):
         queryset = MarketingPackage.objects.select_related(
             'opportunity__source_intention__property',
-            'opportunity__source_intention__owner'
-        ).prefetch_related('state_transitions').exclude(
+            'opportunity__source_intention__owner',
+            'publication',
+        ).prefetch_related('publication__state_transitions').exclude(
             opportunity__state=ProviderOpportunity.State.MARKETING
         ).filter(is_active=True).order_by('-updated_at')
         return filter_queryset(
@@ -214,7 +216,7 @@ class MarketingPackageByIdQuery(BaseService):
     """Fetch marketing package with currency for syncing/integrations."""
 
     def run(self, *, pk: int):
-        return MarketingPackage.objects.select_related("currency").get(pk=pk)
+        return MarketingPackage.objects.select_related("currency", "publication", "opportunity").get(pk=pk)
 
 
 class MarketingPackagesWithRevisionsForOpportunityQuery(BaseService):
@@ -225,7 +227,8 @@ class MarketingPackagesWithRevisionsForOpportunityQuery(BaseService):
             "currency",
             "opportunity__source_intention__property",
             "opportunity__source_intention__owner",
-        ).prefetch_related("state_transitions").order_by("-version", "-id")
+            "publication",
+        ).prefetch_related("publication__state_transitions").order_by("-version", "-id")
 
         return filter_queryset(
             actor,

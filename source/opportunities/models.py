@@ -608,12 +608,7 @@ class MarketingPackageQuerySet(models.QuerySet):
         return self.filter(is_active=True)
 
 
-class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
-    class State(models.TextChoices):
-        PREPARING = "preparing", "Preparing"
-        PUBLISHED = "published", "Published"
-        PAUSED = "paused", "Paused"
-
+class MarketingPackage(TimeStampedMixin):
     opportunity = models.ForeignKey(
         ProviderOpportunity,
         on_delete=models.CASCADE,
@@ -621,12 +616,6 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
     )
     version = models.PositiveIntegerField(default=1)
     is_active = models.BooleanField(default=True)
-    state = FSMField(
-        max_length=20,
-        choices=State.choices,
-        default=State.PREPARING,
-        protected=False,
-    )
     headline = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     price = models.DecimalField(
@@ -675,7 +664,6 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
             "opportunity": self.opportunity,
             "version": self.version + 1,
             "is_active": True,
-            "state": self.state,
             "headline": self.headline,
             "description": self.description,
             "price": self.price,
@@ -690,22 +678,75 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
             new_pkg = MarketingPackage.objects.create(**base_attrs)
         return new_pkg
 
-    def opportunity_in_marketing(self) -> bool:
-        """True when the owning opportunity is still in marketing stage."""
+    @property
+    def state(self) -> str:
+        publication = getattr(self, "publication", None)
+        if publication:
+            return publication.state
+        from opportunities.models import MarketingPublication  # local import to avoid circular
 
+        return MarketingPublication.State.PREPARING
+
+    def get_state_display(self) -> str:
+        from opportunities.models import MarketingPublication  # local import to avoid circular
+
+        try:
+            return MarketingPublication.State(self.state).label
+        except ValueError:
+            return self.state
+
+
+class MarketingPublication(TimeStampedMixin, FSMTrackingMixin):
+    class State(models.TextChoices):
+        PREPARING = "preparing", "Preparing"
+        PUBLISHED = "published", "Published"
+        PAUSED = "paused", "Paused"
+
+    opportunity = models.OneToOneField(
+        ProviderOpportunity,
+        on_delete=models.CASCADE,
+        related_name="marketing_publication",
+    )
+    package = models.OneToOneField(
+        MarketingPackage,
+        on_delete=models.PROTECT,
+        related_name="publication",
+    )
+    state = FSMField(
+        max_length=20,
+        choices=State.choices,
+        default=State.PREPARING,
+        protected=False,
+    )
+
+    class Meta:
+        ordering = ("-updated_at",)
+        verbose_name = "marketing publication"
+        verbose_name_plural = "marketing publications"
+
+    def __str__(self) -> str:
+        return f"Publication for {self.opportunity}"
+
+    def opportunity_in_marketing(self) -> bool:
         return self.opportunity.state == ProviderOpportunity.State.MARKETING
 
+    def _ensure_same_opportunity(self) -> None:
+        if self.package.opportunity_id != self.opportunity_id:
+            raise ValidationError("Publication package must belong to the same opportunity.")
+
     @transition(field="state", source=State.PREPARING, target=State.PUBLISHED)
-    def activate(self) -> "MarketingPackage":
-        self.state = MarketingPackage.State.PUBLISHED
+    def activate(self) -> "MarketingPublication":
+        self._ensure_same_opportunity()
+        self.state = MarketingPublication.State.PUBLISHED
         self.save(update_fields=["state", "updated_at"])
         return self
 
     @transition(field="state", source=State.PUBLISHED, target=State.PAUSED)
-    def pause(self) -> "MarketingPackage":
+    def pause(self) -> "MarketingPublication":
+        self._ensure_same_opportunity()
         if not self.opportunity.validations.filter(state=Validation.State.APPROVED).exists():
             raise ValidationError("Cannot reserve marketing package before validation is accepted.")
-        self.state = MarketingPackage.State.PAUSED
+        self.state = MarketingPublication.State.PAUSED
         self.save(update_fields=["state", "updated_at"])
         return self
 
@@ -715,7 +756,7 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
         target=State.PUBLISHED,
         conditions=[opportunity_in_marketing],
     )
-    def publish(self) -> "MarketingPackage":
+    def publish(self) -> "MarketingPublication":
         has_active_operation = self.opportunity.operation_agreements.filter(
             operation__state__in=[Operation.State.OFFERED, Operation.State.REINFORCED]
         ).exists()
@@ -723,7 +764,7 @@ class MarketingPackage(TimeStampedMixin, FSMTrackingMixin):
             raise ValidationError(
                 "Cannot publish the marketing package while there is an active operation."
             )
-        self.state = MarketingPackage.State.PUBLISHED
+        self.state = MarketingPublication.State.PUBLISHED
         self.save(update_fields=["state", "updated_at"])
         return self
 
@@ -866,6 +907,7 @@ class Operation(TimeStampedMixin, FSMTrackingMixin):
 
 __all__ = [
     "MarketingPackage",
+    "MarketingPublication",
     "Operation",
     "OperationAgreement",
     "ProviderOpportunity",

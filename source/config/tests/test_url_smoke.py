@@ -21,6 +21,7 @@ from intentions.models import ProviderIntention, SeekerIntention
 from integrations.models import TokkobrokerProperty
 from opportunities.models import (
     MarketingPackage,
+    MarketingPublication,
     Operation,
     OperationAgreement,
     OperationType,
@@ -91,6 +92,10 @@ class UrlSmokeTests(TestCase):
         cls.marketing_package = MarketingPackage.objects.create(
             opportunity=cls.provider_opportunity,
             currency=cls.currency,
+        )
+        MarketingPublication.objects.create(
+            opportunity=cls.provider_opportunity,
+            package=cls.marketing_package,
         )
 
         cls.seeker_intention = SeekerIntention.objects.create(

@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django_fsm import TransitionNotAllowed
 
-from opportunities.models import MarketingPackage, ProviderOpportunity
+from opportunities.models import MarketingPackage, MarketingPublication, ProviderOpportunity
 
 from utils.services import BaseService
 from utils.authorization import PROVIDER_OPPORTUNITY_PUBLISH
@@ -12,14 +12,21 @@ class MarketingPackageActivateService(BaseService):
 
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
-    def run(self, *, package: MarketingPackage) -> MarketingPackage:
+    def run(self, *, package: MarketingPackage) -> MarketingPublication:
         if not package.is_active:
             raise ValidationError("Cannot transition an inactive marketing package revision.")
+        publication, _ = MarketingPublication.objects.get_or_create(
+            opportunity=package.opportunity,
+            defaults={"package": package},
+        )
+        if publication.package_id != package.pk:
+            publication.package = package
+            publication.save(update_fields=["package", "updated_at"])
         try:
-            new_package = package.activate()
+            updated_publication = publication.activate()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
-        return new_package
+        return updated_publication
 
 
 class MarketingPackageReleaseService(BaseService):
@@ -27,16 +34,22 @@ class MarketingPackageReleaseService(BaseService):
 
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
-    def run(self, *, package: MarketingPackage) -> MarketingPackage:
+    def run(self, *, package: MarketingPackage) -> MarketingPublication:
         if package.opportunity.state == ProviderOpportunity.State.CLOSED:
             raise ValidationError("Cannot resume a marketing package for a closed opportunity.")
         if not package.is_active:
             raise ValidationError("Cannot transition an inactive marketing package revision.")
+        publication = MarketingPublication.objects.filter(opportunity=package.opportunity).first()
+        if not publication:
+            raise ValidationError("No publication configured for this marketing package.")
+        if publication.package_id != package.pk:
+            publication.package = package
+            publication.save(update_fields=["package", "updated_at"])
         try:
-            new_package = package.publish()
+            updated_publication = publication.publish()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
-        return new_package
+        return updated_publication
 
 
 class MarketingPackageCreateService(BaseService):
@@ -47,7 +60,12 @@ class MarketingPackageCreateService(BaseService):
     def run(self, *, opportunity: ProviderOpportunity, **attrs) -> MarketingPackage:
         if opportunity.state != ProviderOpportunity.State.MARKETING:
             raise ValidationError("Opportunity must be in marketing stage to add packages.")
-        return MarketingPackage.objects.create(opportunity=opportunity, **attrs)
+        package = MarketingPackage.objects.create(opportunity=opportunity, **attrs)
+        MarketingPublication.objects.update_or_create(
+            opportunity=opportunity,
+            defaults={"package": package},
+        )
+        return package
 
 
 class MarketingPackageUpdateService(BaseService):
@@ -70,7 +88,12 @@ class MarketingPackageUpdateService(BaseService):
         }}
         if not updatable:
             return package
-        return package.clone_as_revision(**updatable)
+        new_package = package.clone_as_revision(**updatable)
+        MarketingPublication.objects.update_or_create(
+            opportunity=package.opportunity,
+            defaults={"package": new_package},
+        )
+        return new_package
 
 
 class MarketingPackagePauseService(BaseService):
@@ -78,11 +101,17 @@ class MarketingPackagePauseService(BaseService):
 
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
-    def run(self, *, package: MarketingPackage) -> MarketingPackage:
+    def run(self, *, package: MarketingPackage) -> MarketingPublication:
         if not package.is_active:
             raise ValidationError("Cannot transition an inactive marketing package revision.")
+        publication = MarketingPublication.objects.filter(opportunity=package.opportunity).first()
+        if not publication:
+            raise ValidationError("No publication configured for this marketing package.")
+        if publication.package_id != package.pk:
+            publication.package = package
+            publication.save(update_fields=["package", "updated_at"])
         try:
-            new_package = package.pause()
+            updated_publication = publication.pause()
         except TransitionNotAllowed as exc:  # pragma: no cover - defensive guard
             raise ValidationError(str(exc)) from exc
-        return new_package
+        return updated_publication

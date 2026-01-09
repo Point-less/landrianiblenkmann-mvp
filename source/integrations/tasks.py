@@ -16,7 +16,7 @@ from integrations.tokkobroker import (
     TokkoIntegrationError,
     fetch_tokkobroker_properties,
 )
-from opportunities.models import MarketingPackage
+from opportunities.models import MarketingPackage, MarketingPublication
 from utils.services import S
 
 logger = logging.getLogger(__name__)
@@ -217,6 +217,14 @@ def sync_marketing_package_publication_task(marketing_package_id: int) -> None:
         )
         return
 
+    publication = getattr(marketing_package, "publication", None)
+    if publication is None:
+        logger.warning(
+            "Marketing package %s has no publication configured; skipping Tokkobroker sync",
+            marketing_package_id,
+        )
+        return
+
     try:
         client = TokkoClient(base_url=settings.TOKKO_BASE_URL, timeout=settings.TOKKO_TIMEOUT)
         client.authenticate(
@@ -233,8 +241,8 @@ def sync_marketing_package_publication_task(marketing_package_id: int) -> None:
 
     logger.debug("Authenticated Tokkobroker client ready for marketing package %s", marketing_package_id)
 
-    is_active = marketing_package.state == MarketingPackage.State.AVAILABLE
-    action = "publish" if is_active else "unpublish" if marketing_package.state == MarketingPackage.State.PAUSED else "skip"
+    is_active = publication.state == MarketingPublication.State.PUBLISHED
+    action = "publish" if is_active else "unpublish" if publication.state == MarketingPublication.State.PAUSED else "skip"
 
     if action == "skip":
         logger.info(

@@ -1,11 +1,13 @@
 {% load workflow_extras %}
 {% with validation=opportunity.validations.first %}
-    {% if validation %}
+    {% if validation and show_details_button|default_if_none:True %}
         <a class="icon-button" data-icon="📄" href="{% url 'validation-detail' validation.id %}?next={{ current_url|urlencode }}" title="Open validation">
             <span class="sr-only">Open validation</span>
         </a>
     {% endif %}
 {% endwith %}
-<a class="icon-button" data-icon="🗂" href="{% url 'marketing-package-history' opportunity.id %}?next={{ current_url|urlencode }}" title="Marketing packages &amp; revisions">
-    <span class="sr-only">Marketing packages</span>
-</a>
+{% if show_details_button|default_if_none:True %}
+    <a class="icon-button" data-icon="🗂" href="{% url 'marketing-package-history' opportunity.id %}?next={{ current_url|urlencode }}" title="Marketing packages &amp; revisions">
+        <span class="sr-only">Marketing packages</span>
+    </a>
+{% endif %}

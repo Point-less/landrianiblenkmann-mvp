@@ -1,21 +1,29 @@
 {% load workflow_extras %}
-{% if package.is_active %}
+{% with publication=package.publication %}
+{% if package.is_active and publication %}
+    {% if show_details_button|default_if_none:True %}
+        {% url 'marketing-package-history' package.opportunity.id as package_history_url %}
+        <a class="icon-button" data-icon="🗂" href="{{ package_history_url }}?next={{ current_url|urlencode }}" title="View package details">
+            <span class="sr-only">View marketing package details</span>
+        </a>
+    {% endif %}
     <a class="icon-button" data-icon="✏" href="{% url 'marketing-package-edit' package.id %}?next={{ current_url|urlencode }}" title="Edit package">
         <span class="sr-only">Edit marketing package</span>
     </a>
-    {% if package|can_transition:'activate' %}
+    {% if publication|can_transition:'activate' %}
         <a class="icon-button" data-icon="▶" href="{% url 'marketing-package-activate' package.id %}?next={{ current_url|urlencode }}" title="Activate package">
             <span class="sr-only">Activate marketing package</span>
         </a>
     {% endif %}
-    {% if package|can_transition:'pause' %}
+    {% if publication|can_transition:'pause' %}
         <a class="icon-button" data-icon="⏸" data-variant="warning" href="{% url 'marketing-package-pause' package.id %}?next={{ current_url|urlencode }}" title="Pause package">
             <span class="sr-only">Pause marketing package</span>
         </a>
     {% endif %}
-    {% if package|can_transition:'publish' %}
+    {% if publication|can_transition:'publish' %}
         <a class="icon-button" data-icon="⏯" href="{% url 'marketing-package-release' package.id %}?next={{ current_url|urlencode }}" title="Resume package">
             <span class="sr-only">Resume marketing package</span>
         </a>
     {% endif %}
 {% endif %}
+{% endwith %}

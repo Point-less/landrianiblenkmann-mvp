@@ -9,6 +9,7 @@ from integrations.models import TokkobrokerProperty
 from intentions.models import ProviderIntention, SeekerIntention
 from opportunities.models import (
     MarketingPackage,
+    MarketingPublication,
     OperationAgreement,
     OperationType,
     ProviderOpportunity,
@@ -70,7 +71,11 @@ class CreateOperationServiceTests(TestCase):
 
         self.package = MarketingPackage.objects.create(
             opportunity=self.provider_opportunity,
-            state=MarketingPackage.State.PUBLISHED,
+        )
+        self.publication = MarketingPublication.objects.create(
+            opportunity=self.provider_opportunity,
+            package=self.package,
+            state=MarketingPublication.State.PUBLISHED,
         )
 
         self.service = CreateOperationService(actor=None)
@@ -121,6 +126,6 @@ class CreateOperationServiceTests(TestCase):
             currency=self.currency,
         )
 
-        self.package.refresh_from_db()
-        self.assertEqual(self.package.state, MarketingPackage.State.PAUSED)
+        self.publication.refresh_from_db()
+        self.assertEqual(self.publication.state, MarketingPublication.State.PAUSED)
         self.assertEqual(operation.currency, self.currency)

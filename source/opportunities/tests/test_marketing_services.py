@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 from core.models import Agent, Contact, Currency, Property
 from integrations.models import TokkobrokerProperty
 from intentions.models import ProviderIntention
-from opportunities.models import MarketingPackage, OperationType, ProviderOpportunity, Validation
+from opportunities.models import MarketingPackage, MarketingPublication, OperationType, ProviderOpportunity, Validation
 from opportunities.services.marketing import (
     MarketingPackageActivateService,
     MarketingPackagePauseService,
@@ -38,19 +38,25 @@ class MarketingServiceTests(TestCase):
         self.validation = Validation.objects.create(opportunity=self.opportunity, state=Validation.State.APPROVED)
         self.package = MarketingPackage.objects.create(
             opportunity=self.opportunity,
-            state=MarketingPackage.State.PREPARING,
             price=Decimal("100000"),
             currency=self.currency,
+        )
+        self.publication = MarketingPublication.objects.create(
+            opportunity=self.opportunity,
+            package=self.package,
+            state=MarketingPublication.State.PREPARING,
         )
 
     def test_activate_package(self):
         svc = MarketingPackageActivateService(actor=None)
-        pkg = svc(package=self.package)
-        self.assertEqual(pkg.state, MarketingPackage.State.PUBLISHED)
+        publication = svc(package=self.package)
+        self.assertEqual(publication.state, MarketingPublication.State.PUBLISHED)
+        self.package.refresh_from_db()
+        self.assertEqual(self.package.publication, publication)
 
     def test_pause_requires_validation_approved(self):
-        self.package.state = MarketingPackage.State.PUBLISHED
-        self.package.save(update_fields=["state", "updated_at"])
+        self.publication.state = MarketingPublication.State.PUBLISHED
+        self.publication.save(update_fields=["state", "updated_at"])
 
         self.validation.state = Validation.State.PREPARING
         self.validation.save(update_fields=["state", "updated_at"])
@@ -60,8 +66,8 @@ class MarketingServiceTests(TestCase):
             svc(package=self.package)
 
     def test_release_blocks_active_operation(self):
-        self.package.state = MarketingPackage.State.PAUSED
-        self.package.save(update_fields=["state", "updated_at"])
+        self.publication.state = MarketingPublication.State.PAUSED
+        self.publication.save(update_fields=["state", "updated_at"])
 
         # simulate active operation by creating an offered state operation
         from intentions.models import SeekerIntention
@@ -97,19 +103,19 @@ class MarketingServiceTests(TestCase):
             svc(package=self.package)
 
     def test_release_blocked_when_opportunity_closed(self):
-        self.package.state = MarketingPackage.State.PAUSED
-        self.package.save(update_fields=["state", "updated_at"])
+        self.publication.state = MarketingPublication.State.PAUSED
+        self.publication.save(update_fields=["state", "updated_at"])
 
         self.opportunity.state = ProviderOpportunity.State.CLOSED
         self.opportunity.save(update_fields=["state", "updated_at"])
 
-        self.assertFalse(self.package.can_transition("publish"))
+        self.assertFalse(self.publication.can_transition("publish"))
 
         svc = MarketingPackageReleaseService(actor=None)
         with self.assertRaises(ValidationError):
             svc(package=self.package, use_atomic=False)
-        self.package.refresh_from_db()
-        self.assertEqual(self.package.state, MarketingPackage.State.PAUSED)
+        self.publication.refresh_from_db()
+        self.assertEqual(self.publication.state, MarketingPublication.State.PAUSED)
 
     def _dummy_seeker_intention(self):
         # kept for potential reuse; not used in current tests

@@ -1,7 +1,9 @@
 {% load workflow_extras %}
-<a class="icon-button" data-icon="🔍" href="{% url 'validation-detail' validation.id %}?next={{ current_url|urlencode }}" title="View validation detail">
-    <span class="sr-only">View details</span>
-</a>
+{% if show_details_button|default_if_none:True %}
+    <a class="icon-button" data-icon="🔍" href="{% url 'validation-detail' validation.id %}?next={{ current_url|urlencode }}" title="View validation detail">
+        <span class="sr-only">View details</span>
+    </a>
+{% endif %}
 {% if validation|can_transition:'present' and validation.missing_required_documents|length == 0 %}
     <a class="icon-button" data-icon="📤" href="{% url 'validation-present' validation.id %}?next={{ current_url|urlencode }}" title="Present validation">
         <span class="sr-only">Present validation</span>

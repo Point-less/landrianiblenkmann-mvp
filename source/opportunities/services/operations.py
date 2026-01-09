@@ -5,7 +5,7 @@ from django.db import transaction
 from django_fsm import TransitionNotAllowed
 
 from core.models import Currency
-from opportunities.models import MarketingPackage, Operation, ProviderOpportunity, SeekerOpportunity, Validation
+from opportunities.models import MarketingPackage, MarketingPublication, Operation, ProviderOpportunity, SeekerOpportunity, Validation
 
 from utils.services import BaseService
 from utils.authorization import (
@@ -81,12 +81,9 @@ class CreateOperationService(BaseService):
         return operation
 
     def _reserve_marketing_packages(self, provider_opportunity: ProviderOpportunity) -> None:
-        packages = provider_opportunity.marketing_packages.filter(
-            state=MarketingPackage.State.PUBLISHED,
-            is_active=True,
-        ).order_by('-created_at')
-        for package in packages:
-            self.s.opportunities.MarketingPackagePauseService(package=package)
+        publication = getattr(provider_opportunity, "marketing_publication", None)
+        if publication and publication.state == MarketingPublication.State.PUBLISHED:
+            self.s.opportunities.MarketingPackagePauseService(package=publication.package)
 
 
 class OperationReinforceService(BaseService):

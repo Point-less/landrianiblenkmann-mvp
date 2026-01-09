@@ -9,7 +9,7 @@ from integrations.tasks import (
     _unpublish_marketing_package,
     sync_tokkobroker_registry,
 )
-from opportunities.models import MarketingPackage, OperationType, ProviderOpportunity
+from opportunities.models import MarketingPackage, MarketingPublication, OperationType, ProviderOpportunity
 from core.models import Agent, Contact, Currency, Property
 from intentions.models import ProviderIntention
 
@@ -80,9 +80,10 @@ class TokkobrokerTaskTests(TestCase):
             tokkobroker_property=TokkobrokerProperty.objects.create(tokko_id=1, ref_code="T1"),
             state=ProviderOpportunity.State.MARKETING,
         )
-        return MarketingPackage.objects.create(
+        package = MarketingPackage.objects.create(
             opportunity=opportunity,
             price=price,
             currency=currency,
-            state=MarketingPackage.State.PUBLISHED,
         )
+        MarketingPublication.objects.create(opportunity=opportunity, package=package, state=MarketingPublication.State.PUBLISHED)
+        return package

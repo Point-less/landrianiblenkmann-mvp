@@ -9,6 +9,7 @@
     <table>
         <tr><th>Property</th><th>Details</th><th>Status</th><th>Transitions</th><th class="actions-column">Actions</th></tr>
         {% for package in marketing_packages %}
+            {% with publication=package.publication %}
             <tr>
                 <td>
                     <div class="table-title">{{ package.opportunity.source_intention.property }}</div>
@@ -24,19 +25,24 @@
                     {% endif %}
                 </td>
                 <td>
-                    <span class="pill">{{ package.get_state_display }}</span>
+                    <span class="pill">{{ publication.get_state_display|default:"—" }}</span>
                     {% if package.price %}
                         <div class="table-subtext">{{ package.price }} {{ package.currency }}</div>
                     {% endif %}
                 </td>
                 <td class="latest-activity">
-                    {% url 'transition-history' 'opportunities' 'marketingpackage' package.id as history_url %}
-                    {% include "workflow/partials/latest_transition.html" with transitions=package.state_transitions.all history_url=history_url next_url=current_url %}
+                    {% if publication %}
+                        {% url 'transition-history' 'opportunities' 'marketingpublication' publication.id as history_url %}
+                        {% include "workflow/partials/latest_transition.html" with transitions=publication.state_transitions.all history_url=history_url next_url=current_url %}
+                    {% else %}
+                        <div class="transition-text">No publication yet.</div>
+                    {% endif %}
                 </td>
                 <td class="actions-column">
                     {% include "workflow/partials/marketing_package_actions.html" with package=package current_url=current_url %}
                 </td>
             </tr>
+            {% endwith %}
         {% empty %}
             <tr><td colspan="5">No marketing packages yet.</td></tr>
         {% endfor %}
@@ -49,6 +55,7 @@
     <table>
         <tr><th>Property</th><th>Details</th><th>Status</th><th class="actions-column">History</th></tr>
         {% for package in archived_marketing_packages %}
+            {% with publication=package.publication %}
             <tr>
                 <td>
                     <div class="table-title">{{ package.opportunity.source_intention.property }}</div>
@@ -60,14 +67,17 @@
                         <div class="table-subtext">{{ package.description }}</div>
                     {% endif %}
                 </td>
-                <td><span class="pill">{{ package.get_state_display }}</span></td>
+                <td><span class="pill">{{ publication.get_state_display|default:"—" }}</span></td>
                 <td class="actions-column">
-                    {% url 'transition-history' 'opportunities' 'marketingpackage' package.id as history_url %}
-                    <a class="icon-button" data-icon="↺" href="{{ history_url }}?next={{ current_url|urlencode }}" title="View history">
-                        <span class="sr-only">View history</span>
-                    </a>
+                    {% if publication %}
+                        {% url 'transition-history' 'opportunities' 'marketingpublication' publication.id as history_url %}
+                        <a class="icon-button" data-icon="↺" href="{{ history_url }}?next={{ current_url|urlencode }}" title="View history">
+                            <span class="sr-only">View history</span>
+                        </a>
+                    {% endif %}
                 </td>
             </tr>
+            {% endwith %}
         {% endfor %}
     </table>
 </div>

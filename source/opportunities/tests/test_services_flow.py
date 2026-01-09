@@ -30,6 +30,7 @@ from intentions.services import (
 )
 from opportunities.models import (
     MarketingPackage,
+    MarketingPublication,
     Operation,
     OperationAgreement,
     ProviderOpportunity,
@@ -169,7 +170,7 @@ class IntentionFlowServiceTests(TestCase):
         marketing_package = provider_opportunity.marketing_packages.get()
 
         self.assertEqual(provider_opportunity.state, ProviderOpportunity.State.VALIDATING)
-        self.assertEqual(marketing_package.state, MarketingPackage.State.PREPARING)
+        self.assertEqual(marketing_package.state, MarketingPublication.State.PREPARING)
 
         self._upload_required_documents(validation)
 
@@ -192,7 +193,7 @@ class IntentionFlowServiceTests(TestCase):
         validation.refresh_from_db()
         self.assertEqual(provider_opportunity.state, ProviderOpportunity.State.MARKETING)
         marketing_package.refresh_from_db()
-        self.assertEqual(marketing_package.state, MarketingPackage.State.PREPARING)
+        self.assertEqual(marketing_package.state, MarketingPublication.State.PREPARING)
 
         seeker_intention = CreateSeekerIntentionService.call(
             contact=self.seeker_contact,
@@ -231,7 +232,7 @@ class IntentionFlowServiceTests(TestCase):
         seeker_opportunity.refresh_from_db()
         self.assertEqual(seeker_opportunity.state, SeekerOpportunity.State.NEGOTIATING)
         marketing_package.refresh_from_db()
-        self.assertEqual(marketing_package.state, MarketingPackage.State.PREPARING)
+        self.assertEqual(marketing_package.state, MarketingPublication.State.PREPARING)
         with self.assertRaises(ValidationError):
             MarketingPackageReleaseService.call(package=marketing_package, use_atomic=False)
 

@@ -9,6 +9,7 @@ from integrations.models import TokkobrokerProperty
 from intentions.models import ProviderIntention
 from opportunities.models import (
     MarketingPackage,
+    MarketingPublication,
     OperationType,
     ProviderOpportunity,
     Validation,
@@ -76,19 +77,23 @@ class MarketingPackageRevisionTests(TestCase):
     def test_transitions_do_not_create_revisions(self):
         pkg = MarketingPackage.objects.create(
             opportunity=self.opportunity,
-            state=MarketingPackage.State.PREPARING,
             price=Decimal("90000"),
             currency=self.currency,
             headline="Prep",
         )
-        pkg = MarketingPackageActivateService.call(actor=None, package=pkg)
-        pkg = MarketingPackagePauseService.call(actor=None, package=pkg)
+        publication = MarketingPublication.objects.create(
+            opportunity=self.opportunity,
+            package=pkg,
+            state=MarketingPublication.State.PREPARING,
+        )
+        publication = MarketingPackageActivateService.call(actor=None, package=pkg)
+        publication = MarketingPackagePauseService.call(actor=None, package=pkg)
 
         versions = MarketingPackage.objects.filter(opportunity=self.opportunity)
         self.assertEqual(versions.count(), 1)
-        self.assertEqual(versions.first().state, MarketingPackage.State.PAUSED)
+        self.assertEqual(publication.state, MarketingPublication.State.PAUSED)
 
-        transitions = list(pkg.state_transitions.order_by("-occurred_at"))
+        transitions = list(publication.state_transitions.order_by("-occurred_at"))
         self.assertGreaterEqual(len(transitions), 2)
 
     def test_query_includes_revisions(self):

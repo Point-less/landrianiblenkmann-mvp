@@ -1,0 +1,13 @@
+line-length = 120
+target-version = "py311"
+
+extend-select = [
+  "F401", # unused imports
+  "F841", # unused local variables
+]
+
+exclude = [
+  "*/migrations/*",
+  "venv",
+  ".venv",
+]

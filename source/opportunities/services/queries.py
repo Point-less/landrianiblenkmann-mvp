@@ -141,6 +141,25 @@ class DashboardMarketingPackagesQuery(BaseService):
         )
 
 
+class DashboardArchivedMarketingPackagesQuery(BaseService):
+    """Packages whose opportunities are no longer marketing (e.g., closed)."""
+
+    def run(self, *, actor=None):
+        queryset = MarketingPackage.objects.select_related(
+            'opportunity__source_intention__property',
+            'opportunity__source_intention__owner'
+        ).prefetch_related('state_transitions').exclude(
+            opportunity__state=ProviderOpportunity.State.MARKETING
+        ).order_by('-updated_at')
+        return filter_queryset(
+            actor,
+            PROVIDER_OPPORTUNITY_VIEW,
+            queryset,
+            owner_field='opportunity__source_intention__agent',
+            view_all_action=PROVIDER_OPPORTUNITY_VIEW_ALL,
+        )
+
+
 class DashboardMarketingOpportunitiesWithoutPackagesQuery(BaseService):
     def run(self, *, actor=None):
         queryset = ProviderOpportunity.objects.filter(

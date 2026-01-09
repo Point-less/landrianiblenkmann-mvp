@@ -115,10 +115,13 @@ class SeedDemoUsersService(BaseService):
         agent_ct = ContentType.objects.get_for_model(Agent)
         roles = {r.slug: r for r in Role.objects.filter(slug__in=["admin", "manager", "agent", "viewer"])}
 
+        # Use email as natural key to avoid unique collisions when rerun after manual user creation.
         admin_user, _ = user_model.objects.get_or_create(
-            username="admin_demo",
-            defaults={"email": "admin@example.com", "is_staff": True, "is_superuser": True},
+            email="admin@example.com",
+            defaults={"username": "admin_demo", "is_staff": True, "is_superuser": True},
         )
+        if admin_user.username != "admin_demo":
+            admin_user.username = "admin_demo"
         admin_user.set_password("admin123")
         admin_user.save()
 

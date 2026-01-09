@@ -60,6 +60,36 @@
     </table>
 </div>
 
+{% if archived_marketing_packages %}
+<div class="card">
+    <h3>Past Marketing Packages</h3>
+    <table>
+        <tr><th>Property</th><th>Details</th><th>Status</th><th class="actions-column">History</th></tr>
+        {% for package in archived_marketing_packages %}
+            <tr>
+                <td>
+                    <div class="table-title">{{ package.opportunity.source_intention.property }}</div>
+                    <div class="table-subtext">Owner: {{ package.opportunity.source_intention.owner }}</div>
+                </td>
+                <td>
+                    <div class="table-title">{{ package.headline|default:"Unnamed package" }}</div>
+                    {% if package.description %}
+                        <div class="table-subtext">{{ package.description }}</div>
+                    {% endif %}
+                </td>
+                <td><span class="pill">{{ package.get_state_display }}</span></td>
+                <td class="actions-column">
+                    {% url 'transition-history' 'opportunities' 'marketingpackage' package.id as history_url %}
+                    <a class="icon-button" data-icon="↺" href="{{ history_url }}?next={{ current_url|urlencode }}" title="View history">
+                        <span class="sr-only">View history</span>
+                    </a>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
 {% if marketing_opportunities_without_packages %}
 <div class="card">
     <h3>Opportunities without packages</h3>

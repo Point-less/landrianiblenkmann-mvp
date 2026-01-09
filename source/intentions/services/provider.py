@@ -128,6 +128,7 @@ class PromoteProviderIntentionService(BaseService):
             raise ValidationError("Tokkobroker property is required to promote the intention.")
 
         opportunity = CreateOpportunityService.call(
+            actor=self.actor,
             intention=intention,
             notes=notes,
             gross_commission_pct=gross_commission_pct,

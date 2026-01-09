@@ -1,11 +1,11 @@
 # Project Quick Reference
 
 > [!IMPORTANT]
-> **Documentation Consistency**: This file must be kept in sync with the actual project structure. Every time any modification is made to the project architecture (new apps, services, URL patterns, models, or configuration changes), this document MUST be updated to reflect those changes.
-> **Test Discipline**: Whenever an agent modifies the project, they must run the test suite (`docker compose exec frontend python manage.py test`) and make a reasonable effort to fix any failures. If fixing is not feasible, they must report the failing tests and blockers explicitly.
-> **Execution Policy**: From the host, only `docker` (including `docker compose`) and `git` commands should be run. All other commands (tests, manage.py, tooling, scripts) must be executed inside the `frontend` container via `docker compose exec frontend ...`.
-> **Engineering Stance**: We code for correct states, not silent fallbacks. Required domain data (like operation types) must be present; missing prerequisites should raise errors loudly rather than defaulting or masking issues.
-> **Object Interactions**: Follow OOP principles—functions expect the correct typed objects and interact through public interfaces; avoid attribute poking/duck-typing checks and assume inputs match the signature.
+> Operational ritual: after **every** user message, first run `cat AGENTS_CRITICAL.md` from the repo root before doing anything else. Keep this document in sync with the actual project structure whenever architecture changes (apps, services, URLs, models, config).
+> Run the test suite (`docker compose exec frontend python manage.py test`) after changes; fix failures when feasible or report blockers explicitly.
+> From the host, only use `docker`/`docker compose` and `git`. All other commands (manage.py, tooling, scripts, tests) must run in the `frontend` container via `docker compose exec frontend ...`.
+> We code for correct states, not silent fallbacks: required domain data must exist; missing prerequisites should raise loudly.
+> Follow OOP contracts—functions expect correctly typed objects; interact through public interfaces without duck-typing guards.
 
 ## Stack & Infrastructure
 
@@ -13,9 +13,9 @@
 - **Task Queue**: Dramatiq workers with RabbitMQ 3 broker
 - **Databases**: PostgreSQL 16, Redis 7.4 (caching + Dramatiq results)
 - **Deployment**: Docker Compose (`docker compose up -d`)
-- **Optional**: Cloudflared tunnel (enable with `docker compose --profile tunnel up`)
+- **Optional**: Cloudflared tunnel (`docker compose --profile tunnel up`)
 
-## Services
+## Services & Runtime
 
 | Service | Port(s) | Purpose |
 |---------|---------|---------|
@@ -26,162 +26,150 @@
 | `redis` | 6379 | Cache and Dramatiq result backend |
 | `cloudflared` | - | Optional Cloudflare tunnel (profile: `tunnel`) |
 
-## Application Structure
+- `./source` is bind-mounted into the app containers; edits on host reflect immediately.
+- Prefer hot reload: `frontend`/`dramatiq` use `watchmedo` autoreload. Rebuild images only when Dockerfiles or deps change.
+- Logs: `docker compose logs frontend|dramatiq` to spot runtime/syntax issues.
+- Install ad-hoc tools (e.g., `ripgrep`) inside containers if needed.
 
-The project is organized into 8 Django apps under `source/`:
+## Application Structure (under `source/`, 8 Django apps)
 
 ### `config/`
-Project configuration and routing hub.
-- **Settings**: Django configuration, middleware (`RequireLoginMiddleware`), environment variables
-- **Schema** (`schema.py`): Aggregates GraphQL schemas from apps (users, opportunities)
-- **GraphQL** (`graphql.py`): Authenticated, CSRF-exempt GraphQL view
-- **URLs** (`urls.py`): Root URL configuration routing to admin, graphql, and app-level URLs
+- Settings, middleware (`RequireLoginMiddleware`), env vars.
+- GraphQL: `schema.py` aggregates app schemas; `graphql.py` authenticated CSRF-exempt view.
+- URLs: root routing to admin, GraphQL, and app URLs.
 
 ### `core/`
-Shared domain models and dashboard views.
-- **Models**: `Agent` (commission split optional, % stored as 0-1 fraction), `Contact` (email required, tax id/condition, full address), `Property` (full address), `Currency`, `ContactAgentRelationship`
-  - Contacts capture first/last name, full address, CUIT/CUIL (`tax_id`), and tax condition (RI/Monotributo/Exento/Consumidor final); email is required.
-  - Agents store a `commission_split` (0-1 fraction of commissions allocated to them).
-  - Properties store `full_address` in addition to name/reference code.
-- **URLs** (`urls.py`): Dashboard views, health checks, entity CRUD (agents, contacts, properties), transition history
-- **Views** (`views.py`): Workflow dashboard, entity management forms, health/trigger endpoints
-- **Services** (`services/`): Command services plus query services (`services/queries.py`) for dashboard/form data (agents, contacts, properties, intentions, valuations, Tokkobroker props, currencies)
-- **Purpose**: Foundation entities used across the real estate workflow
+- Models: `Agent` (commission_split fraction), `Contact` (email required, tax id/condition, full address), `Property` (full address), `Currency`, `ContactAgentRelationship`.
+- URLs: dashboard views, health checks, CRUD for agents/contacts/properties, transition history.
+- Views: workflow dashboard, entity management forms, health/trigger endpoints.
+- Services: command services and queries (`services/queries.py`) for agents, contacts, properties, intentions, valuations, Tokkobroker props, currencies.
+- Purpose: foundational entities across workflow.
 
 ### `integrations/`
-External service integrations.
-- **Models**: `TokkobrokerProperty` - registry for externally-sourced properties
-- **TokkobrokerClient** (`tokkobroker.py`): HTTP client for Tokkobroker API integration
-- **Tasks** (`tasks.py`): Dramatiq tasks for syncing property data
-- **URLs** (`urls.py`): Integration-specific endpoints
+- Model: `TokkobrokerProperty`.
+- Client: `tokkobroker.py` for Tokkobroker API.
+- Tasks: Dramatiq sync tasks.
+- URLs: integration endpoints.
 
 ### `intentions/`
-Pre-contract intent tracking with FSM state management.
-- **Models**:
-  - `ProviderIntention`: Property owner's pre-contract engagement (states: assessing → valuated → converted/withdrawn) with configurable `operation_type`
-  - `SeekerIntention`: Buyer's pre-representation interest (states: qualifying → active → mandated → converted/abandoned) with configurable `operation_type`
-  - `Valuation`: Valuation records delivered to providers
-- **Valuations**: capture valuation_date and required test/close values (max 12 digits); promotion forms prefill client test/close values.
-- **Purpose**: Capture and qualify leads before formal contracts
-- **FSM States**: Uses django-fsm for state transitions with validation rules
-- **URLs** (`urls.py`): Intention management endpoints
+- Models: `ProviderIntention` (assessing → valuated → converted/withdrawn) and `SeekerIntention` (qualifying → active → mandated → converted/abandoned) with configurable `operation_type`; `Valuation`.
+- Valuations capture valuation_date and required test/close values (max 12 digits); promotion forms prefill client test/close values.
+- FSM via django-fsm; URLs for intention management.
 
 ### `opportunities/`
-Sales pipeline management with FSM workflows.
-- **Models**:
-  - `ProviderOpportunity`: Property opportunities (states: validating → marketing → closed)
-    - Required `tokkobroker_property`, contract expiration; optional contract start; stores valuation test/close values.
-  - `SeekerOpportunity`: Buyer opportunities (states: matching → negotiating → closed/lost)
-  - `Validation`: Document validation workflow (states: preparing → presented → accepted)
-  - Supporting models: `ValidationDocument`, `ValidationDocumentType` (configurable per operation type), `Match`, `Operation`, `OperationType` (Sale/Rent)
-- **Operations**: require currency, reserve amount/deadline, initial offered amount; reinforcement captures offered_amount, reinforcement_amount, declared_deed_value; reserve/offered stored separately.
-- **Commission tracking**: Provider and seeker opportunities store negotiated gross commission as a 0-1 fraction (e.g., 0.05 = 5%), defaulting to 4% via `DEFAULT_GROSS_COMMISSION_PCT`; agent commission split now lives on the Agent model.
-- **Tokkobroker linking**: Provider opportunities must have an associated Tokkobroker property; promotion enforces this.
-- **Schema** (`schema.py`, `types.py`, `filters.py`): GraphQL queries, types, and filtering for opportunities
-- **Purpose**: Manage active sales pipeline from contract to close
-- **URLs** (`urls.py`): Opportunity and validation management endpoints
-- **Services** (`services/`): Business logic for opportunity lifecycle
-  - **Query services** (`services/queries.py`): read-only service classes (e.g., `AvailableProviderOpportunitiesForOperationsQuery`, `AvailableSeekerOpportunitiesForOperationsQuery`) to centralize “available for operations” selection logic with optional actor-aware filtering.
-- **Validations**: Required documents must be reviewed. Additional uploads are only allowed as custom (type-less) documents while the validation is in `preparing` or `presented`; these are auto-accepted and listed with file names and observations. Optional typed document uploads are no longer allowed.
+- Models: `ProviderOpportunity` (validating → marketing → closed; requires `tokkobroker_property`, contract expiration; stores valuation test/close), `SeekerOpportunity` (matching → negotiating → closed/lost), `Validation` (preparing → presented → accepted), `ValidationDocument`, `ValidationDocumentType` (per operation type), `Match`, `Operation`, `OperationType` (Sale/Rent).
+- Operations require currency, reserve amount/deadline, initial offered amount; reinforcement captures offered_amount, reinforcement_amount, declared_deed_value; reserve/offered stored separately.
+- Commission: gross commission stored as 0-1 fraction (default 4% via `DEFAULT_GROSS_COMMISSION_PCT`); agent split lives on `Agent`.
+- Tokkobroker link required for provider opportunities; promotion enforces it.
+- Schema (`schema.py`, `types.py`, `filters.py`): GraphQL queries, types, filtering.
+- Validations: required docs must be reviewed. Extra uploads allowed only as custom docs while in `preparing`/`presented`; auto-accepted and listed with filenames/observations. Optional typed uploads disallowed.
+- Services: lifecycle business logic; queries (`services/queries.py`) provide “available for operations” selections with optional actor-aware filtering.
 
 ### `reports/`
-Operational finance reporting.
-- **Services**: `services/operations.py` builds the closed-operations financial/tax report (per agent).
-- **Templates**: `templates/workflow/sections/reports_operations.html` renders the “Financial & Tax Report” table.
-- **Purpose**: Display per-agent financial results for closed operations (closing date, client data, addresses, deed value, commissions, splits, agent/agency revenue).
+- Service `services/operations.py` builds closed-operations financial/tax report (per agent).
+- Template `templates/workflow/sections/reports_operations.html` renders “Financial & Tax Report”.
 
 ### `users/`
-Authentication and user management with passwordless login.
-- **Models**: Custom `User` model (AUTH_USER_MODEL) with required, case-insensitive unique emails
-- **Views** (`views.py`): Custom login view with password and passwordless options, magic link request handler, logout
-- **URLs** (`urls.py`): Login (`/auth/login/`), request magic link (`/auth/request-magic-link/`), sesame login endpoint (`/auth/sesame/login/`), logout
-- **Schema** (`schema.py`): `UsersQuery` mixin for GraphQL
-- **Types** (`types.py`): Strawberry types for GraphQL
-- **Filters** (`filters.py`): GraphQL filter definitions
-- **Templates**: Dual-mode login page (password + passwordless tabs), magic link request page
-- **Purpose**: Authentication with both password and magic link (passwordless) login options
+- Custom `User` model (case-insensitive unique email).
+- Views: password + passwordless login, magic link request, logout.
+- URLs: `/auth/login/`, `/auth/request-magic-link/`, `/auth/sesame/login/`, `/auth/logout/`.
+- GraphQL: `schema.py` (`UsersQuery`), `types.py`, `filters.py`.
+- Templates: dual-mode login page; magic link request.
 
-### `authorization` (lives inside `users` + `utils`)
-- **Models** (`users.models`): `Role`, `Permission`, `RolePermission`, `RoleMembership` (user ↔ role ↔ existing profile like `core.Agent`, enforced one-per-role), `ObjectGrant` (optional per-object allow/deny).
-- **Policy helpers** (`utils/authorization.py`): Single-source `Action` constants, `check`, `filter_queryset`, `get_role_profile`, `explain`; superusers bypass.
-- **Template tags** (`core/templatetags/authorization_tags.py`): `{% can "action.code" obj %}` uses the same `check`.
-- **Seed command**: `docker compose exec frontend python manage.py seed_permissions` seeds canonical roles (admin/manager/agent/viewer) and permissions; admin/manager get ALL, agent gets operational permissions only (no `user.*`, no `integration.manage`, no `*.view_all` extras), viewer can see reports and integration dashboards but not manage them.
+### `authorization` (in `users` + `utils`)
+- Models (`users.models`): `Role`, `Permission`, `RolePermission`, `RoleMembership` (one-per-role per profile such as `core.Agent`), `ObjectGrant` (optional per-object allow/deny).
+- Helpers (`utils/authorization.py`): `Action` constants, `check`, `filter_queryset`, `get_role_profile`, `explain`; superusers bypass.
+- Template tag (`core/templatetags/authorization_tags.py`): `{% can "action.code" obj %}`.
+- Seed command: `docker compose exec frontend python manage.py seed_permissions` seeds canonical roles/permissions (admin/manager all; agent operational only; viewer reports/integration dashboards view).
 
 ### `utils/`
-Shared utilities and mixins.
-- **Mixins**: `TimeStampedMixin` (created_at/updated_at), `FSMLoggableMixin` (django-fsm-log integration)
-- **Audit helpers**: `FSMStateTransition` now stores `actor` (user responsible for each FSM transition); context helpers in `utils/actors.py`
-- **Middleware**: `ActorContextMiddleware` binds the authenticated user to the transition logging context
-- **Purpose**: DRY helpers used across all apps
+- Mixins: `TimeStampedMixin`, `FSMLoggableMixin`.
+- Audit: `FSMStateTransition` stores `actor`; helpers in `utils/actors.py`.
+- Middleware: `ActorContextMiddleware` binds authenticated user to transition logging context.
 
 ## Domain Workflow
 
-The system models a real estate agency's sales workflow:
-
-1. **Intentions**: Capture provider (seller) and seeker (buyer) interest
-2. **Valuations**: Deliver and review provider property valuations before promotion
-3. **Opportunities**: Convert qualified intentions into active pipeline opportunities
-4. **Validations**: Verify provider opportunity documentation (deed, authorization, etc.)
-5. **Operations**: Close deals and record final transactions
+1. Intentions: capture provider/seeker interest.
+2. Valuations: deliver/review provider property valuations before promotion.
+3. Opportunities: convert qualified intentions into pipeline opportunities.
+4. Validations: verify provider opportunity documentation.
+5. Operations: close deals and record transactions.
 
 State transitions use **django-fsm** with **django-fsm-log** for audit trails.
 
 ## GraphQL API
 
-- **Endpoint**: `/graphql/` (protected by Django login, rendered with GraphiQL UI)
-- **Schema** (`config/schema.py`): Merges `UsersQuery` + `OpportunitiesQuery`
-- **Pagination**: Relay-style pagination via Strawberry
-- **Authentication**: Requires login; protected by `RequireLoginMiddleware`
+- Endpoint: `/graphql/` (login required; GraphiQL UI).
+- Schema (`config/schema.py`): merges `UsersQuery` + `OpportunitiesQuery`.
+- Pagination: Relay-style via Strawberry.
+- Authentication: protected by `RequireLoginMiddleware`.
 
 ## URL Routing
 
 | Pattern | App | Purpose |
 |---------|-----|---------|
 | `/admin/` | Django Admin | Admin interface |
-| `/graphql/` | config | GraphQL endpoint (GraphiQL UI) |
-| `/`, `/dashboard/` | core | Workflow dashboard and entity management |
-| `/dashboard/provider-valuations/` | core | Provider valuations dashboard section |
-| `/health/`, `/trigger-log/` | core | Health check and Dramatiq trigger endpoints |
+| `/graphql/` | config | GraphQL endpoint |
+| `/`, `/dashboard/` | core | Workflow dashboard & entity management |
+| `/dashboard/provider-valuations/` | core | Provider valuations section |
+| `/health/`, `/trigger-log/` | core | Health check & Dramatiq trigger |
 | `/agents/`, `/contacts/`, `/properties/` | core | Entity CRUD |
 | `/transitions/...` | core | FSM transition history |
-| `/auth/login/` | users | Dual-mode login (password + passwordless) |
+| `/auth/login/` | users | Dual-mode login |
 | `/auth/request-magic-link/` | users | Request passwordless login link |
-| `/auth/sesame/login/` | users | Sesame magic link login endpoint |
-| `/auth/logout/` | users | Logout endpoint |
+| `/auth/sesame/login/` | users | Sesame magic link endpoint |
+| `/auth/logout/` | users | Logout |
 | _App-specific patterns_ | intentions, opportunities, integrations | Modular routing per app |
 
 ## Bootstrap & Development
 
-- **Bootstrap**: `python manage.py bootstrap` runs migrations and creates/updates a superuser. Set `BOOTSTRAP_ADMIN_PASSWORD` (and optionally `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_EMAIL`) before running; if the user exists, the password/email will be updated, otherwise creation is blocked unless a password is provided. Re-run after `docker compose down -v` to reset state.
-- **Live Reload**: `watchmedo` auto-restarts Gunicorn and Dramatiq on code changes in `source/`
-- **Management Commands**: `docker compose exec frontend python manage.py <command>`
-- **Migrations**: Do not handcraft migration files. Run `docker compose exec frontend python manage.py makemigrations` and let Django generate them deterministically.
-- **Dramatiq Worker**: `docker compose up dramatiq` keeps worker running; trigger via `/trigger-log/`
-- **Cloudflared Tunnel**: `docker compose --profile tunnel up` to enable
+- Bootstrap: `python manage.py bootstrap` (inside frontend) runs migrations and creates/updates superuser; set `BOOTSTRAP_ADMIN_PASSWORD` (and optionally username/email). Re-run after `docker compose down -v` to reset state.
+- Live reload: `watchmedo` auto-restarts Gunicorn/Dramatiq on code changes in `source/`.
+- Management commands: `docker compose exec frontend python manage.py <command>`.
+- Migrations: never handcraft; run `docker compose exec frontend python manage.py makemigrations`.
+- Dramatiq worker: `docker compose up dramatiq`; trigger via `/trigger-log/`.
+- Cloudflared tunnel: `docker compose --profile tunnel up`.
 
 ## Configuration
 
 Environment variables (see `config/settings.py`):
-- **Database**: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
-- **Redis**: `REDIS_CACHE_URL`, `REDIS_RESULTS_URL`
-- **Dramatiq**: `DRAMATIQ_BROKER_URL` (RabbitMQ)
-- **Tokkobroker**: `TOKKO_BASE_URL`, `TOKKO_USERNAME`, `TOKKO_PASSWORD`, `TOKKO_OTP_TOKEN`, `TOKKO_TIMEOUT`
-- **Tokkobroker Sync Toggle**: `TOKKO_SYNC_ENABLED` (default: `true`) — set to `false` to skip all Tokkobroker publication sync tasks
-- **Django**: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `TZ`
+- Database: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
+- Redis: `REDIS_CACHE_URL`, `REDIS_RESULTS_URL`
+- Dramatiq: `DRAMATIQ_BROKER_URL` (RabbitMQ)
+- Tokkobroker: `TOKKO_BASE_URL`, `TOKKO_USERNAME`, `TOKKO_PASSWORD`, `TOKKO_OTP_TOKEN`, `TOKKO_TIMEOUT`
+- Tokkobroker sync toggle: `TOKKO_SYNC_ENABLED` (default `true`)
+- Django: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `TZ`
 
-**Authentication Configuration**:
-- **AUTHENTICATION_BACKENDS**: Sesame token backend (for magic links) + Django ModelBackend (for password login)
-- **SESAME_MAX_AGE**: 300 seconds (5 minutes) - token expiration time
-- **SESAME_ONE_TIME**: True - tokens can only be used once
-- **EMAIL_BACKEND**: Console backend for development (prints emails to console)
-- **LOGIN_URL**: `/auth/login/` - custom dual-mode login page
+Authentication:
+- `AUTHENTICATION_BACKENDS`: Sesame + ModelBackend
+- `SESAME_MAX_AGE`: 300 seconds; `SESAME_ONE_TIME`: True
+- `EMAIL_BACKEND`: console for dev
+- `LOGIN_URL`: `/auth/login/`
 
-## Key Technologies
+## Repository Working Agreements
 
-- **django-fsm** + **django-fsm-log**: State machine workflows with audit logging
-- **django-sesame**: Passwordless authentication via one-time magic links (5-minute expiration)
-- **Strawberry GraphQL**: Type-safe GraphQL with Relay pagination
-- **Dramatiq**: Background task processing
-- **Redis**: Caching layer and Dramatiq result backend
-- **RabbitMQ**: Message broker for Dramatiq
-- **watchmedo**: Hot reload for development
+- Prefer smallest surface-area change; follow existing patterns.
+- Make assumptions explicit; don’t proceed on guesses.
+- Don’t edit existing migrations unless explicitly ordered; generate via `makemigrations`.
+- Do not commit unless explicitly asked; one approval per commit.
+- If unsure a change is fully working, pause and ask.
+
+## Delivery Discipline
+
+- Put real effort into making things work before asking for help.
+- Run relevant commands/tests inside containers before declaring done.
+- Report failing tests with details and blockers if unresolved.
+
+## Reload & Rebuild Etiquette
+
+- With bind mounts, rely on hot reload; avoid container rebuilds unless images/deps change.
+
+## Coding Expectations
+
+- Assume callers honor signatures; avoid redundant defensive checks.
+- Prefer clear exceptions over silent fallbacks; require explicit inputs.
+- Follow established OOP/polymorphism; avoid attribute-existence guards when contracts guarantee them.
+
+## Planning Files
+
+- Planning rules live in `AGENTS_PLANNING.md`. Only open it when the user explicitly asks for a plan (“plan”, “design”, “roadmap”, etc.). If the user wants direct implementation, draft a minimal plan in chat but keep `AGENTS_PLANNING.md` closed.

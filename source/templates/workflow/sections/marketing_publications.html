@@ -36,7 +36,7 @@
                     {% include "workflow/partials/latest_transition.html" with transitions=publication.state_transitions.all history_url=history_url next_url=current_url %}
                 </td>
                 <td class="actions-column">
-                    {% include "workflow/partials/marketing_package_actions.html" with package=package current_url=current_url %}
+                    {% include "workflow/partials/marketing_publication_actions.html" with package=package current_url=current_url %}
                 </td>
             </tr>
             {% endwith %}
@@ -72,8 +72,8 @@
                     <a class="history-link" href="{% url 'transition-history' 'opportunities' 'provideropportunity' opportunity.id %}?next={{ current_url|urlencode }}" title="View history">↺</a>
                 </td>
                 <td class="actions-column">
-                    <a class="icon-button" data-icon="➕" href="{% url 'marketing-package-create' opportunity.id %}?next={{ current_url|urlencode }}" title="Create marketing package">
-                        <span class="sr-only">Create marketing package</span>
+                    <a class="icon-button" data-icon="➕" href="{% url 'marketing-publication-create' opportunity.id %}?next={{ current_url|urlencode }}" title="Create marketing publication">
+                        <span class="sr-only">Create marketing publication</span>
                     </a>
                 </td>
             </tr>

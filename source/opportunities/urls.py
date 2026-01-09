@@ -1,4 +1,4 @@
-"""URL routes for provider opportunities, validations, marketing packages, and operations."""
+"""URL routes for provider opportunities, validations, marketing publications, and operations."""
 
 from django.urls import path
 
@@ -13,13 +13,13 @@ urlpatterns = [
     path('validations/<int:validation_id>/documents/upload/', opp_views.ValidationDocumentUploadView.as_view(), name='validation-document-upload'),
     path('validations/<int:validation_id>/documents/upload-additional/', opp_views.ValidationAdditionalDocumentUploadView.as_view(), name='validation-additional-document-upload'),
     path('validation-documents/<int:document_id>/review/', opp_views.ValidationDocumentReviewView.as_view(), name='validation-document-review'),
-    # Marketing packages
-    path('provider/<int:opportunity_id>/marketing-packages/new/', opp_views.MarketingPackageCreateView.as_view(), name='marketing-package-create'),
-    path('provider/<int:opportunity_id>/marketing-packages/', opp_views.MarketingPackageHistoryView.as_view(), name='marketing-package-history'),
-    path('marketing-packages/<int:package_id>/edit/', opp_views.MarketingPackageUpdateView.as_view(), name='marketing-package-edit'),
-    path('marketing-packages/<int:package_id>/activate/', opp_views.MarketingPackageActivateView.as_view(), name='marketing-package-activate'),
-    path('marketing-packages/<int:package_id>/pause/', opp_views.MarketingPackagePauseView.as_view(), name='marketing-package-pause'),
-    path('marketing-packages/<int:package_id>/release/', opp_views.MarketingPackageReleaseView.as_view(), name='marketing-package-release'),
+    # Marketing publications
+    path('provider/<int:opportunity_id>/marketing-publications/new/', opp_views.MarketingPublicationCreateView.as_view(), name='marketing-publication-create'),
+    path('provider/<int:opportunity_id>/marketing-publications/', opp_views.MarketingPublicationDetailView.as_view(), name='marketing-publication-detail'),
+    path('marketing-publications/<int:package_id>/edit/', opp_views.MarketingPublicationUpdateView.as_view(), name='marketing-publication-edit'),
+    path('marketing-publications/<int:package_id>/activate/', opp_views.MarketingPublicationActivateView.as_view(), name='marketing-publication-activate'),
+    path('marketing-publications/<int:package_id>/pause/', opp_views.MarketingPublicationPauseView.as_view(), name='marketing-publication-pause'),
+    path('marketing-publications/<int:package_id>/release/', opp_views.MarketingPublicationReleaseView.as_view(), name='marketing-publication-release'),
     # Operations
 
     path('operations/<int:operation_id>/reinforce/', opp_views.OperationReinforceView.as_view(), name='operation-reinforce'),

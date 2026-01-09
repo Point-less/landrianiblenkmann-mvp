@@ -1,0 +1,33 @@
+{% load workflow_extras %}
+{% with publication=package.publication %}
+{% if package.is_active and publication %}
+    {% url 'transition-history' 'opportunities' 'marketingpublication' publication.id as publication_history_url %}
+    <a class="icon-button" data-icon="↺" href="{{ publication_history_url }}?next={{ current_url|urlencode }}" title="View publication history">
+        <span class="sr-only">View publication history</span>
+    </a>
+    {% if show_details_button|default_if_none:True %}
+    {% url 'marketing-publication-detail' package.opportunity.id as package_history_url %}
+    <a class="icon-button" data-icon="🗂" href="{{ package_history_url }}?next={{ current_url|urlencode }}" title="View package details">
+        <span class="sr-only">View marketing publication details</span>
+    </a>
+    {% endif %}
+    <a class="icon-button" data-icon="✏" href="{% url 'marketing-publication-edit' package.id %}?next={{ current_url|urlencode }}" title="Edit package">
+        <span class="sr-only">Edit marketing publication</span>
+    </a>
+    {% if publication|can_transition:'activate' %}
+        <a class="icon-button" data-icon="▶" href="{% url 'marketing-publication-activate' package.id %}?next={{ current_url|urlencode }}" title="Activate package">
+            <span class="sr-only">Activate marketing publication</span>
+        </a>
+    {% endif %}
+    {% if publication|can_transition:'pause' %}
+        <a class="icon-button" data-icon="⏸" data-variant="warning" href="{% url 'marketing-publication-pause' package.id %}?next={{ current_url|urlencode }}" title="Pause package">
+            <span class="sr-only">Pause marketing publication</span>
+        </a>
+    {% endif %}
+    {% if publication|can_transition:'publish' %}
+        <a class="icon-button" data-icon="⏯" href="{% url 'marketing-publication-release' package.id %}?next={{ current_url|urlencode }}" title="Resume package">
+            <span class="sr-only">Resume marketing publication</span>
+        </a>
+    {% endif %}
+{% endif %}
+{% endwith %}

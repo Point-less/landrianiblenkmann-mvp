@@ -7,7 +7,7 @@
     {% endif %}
 {% endwith %}
 {% if show_details_button|default_if_none:True %}
-    <a class="icon-button" data-icon="🗂" href="{% url 'marketing-package-history' opportunity.id %}?next={{ current_url|urlencode }}" title="Marketing packages &amp; revisions">
-        <span class="sr-only">Marketing packages</span>
+    <a class="icon-button" data-icon="🗂" href="{% url 'marketing-publication-detail' opportunity.id %}?next={{ current_url|urlencode }}" title="Marketing publications &amp; revisions">
+        <span class="sr-only">Marketing publications</span>
     </a>
 {% endif %}

@@ -15,7 +15,7 @@
             <div class="table-subtext">State: {{ publication.get_state_display }} · Package version #{{ current_package.version }}</div>
         </div>
         <div class="actions">
-            {% include "workflow/partials/marketing_package_actions.html" with package=current_package current_url=current_url show_details_button=False %}
+            {% include "workflow/partials/marketing_publication_actions.html" with package=current_package current_url=current_url show_details_button=False %}
         </div>
     </div>
     <table>

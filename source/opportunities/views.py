@@ -64,7 +64,7 @@ class MarketingOpportunityMixin(ProviderOpportunityMixin):
         return opportunity
 
 
-class MarketingPackageMixin:
+class MarketingPublicationMixin:
     pk_url_kwarg = 'package_id'
 
     def get_package(self):
@@ -76,10 +76,10 @@ class MarketingPackageMixin:
         return context
 
 
-class MarketingPackageHistoryView(ProviderOpportunityMixin, PermissionedViewMixin, LoginRequiredMixin, FormView):
-    """Detail page for an opportunity's marketing packages and their revisions."""
+class MarketingPublicationDetailView(ProviderOpportunityMixin, PermissionedViewMixin, LoginRequiredMixin, FormView):
+    """Detail page for an opportunity's marketing publications and their revisions."""
 
-    template_name = "workflow/marketing_package_history.html"
+    template_name = "workflow/marketing_publication_detail.html"
     form_class = ConfirmationForm  # unused; FormView for convenience of template context
     required_action = PROVIDER_OPPORTUNITY_VIEW
 
@@ -101,7 +101,7 @@ class MarketingPackageHistoryView(ProviderOpportunityMixin, PermissionedViewMixi
         return context
 
     def get_success_url(self):
-        return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
+        return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-publications'})
 
 
 class ValidationMixin:
@@ -302,12 +302,12 @@ class ValidationDocumentReviewView(PermissionedViewMixin, LoginRequiredMixin, Su
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-validations'})
 
 
-class MarketingPackageCreateView(MarketingOpportunityMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class MarketingPublicationCreateView(MarketingOpportunityMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
     template_name = 'workflow/form.html'
     form_class = MarketingPackageForm
-    success_message = 'Marketing package created.'
-    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
-    form_title = 'Create marketing package'
+    success_message = 'Marketing publication created.'
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-publications'})
+    form_title = 'Create marketing publication'
     submit_label = 'Create package'
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
@@ -322,11 +322,11 @@ class MarketingPackageCreateView(MarketingOpportunityMixin, PermissionedViewMixi
         return super().form_valid(form)
 
 
-class MarketingPackageUpdateView(MarketingPackageMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class MarketingPublicationUpdateView(MarketingPublicationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
     template_name = 'workflow/form.html'
     form_class = MarketingPackageForm
-    success_message = 'Marketing package updated.'
-    form_title = 'Update marketing package'
+    success_message = 'Marketing publication updated.'
+    form_title = 'Update marketing publication'
     submit_label = 'Save changes'
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
@@ -352,12 +352,12 @@ class MarketingPackageUpdateView(MarketingPackageMixin, PermissionedViewMixin, L
         return self.request.get_full_path()
 
 
-class MarketingPackageActionView(MarketingPackageMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class MarketingPublicationActionView(MarketingPublicationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
     template_name = 'workflow/form.html'
     form_class = ConfirmationForm
     service_name = None
     service_app = "opportunities"
-    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-publications'})
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def get_service(self):
@@ -381,22 +381,22 @@ class MarketingPackageActionView(MarketingPackageMixin, PermissionedViewMixin, L
         return super().form_valid(form)
 
 
-class MarketingPackageActivateView(MarketingPackageActionView):
-    success_message = 'Marketing package activated.'
+class MarketingPublicationActivateView(MarketingPublicationActionView):
+    success_message = 'Marketing publication activated.'
     form_title = 'Publish package'
     submit_label = 'Publish'
     service_name = "MarketingPackageActivateService"
 
 
-class MarketingPackageReleaseView(MarketingPackageActionView):
-    success_message = 'Marketing package resumed.'
+class MarketingPublicationReleaseView(MarketingPublicationActionView):
+    success_message = 'Marketing publication resumed.'
     form_title = 'Publish package'
     submit_label = 'Publish'
     service_name = "MarketingPackageReleaseService"
 
 
-class MarketingPackagePauseView(MarketingPackageActionView):
-    success_message = 'Marketing package paused.'
+class MarketingPublicationPauseView(MarketingPublicationActionView):
+    success_message = 'Marketing publication paused.'
     form_title = 'Pause package'
     submit_label = 'Pause'
     service_name = "MarketingPackagePauseService"
@@ -607,11 +607,11 @@ __all__ = [
     "ValidationDocumentUploadView",
     "ValidationAdditionalDocumentUploadView",
     "ValidationDocumentReviewView",
-    "MarketingPackageCreateView",
-    "MarketingPackageUpdateView",
-    "MarketingPackageActivateView",
-    "MarketingPackageReleaseView",
-    "MarketingPackagePauseView",
+    "MarketingPublicationCreateView",
+    "MarketingPublicationUpdateView",
+    "MarketingPublicationActivateView",
+    "MarketingPublicationReleaseView",
+    "MarketingPublicationPauseView",
     "OperationReinforceView",
     "OperationCloseView",
     "OperationLoseView",

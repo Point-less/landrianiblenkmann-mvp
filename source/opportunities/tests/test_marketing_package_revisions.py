@@ -153,7 +153,7 @@ class MarketingPackageHistoryViewTests(TestCase):
 
     def test_history_view_lists_revisions(self):
         self.client.force_login(self.user)
-        url = reverse("marketing-package-history", kwargs={"opportunity_id": self.opportunity.id})
+        url = reverse("marketing-publication-detail", kwargs={"opportunity_id": self.opportunity.id})
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
         content = resp.content.decode()

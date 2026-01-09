@@ -150,7 +150,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
         'provider-valuations': PROVIDER_INTENTION_VIEW,
         'provider-opportunities': PROVIDER_OPPORTUNITY_VIEW,
         'provider-validations': PROVIDER_OPPORTUNITY_VIEW,
-        'marketing-packages': PROVIDER_OPPORTUNITY_VIEW,
+        'marketing-publications': PROVIDER_OPPORTUNITY_VIEW,
         'seeker-intentions': SEEKER_INTENTION_VIEW,
         'seeker-opportunities': SEEKER_OPPORTUNITY_VIEW,
         'operations': OPERATION_VIEW,
@@ -175,7 +175,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
                 ('provider-intentions', 'Provider Intentions'),
                 ('provider-valuations', 'Valuations'),
                 ('provider-opportunities', 'Provider Opportunities'),
-                ('marketing-packages', 'Marketing Publications'),
+                ('marketing-publications', 'Marketing Publications'),
                 ('provider-validations', 'Documental Validations'),
             ],
         ),
@@ -217,7 +217,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
         'provider-valuations': 'workflow/sections/provider_valuations.html',
         'provider-opportunities': 'workflow/sections/provider_opportunities.html',
         'provider-validations': 'workflow/sections/provider_validations.html',
-        'marketing-packages': 'workflow/sections/marketing_packages.html',
+        'marketing-publications': 'workflow/sections/marketing_publications.html',
         'seeker-intentions': 'workflow/sections/seeker_intentions.html',
         'seeker-opportunities': 'workflow/sections/seeker_opportunities.html',
         'operations': 'workflow/sections/operations.html',
@@ -336,7 +336,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
             'provider_validations': S.opportunities.DashboardProviderValidationsQuery(actor=self.request.user),
         }
 
-    def _context_marketing_packages(self):
+    def _context_marketing_publications(self):
         return {
             'marketing_publications': S.opportunities.DashboardMarketingPackagesQuery(actor=self.request.user),
             'marketing_opportunities_without_packages': S.opportunities.DashboardMarketingOpportunitiesWithoutPackagesQuery(actor=self.request.user),
@@ -625,7 +625,7 @@ class ProviderPromotionView(ProviderIntentionMixin, WorkflowFormView):
     form_class = ProviderPromotionForm
     success_message = 'Provider intention promoted to opportunity.'
     form_title = 'Promote to opportunity'
-    form_description = 'Create a provider opportunity and initial marketing package.'
+    form_description = 'Create a provider opportunity and initial marketing publication.'
     submit_label = 'Promote'
     required_action = PROVIDER_INTENTION_PROMOTE
 
@@ -721,7 +721,7 @@ class MarketingOpportunityMixin(ProviderOpportunityMixin):
         return opportunity
 
 
-class MarketingPackageMixin:
+class MarketingPublicationMixin:
     pk_url_kwarg = 'package_id'
 
     def get_package(self):
@@ -877,11 +877,11 @@ class ValidationDocumentReviewView(ValidationDocumentMixin, WorkflowFormView):
         )
 
 
-class MarketingPackageCreateView(MarketingOpportunityMixin, WorkflowFormView):
+class MarketingPublicationCreateView(MarketingOpportunityMixin, WorkflowFormView):
     form_class = MarketingPackageForm
-    success_message = 'Marketing package created.'
-    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
-    form_title = 'Create marketing package'
+    success_message = 'Marketing publication created.'
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-publications'})
+    form_title = 'Create marketing publication'
     submit_label = 'Create package'
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
@@ -889,10 +889,10 @@ class MarketingPackageCreateView(MarketingOpportunityMixin, WorkflowFormView):
         S.opportunities.MarketingPackageCreateService(opportunity=self.get_opportunity(), **form.cleaned_data)
 
 
-class MarketingPackageUpdateView(MarketingPackageMixin, WorkflowFormView):
+class MarketingPublicationUpdateView(MarketingPublicationMixin, WorkflowFormView):
     form_class = MarketingPackageForm
-    success_message = 'Marketing package updated.'
-    form_title = 'Update marketing package'
+    success_message = 'Marketing publication updated.'
+    form_title = 'Update marketing publication'
     submit_label = 'Save changes'
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
@@ -911,11 +911,11 @@ class MarketingPackageUpdateView(MarketingPackageMixin, WorkflowFormView):
         return self.request.get_full_path()
 
 
-class MarketingPackageActionView(MarketingPackageMixin, WorkflowFormView):
+class MarketingPublicationActionView(MarketingPublicationMixin, WorkflowFormView):
     form_class = ConfirmationForm
     service_name = None
     service_app = "opportunities"
-    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-packages'})
+    success_url = reverse_lazy('workflow-dashboard-section', kwargs={'section': 'marketing-publications'})
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def get_service(self):
@@ -932,22 +932,22 @@ class MarketingPackageActionView(MarketingPackageMixin, WorkflowFormView):
         service(package=self.get_package())
 
 
-class MarketingPackageActivateView(MarketingPackageActionView):
-    success_message = 'Marketing package activated.'
+class MarketingPublicationActivateView(MarketingPublicationActionView):
+    success_message = 'Marketing publication activated.'
     form_title = 'Publish package'
     submit_label = 'Publish'
     service_name = "MarketingPackageActivateService"
 
 
-class MarketingPackageReleaseView(MarketingPackageActionView):
-    success_message = 'Marketing package resumed.'
+class MarketingPublicationReleaseView(MarketingPublicationActionView):
+    success_message = 'Marketing publication resumed.'
     form_title = 'Publish package'
     submit_label = 'Publish'
     service_name = "MarketingPackageReleaseService"
 
 
-class MarketingPackagePauseView(MarketingPackageActionView):
-    success_message = 'Marketing package paused.'
+class MarketingPublicationPauseView(MarketingPublicationActionView):
+    success_message = 'Marketing publication paused.'
     form_title = 'Pause package'
     submit_label = 'Pause'
     service_name = "MarketingPackagePauseService"

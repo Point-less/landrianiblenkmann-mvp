@@ -20,6 +20,7 @@ from opportunities.services.marketing import (
     MarketingPackageUpdateService,
     MarketingPackageCreateService,
 )
+from opportunities.services import MarketingPackagesWithRevisionsForOpportunityQuery
 
 
 @override_settings(BYPASS_SERVICE_AUTH_FOR_TESTS=True)
@@ -88,6 +89,25 @@ class MarketingPackageRevisionTests(TestCase):
         self.assertEqual(len(revisions), 3)  # initial + activate + pause
         states = [rev.state for rev in revisions]
         self.assertEqual(states[-1], MarketingPackage.State.PAUSED)
+
+    def test_query_includes_revisions(self):
+        pkg = MarketingPackageCreateService.call(
+            actor=None,
+            opportunity=self.opportunity,
+            headline="Initial",
+            price=Decimal("100000"),
+            currency=self.currency,
+        )
+        MarketingPackageUpdateService.call(actor=None, package=pkg, headline="Second")
+        user = get_user_model().objects.create_superuser("admin2", "admin2@example.com", "pass")
+
+        qs = MarketingPackagesWithRevisionsForOpportunityQuery.call(
+            actor=user,
+            opportunity=self.opportunity,
+        )
+        packages = list(qs)
+        self.assertEqual(len(packages), 1)
+        self.assertEqual(packages[0].revisions.count(), 2)
 
 
 @override_settings(BYPASS_SERVICE_AUTH_FOR_TESTS=True)

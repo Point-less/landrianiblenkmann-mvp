@@ -52,6 +52,7 @@ from .validation_docs import (  # noqa: F401
     CreateValidationDocumentService,
     CreateAdditionalValidationDocumentService,
     ReviewValidationDocumentService,
+    AllowedValidationDocumentTypesQuery,
 )
 
 __all__ = [
@@ -90,12 +91,12 @@ __all__ = [
     "ProviderOpportunitiesQuery",
     "SeekerOpportunitiesQuery",
     "ProviderOpportunityByTokkobrokerPropertyQuery",
-
     "MarketingPackageByIdQuery",
     "OperationAgreementsQuery",
     "CreateValidationDocumentService",
     "CreateAdditionalValidationDocumentService",
     "ReviewValidationDocumentService",
+    "AllowedValidationDocumentTypesQuery",
     "discover_services",
     "get_services",
     "iter_services",

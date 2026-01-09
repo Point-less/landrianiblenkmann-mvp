@@ -10,6 +10,10 @@ from .seeker import (
     CreateSeekerIntentionService,
     AbandonSeekerIntentionService,
 )
+from .queries import (
+    PrepareProviderIntentionChoicesService,
+    PrepareSeekerIntentionChoicesService,
+)
 
 __all__ = [
     "CreateProviderIntentionService",
@@ -18,4 +22,6 @@ __all__ = [
     "PromoteProviderIntentionService",
     "CreateSeekerIntentionService",
     "AbandonSeekerIntentionService",
+    "PrepareProviderIntentionChoicesService",
+    "PrepareSeekerIntentionChoicesService",
 ]

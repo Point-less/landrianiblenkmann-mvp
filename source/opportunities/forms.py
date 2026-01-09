@@ -151,14 +151,10 @@ class ValidationDocumentUploadForm(HTML5FormMixin, forms.ModelForm):
     def __init__(self, *args, forced_document_type: str | None = None, validation=None, document_types_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["observations"].required = False
-        op_type = validation.opportunity.source_intention.operation_type if validation else None
         if document_types_queryset is not None:
             allowed_qs = document_types_queryset
         else:
-            allowed_qs = validation.required_document_types() if validation else S.opportunities.ValidationDocumentTypesQuery(required=True)
-            if op_type:
-                allowed_qs = allowed_qs.filter(models.Q(operation_type__isnull=True) | models.Q(operation_type=op_type))
-            allowed_qs = allowed_qs.distinct()
+            allowed_qs = S.opportunities.AllowedValidationDocumentTypesQuery(validation=validation)
         self.fields["document_type"].queryset = allowed_qs
         if forced_document_type:
             forced_obj = None

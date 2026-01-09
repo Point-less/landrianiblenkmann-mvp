@@ -1,7 +1,6 @@
 from pathlib import Path
-
+from django.db import models
 from django.core.exceptions import ValidationError
-from django.utils import timezone
 
 from opportunities.models import (
     Validation,
@@ -12,12 +11,12 @@ from opportunities.models import (
 from utils.services import BaseService
 from utils.authorization import PROVIDER_OPPORTUNITY_PUBLISH
 
-
 DEFAULT_ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".pdf", ".png"}
 
 
 class CreateValidationDocumentService(BaseService):
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
+
     def run(
         self,
         *,
@@ -28,9 +27,11 @@ class CreateValidationDocumentService(BaseService):
         observations: str | None = None,
     ) -> ValidationDocument:
         if validation.state not in {Validation.State.PREPARING, Validation.State.PRESENTED}:
-            raise ValidationError({
-                "validation": "Documents can only be uploaded while the validation is preparing or awaiting approval."
-            })
+            raise ValidationError(
+                {
+                    "validation": "Documents can only be uploaded while the validation is preparing or awaiting approval."
+                }
+            )
         if not document:
             raise ValidationError({"document": "Please attach a document."})
         if isinstance(document_type, ValidationDocumentType):
@@ -42,15 +43,15 @@ class CreateValidationDocumentService(BaseService):
                 raise ValidationError({"document_type": "Invalid document type."})
         # Only required document types are allowed (optional types are handled via custom uploads)
         if not doc_type.required:
-            raise ValidationError({"document_type": "Only required document types can be uploaded here. Use custom documents for extras."})
+            raise ValidationError(
+                {"document_type": "Only required document types can be uploaded here. Use custom documents for extras."}
+            )
         # Enforce operation type compatibility
         op_type = validation.opportunity.source_intention.operation_type
         if doc_type.operation_type_id and doc_type.operation_type_id != op_type.id:
             raise ValidationError({"document_type": "Document type not allowed for this operation type."})
         suffix = Path(document.name or "").suffix.lower()
-        allowed_exts = {
-            ("." + ext.lower().lstrip(".")) for ext in (doc_type.accepted_formats or []) if ext
-        }
+        allowed_exts = {("." + ext.lower().lstrip(".")) for ext in (doc_type.accepted_formats or []) if ext}
         if not allowed_exts:
             raise ValidationError({"document_type": "Configure accepted formats for this document type before uploading."})
         if suffix not in allowed_exts:
@@ -68,6 +69,7 @@ class CreateValidationDocumentService(BaseService):
 
 class ReviewValidationDocumentService(BaseService):
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
+
     def run(self, *, document: ValidationDocument, action: str, reviewer, comment: str | None = None) -> ValidationDocument:
         if action not in {"accept", "reject"}:
             raise ValidationError({"action": "Invalid review action."})
@@ -86,6 +88,7 @@ class ReviewValidationDocumentService(BaseService):
 
 class CreateAdditionalValidationDocumentService(BaseService):
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
+
     def run(
         self,
         *,
@@ -95,9 +98,11 @@ class CreateAdditionalValidationDocumentService(BaseService):
         observations: str | None = None,
     ) -> ValidationAdditionalDocument:
         if validation.state not in {Validation.State.PREPARING, Validation.State.PRESENTED}:
-            raise ValidationError({
-                "validation": "Custom documents can only be uploaded while the validation is preparing or awaiting approval."
-            })
+            raise ValidationError(
+                {
+                    "validation": "Custom documents can only be uploaded while the validation is preparing or awaiting approval."
+                }
+            )
         if not document:
             raise ValidationError({"document": "Please attach a document."})
 
@@ -109,8 +114,27 @@ class CreateAdditionalValidationDocumentService(BaseService):
         )
 
 
+class AllowedValidationDocumentTypesQuery(BaseService):
+    """Compute allowed validation document types for a validation instance."""
+
+    atomic = False
+
+    def run(self, *, validation=None, required_only: bool = True, operation_type=None):
+        if validation:
+            qs = validation.required_document_types()
+            op_type = validation.opportunity.source_intention.operation_type
+        else:
+            qs = ValidationDocumentType.objects.filter(required=True) if required_only else ValidationDocumentType.objects.all()
+            op_type = operation_type
+
+        if op_type:
+            qs = qs.filter(models.Q(operation_type__isnull=True) | models.Q(operation_type=op_type))
+        return qs.distinct()
+
+
 __all__ = [
     "CreateValidationDocumentService",
     "ReviewValidationDocumentService",
     "CreateAdditionalValidationDocumentService",
+    "AllowedValidationDocumentTypesQuery",
 ]

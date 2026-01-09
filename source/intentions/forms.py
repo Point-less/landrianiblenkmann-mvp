@@ -46,26 +46,15 @@ class ProviderIntentionForm(HTML5WidgetMixin, forms.ModelForm):
         model = ProviderIntention
         fields = ["owner", "agent", "property", "operation_type", "notes"]
 
-    def __init__(self, *args, actor=None, **kwargs):
+    def __init__(self, *args, actor=None, choices=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["operation_type"].queryset = S.opportunities.OperationTypesQuery()
-        if actor is not None:
-            contact_qs = S.core.ContactsQuery(actor=actor).order_by("last_name", "first_name")
-            self.fields["owner"].queryset = filter_queryset(
-                actor,
-                CONTACT_VIEW,
-                contact_qs,
-                owner_field="agents",
-                view_all_action=CONTACT_VIEW_ALL,
-            )
-            agent_profile = get_role_profile(actor, "agent")
-            agent_qs = S.core.AgentsQuery(actor=actor)
-            if agent_profile:
-                agent_qs = agent_qs.filter(pk=agent_profile.pk)
-            self.fields["agent"].queryset = agent_qs
-            if agent_profile:
-                self.fields["agent"].initial = agent_profile
-            self._actor_agent = agent_profile
+        data = choices or S.intentions.PrepareProviderIntentionChoicesService(actor=actor)
+        self.fields["operation_type"].queryset = data["operation_type_qs"]
+        self.fields["owner"].queryset = data["owner_qs"]
+        self.fields["agent"].queryset = data["agent_qs"]
+        if data.get("actor_agent"):
+            self.fields["agent"].initial = data["actor_agent"]
+        self._actor_agent = data.get("actor_agent")
 
     def clean_agent(self):
         agent = self.cleaned_data.get("agent")
@@ -167,26 +156,17 @@ class SeekerIntentionForm(HTML5WidgetMixin, forms.ModelForm):
             "notes": forms.Textarea(attrs={'rows': 3}),
         }
 
-    def __init__(self, *args, actor=None, **kwargs):
+    def __init__(self, *args, actor=None, choices=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["operation_type"].queryset = S.opportunities.OperationTypesQuery()
-        if actor is not None:
-            contact_qs = S.core.ContactsQuery(actor=actor).order_by("last_name", "first_name")
-            self.fields["contact"].queryset = filter_queryset(
-                actor,
-                CONTACT_VIEW,
-                contact_qs,
-                owner_field="agents",
-                view_all_action=CONTACT_VIEW_ALL,
-            )
-            agent_profile = get_role_profile(actor, "agent")
-            agent_qs = S.core.AgentsQuery(actor=actor)
-            if agent_profile:
-                agent_qs = agent_qs.filter(pk=agent_profile.pk)
-            self.fields["agent"].queryset = agent_qs
-            if agent_profile:
-                self.fields["agent"].initial = agent_profile
-            self._actor_agent = agent_profile
+        data = choices or S.intentions.PrepareSeekerIntentionChoicesService(actor=actor)
+        self.fields["operation_type"].queryset = data["operation_type_qs"]
+        self.fields["contact"].queryset = data["contact_qs"]
+        agent_qs = data["agent_qs"]
+        self.fields["agent"].queryset = agent_qs
+        actor_agent = data.get("actor_agent")
+        if actor_agent:
+            self.fields["agent"].initial = actor_agent
+        self._actor_agent = actor_agent
 
     def clean_agent(self):
         agent = self.cleaned_data.get("agent")

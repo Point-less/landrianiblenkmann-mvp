@@ -25,7 +25,6 @@ from opportunities.models import (
     Operation,
     OperationAgreement,
     ProviderOpportunity,
-    SeekerOpportunity,
     Validation,
     ValidationDocument,
 )
@@ -473,7 +472,7 @@ class OperationAgreementCreateView(PermissionedViewMixin, LoginRequiredMixin, Su
     def form_valid(self, form):
         try:
             self.perform_action(form)
-        except ValidationError as exc:
+        except ValidationError:
             return self.form_invalid(form)
         return super().form_valid(form)
 

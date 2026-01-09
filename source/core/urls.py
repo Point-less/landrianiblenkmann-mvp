@@ -1,7 +1,6 @@
 """Core URL routing - consolidated dashboard, entity, and health check endpoints."""
 
 from django.urls import path
-from django.views.generic import RedirectView
 
 from core import views
 

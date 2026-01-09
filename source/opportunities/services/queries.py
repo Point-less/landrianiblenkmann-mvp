@@ -21,11 +21,9 @@ from opportunities.models import (
     MarketingPackage,
     Operation,
     OperationAgreement,
-    OperationType,
     ProviderOpportunity,
     SeekerOpportunity,
     Validation,
-    ValidationDocumentType,
 )
 
 

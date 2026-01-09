@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase

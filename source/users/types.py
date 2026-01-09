@@ -1,4 +1,3 @@
-import strawberry
 import strawberry_django
 from strawberry import relay
 

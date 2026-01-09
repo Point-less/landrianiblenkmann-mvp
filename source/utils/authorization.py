@@ -15,7 +15,7 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.db.models import Model, Q, QuerySet
 
-from users.models import ObjectGrant, Permission, RoleMembership, RolePermission
+from users.models import ObjectGrant, RoleMembership, RolePermission
 
 
 # ---- Canonical actions ----------------------------------------------------

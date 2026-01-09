@@ -41,7 +41,6 @@ from opportunities.models import (
 from opportunities.services import (
     CreateAdditionalValidationDocumentService,
     CreateValidationDocumentService,
-    CreateOperationService,
     CreateOperationAgreementService,
     AgreeOperationAgreementService,
     SignOperationAgreementService,

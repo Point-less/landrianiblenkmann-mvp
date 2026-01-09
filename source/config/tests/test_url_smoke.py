@@ -152,7 +152,6 @@ class UrlSmokeTests(TestCase):
 
     def test_all_urls_render(self):
         token = sesame.utils.get_token(self.user)
-        kwargs_map = self._kwargs_for_names()
 
         tested = []
         for pat in self._iter_urlpatterns(get_resolver().url_patterns):

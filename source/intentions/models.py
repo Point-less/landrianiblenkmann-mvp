@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django_fsm import FSMField, transition
 
 from core.models import Agent, Contact, Currency, Property
+from opportunities.models import ProviderOpportunity, SeekerOpportunity
 from utils.mixins import FSMTrackingMixin, TimeStampedMixin
 
 def _default_feature_map() -> dict:
@@ -256,7 +257,6 @@ __all__ = [
     "SeekerIntention",
     "Valuation",
 ]
-from django.core.exceptions import ObjectDoesNotExist
 def _has_provider_opportunity(intention) -> bool:
     try:
         intention.provider_opportunity  # type: ignore[attr-defined]

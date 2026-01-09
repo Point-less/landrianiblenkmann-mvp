@@ -7,17 +7,8 @@ from django.conf import settings
 from decimal import Decimal
 from datetime import date
 
-from integrations.models import TokkobrokerProperty
 from intentions.models import ProviderIntention, SeekerIntention
-from opportunities.models import OperationType
-from core.models import Contact, Agent
 from django.urls import reverse
-from utils.authorization import (
-    CONTACT_VIEW,
-    CONTACT_VIEW_ALL,
-    filter_queryset,
-    get_role_profile,
-)
 from utils.services import S
 
 

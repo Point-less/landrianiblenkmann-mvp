@@ -11,7 +11,7 @@ is instantiated with a default actor.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from utils.actors import get_current_actor
 from utils.services.registry import resolve_service

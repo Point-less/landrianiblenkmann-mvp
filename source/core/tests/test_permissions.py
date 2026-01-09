@@ -1,11 +1,9 @@
-import itertools
 
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 
-from core.models import Agent, Contact, Property
+from core.models import Agent, Contact
 from users.models import User, Role, RoleMembership
-from utils.authorization import get_role_profile
 from users.management.commands.seed_permissions import Command as SeedPerms
 from unittest.mock import patch
 

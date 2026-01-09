@@ -1,7 +1,6 @@
 from decimal import Decimal
 from typing import List
 
-from django.db.models import F
 
 from opportunities.models import Operation
 from utils.services import BaseService

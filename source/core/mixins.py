@@ -1,4 +1,3 @@
-from django.core.exceptions import PermissionDenied
 from utils.authorization import check
 
 

@@ -10,8 +10,6 @@ from opportunities.models import (
     SeekerOpportunity,
     Validation,
 )
-from opportunities.services.validation import ValidationEnsureService
-from opportunities.services.queries import ProviderOpportunityByTokkobrokerPropertyQuery
 from intentions.models import ProviderIntention, SeekerIntention
 
 from utils.services import BaseService
@@ -21,7 +19,6 @@ from utils.authorization import (
     PROVIDER_OPPORTUNITY_CLOSE,
     SEEKER_OPPORTUNITY_CREATE,
 )
-from .marketing import MarketingPackageActivateService
 
 
 class CreateOpportunityService(BaseService):

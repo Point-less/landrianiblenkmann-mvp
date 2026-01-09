@@ -1,9 +1,13 @@
 from contextlib import contextmanager
 import inspect
+from typing import TYPE_CHECKING
 
 from django.db import DEFAULT_DB_ALIAS, transaction
 
 from utils.actors import actor_context
+
+if TYPE_CHECKING:
+    from utils.services.proxy import ServiceProxy
 
 @contextmanager
 def service_atomic(using: str | None = None):
@@ -28,7 +32,7 @@ class BaseService:
 
     def __init__(self, *, actor=None):
         self.actor = actor
-        self._services_proxy: ServiceProxy | None = None
+        self._services_proxy: "ServiceProxy | None" = None
 
     def __call__(self, *args, **kwargs):
         call_actor = kwargs.pop("actor", None)

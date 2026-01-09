@@ -1,12 +1,7 @@
-import strawberry
 import strawberry_django
 from strawberry import relay
-
 from django_fsm import FSMField
 from strawberry_django.fields import types as strawberry_types
-
-strawberry_types.field_type_map.setdefault(FSMField, str)
-
 from core.models import Agent, Contact, ContactAgentRelationship, Currency, Property
 from opportunities.models import (
     MarketingPackage,
@@ -16,6 +11,8 @@ from opportunities.models import (
     OperationAgreement,
     OperationType as OpportunityOperationType,
 )
+
+strawberry_types.field_type_map.setdefault(FSMField, str)
 
 
 @strawberry_django.type(Contact, fields="__all__")

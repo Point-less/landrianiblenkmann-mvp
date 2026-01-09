@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from core.models import Agent, Contact, Property
-from opportunities.models import OperationType, ProviderOpportunity, SeekerOpportunity, Operation, Validation
+from opportunities.models import OperationType, ProviderOpportunity, SeekerOpportunity, Validation
 from intentions.models import ProviderIntention, SeekerIntention
 from opportunities.services.agreements import CreateOperationAgreementService, SignOperationAgreementService
 from users.models import Role, RoleMembership, User

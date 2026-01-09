@@ -1,6 +1,5 @@
 """Seeker-facing services for intentions."""
 
-from django.core.exceptions import ValidationError
 
 from core.models import Agent, Contact, Currency
 from intentions.models import SeekerIntention

@@ -5,19 +5,14 @@ from __future__ import annotations
 from django import forms
 from django.conf import settings
 from decimal import Decimal
-from django.db import models
 
-from core.models import Agent, Currency
 from opportunities.models import (
     MarketingPackage,
-    Operation,
     OperationAgreement,
     ValidationAdditionalDocument,
     ValidationDocument,
-    ValidationDocumentType,
 )
 from utils.services import S
-from utils.authorization import get_role_profile
 
 
 class HTML5FormMixin:

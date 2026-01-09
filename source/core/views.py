@@ -5,7 +5,6 @@ from typing import Any
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -50,7 +49,6 @@ from utils.authorization import (
     SEEKER_OPPORTUNITY_VIEW,
     SEEKER_OPPORTUNITY_CREATE,
     OPERATION_VIEW,
-    OPERATION_CREATE,
     OPERATION_REINFORCE,
     OPERATION_CLOSE,
     OPERATION_LOSE,
@@ -73,14 +71,6 @@ from intentions.forms import (
     SeekerAbandonForm,
 )
 from intentions.models import ProviderIntention, SeekerIntention
-from intentions.services import (
-    CreateProviderIntentionService,
-    CreateSeekerIntentionService,
-    DeliverValuationService,
-    AbandonSeekerIntentionService,
-    PromoteProviderIntentionService,
-    WithdrawProviderIntentionService,
-)
 from opportunities.forms import (
     MarketingPackageForm,
     OperationLoseForm,
@@ -95,7 +85,7 @@ from opportunities.forms import (
     ValidationRejectForm,
     ValidationAdditionalDocumentUploadForm,
 )
-from opportunities.models import MarketingPackage, Operation, OperationAgreement
+from opportunities.models import MarketingPackage, Operation, OperationAgreement, ProviderOpportunity, Validation, ValidationDocument
 from opportunities.services import (  # noqa: F401  # retained for registry discovery
     MarketingPackageActivateService,
     MarketingPackageCreateService,
@@ -127,9 +117,7 @@ from opportunities.services import (  # noqa: F401  # retained for registry disc
     CreateValidationDocumentService,
     CreateAdditionalValidationDocumentService,
 )
-from integrations.models import TokkobrokerProperty
 from integrations.tasks import sync_tokkobroker_properties_task, sync_tokkobroker_registry
-from utils.models import FSMStateTransition
 from .tasks import log_message
 
 

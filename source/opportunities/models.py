@@ -15,7 +15,7 @@ from django_fsm import FSMField, transition
 
 from core.models import Currency
 from integrations.models import TokkobrokerProperty
-from utils.mixins import FSMTrackingMixin, FSMTransitionMixin, TimeStampedMixin
+from utils.mixins import FSMTrackingMixin, TimeStampedMixin
 
 OPERATION_STATE_CHOICES = (
     ("offered", "Offered"),

@@ -1,4 +1,3 @@
-from typing import Optional
 
 from django.core.exceptions import ValidationError
 from django_fsm import TransitionNotAllowed

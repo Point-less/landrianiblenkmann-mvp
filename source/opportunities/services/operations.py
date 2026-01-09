@@ -6,11 +6,6 @@ from django_fsm import TransitionNotAllowed
 
 from core.models import Currency
 from opportunities.models import MarketingPackage, Operation, ProviderOpportunity, SeekerOpportunity, Validation
-from opportunities.services.marketing import MarketingPackagePauseService
-from opportunities.services.queries import (
-    ActiveOperationsBetweenOpportunitiesQuery,
-    SeekerActiveOperationsQuery,
-)
 
 from utils.services import BaseService
 from utils.authorization import (

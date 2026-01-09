@@ -14,7 +14,6 @@ from django.urls import reverse
 
 from core.models import Agent, Contact, Currency, Property
 from users.models import Role, RoleMembership
-from intentions.models import ProviderIntention, SeekerIntention
 from integrations.models import TokkobrokerProperty
 from intentions.services import (
     CreateProviderIntentionService,
@@ -22,7 +21,7 @@ from intentions.services import (
     DeliverValuationService,
     PromoteProviderIntentionService,
 )
-from opportunities.models import Operation, OperationAgreement, ProviderOpportunity, Validation, ValidationDocument, ValidationDocumentType
+from opportunities.models import OperationAgreement, ProviderOpportunity, Validation, ValidationDocument
 from opportunities.services import (
     CreateValidationDocumentService,
     CreateOperationAgreementService,

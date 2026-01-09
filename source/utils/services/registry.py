@@ -17,7 +17,7 @@ def _import_services_module(app_config: AppConfig):
     module_name = f"{app_config.name}.services"
     try:
         module = import_module(module_name)
-    except ModuleNotFoundError as exc:
+    except ModuleNotFoundError:
         if module_has_submodule(app_config.module, "services"):
             raise
         return None

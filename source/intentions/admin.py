@@ -45,7 +45,7 @@ class SeekerIntentionAdmin(admin.ModelAdmin):
 
 @admin.register(models.Valuation)
 class ValuationAdmin(admin.ModelAdmin):
-    list_display = ("id", "provider_intention", "agent", "amount", "currency", "delivered_at")
+    list_display = ("id", "provider_intention", "agent", "test_value", "close_value", "currency", "delivered_at")
     list_filter = ("currency", "agent")
     search_fields = ("provider_intention__property__name", "agent__first_name", "agent__last_name")
     raw_id_fields = ("provider_intention", "agent", "currency")

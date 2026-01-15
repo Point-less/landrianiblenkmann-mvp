@@ -73,7 +73,6 @@ class WorkflowViewSmokeTests(TestCase):
         )
         DeliverValuationService.call(
             intention=self.provider_intention,
-            amount=Decimal('950000'),
             currency=self.currency,
             test_value=Decimal('940000'),
             close_value=Decimal('930000'),

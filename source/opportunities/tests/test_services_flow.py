@@ -99,7 +99,6 @@ class IntentionFlowServiceTests(TestCase):
         )
         DeliverValuationService.call(
             intention=provider_intention,
-            amount=Decimal("950000"),
             currency=self.currency,
             notes="Comparable units closed last quarter",
             test_value=Decimal("940000"),
@@ -127,7 +126,6 @@ class IntentionFlowServiceTests(TestCase):
 
         DeliverValuationService.call(
             intention=intention,
-            amount=Decimal("950000"),
             currency=self.currency,
             notes="With actor",
             actor=self.reviewer,
@@ -351,7 +349,6 @@ class IntentionFlowServiceTests(TestCase):
         )
         DeliverValuationService.call(
             intention=second_intention,
-            amount=Decimal("850000"),
             currency=self.currency,
             notes="Downtown comps",
             test_value=Decimal("840000"),
@@ -577,7 +574,6 @@ class IntentionFlowServiceTests(TestCase):
         )
         DeliverValuationService.call(
             intention=second_intention,
-            amount=Decimal("750000"),
             currency=self.currency,
             test_value=Decimal("740000"),
             close_value=Decimal("730000"),

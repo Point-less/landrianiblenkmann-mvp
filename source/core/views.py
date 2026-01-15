@@ -609,7 +609,7 @@ class DeliverValuationView(ProviderIntentionMixin, WorkflowFormView):
     form_class = DeliverValuationForm
     success_message = 'Valuation delivered.'
     form_title = 'Deliver valuation'
-    form_description = 'Provide the valuation amount and currency to advance the seller.'
+    form_description = 'Provide the valuation currency and test/close values to advance the seller.'
     submit_label = 'Deliver valuation'
     required_action = PROVIDER_INTENTION_VALUATE
 

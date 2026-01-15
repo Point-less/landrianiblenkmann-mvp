@@ -211,7 +211,6 @@ class Command(BaseCommand):
             DeliverValuationService.call(
                 actor=self.admin_user,
                 intention=intentions["valuated"],
-                amount=Decimal("2450000.00"),
                 currency=usd,
                 notes="Based on recent townhouse comps.",
                 test_value=Decimal("2500000.00"),
@@ -230,7 +229,6 @@ class Command(BaseCommand):
             DeliverValuationService.call(
                 actor=self.admin_user,
                 intention=intentions["promotable"],
-                amount=Decimal("890000.00"),
                 currency=usd,
                 notes="Includes garage spots and storage.",
                 test_value=Decimal("910000.00"),
@@ -265,7 +263,6 @@ class Command(BaseCommand):
             DeliverValuationService.call(
                 actor=self.admin_user,
                 intention=intentions["marketing_demo"],
-                amount=Decimal("320000.00"),
                 currency=usd,
                 notes="Caballito loft with balcony.",
                 test_value=Decimal("330000.00"),
@@ -284,7 +281,6 @@ class Command(BaseCommand):
             DeliverValuationService.call(
                 actor=self.admin_user,
                 intention=intentions["agent2_promotable"],
-                amount=Decimal("610000.00"),
                 currency=usd,
                 notes="Historic duplex with terrace.",
                 test_value=Decimal("625000.00"),

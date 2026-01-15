@@ -37,23 +37,21 @@ class ProviderIntentionForm(HTML5WidgetMixin, forms.ModelForm):
         model = ProviderIntention
         fields = ["owner", "agent", "property", "operation_type", "notes"]
 
-    def __init__(self, *args, actor=None, choices=None, **kwargs):
+    def __init__(self, *args, actor=None, **kwargs):
         super().__init__(*args, **kwargs)
-        data = choices or S.intentions.PrepareProviderIntentionChoicesService(actor=actor)
+        data = S.intentions.PrepareProviderIntentionChoicesService(actor=actor)
         self.fields["operation_type"].queryset = data["operation_type_qs"]
         self.fields["owner"].queryset = data["owner_qs"]
         self.fields["agent"].queryset = data["agent_qs"]
         if data.get("actor_agent"):
             self.fields["agent"].initial = data["actor_agent"]
-        self._actor_agent = data.get("actor_agent")
 
     def clean_agent(self):
         agent = self.cleaned_data.get("agent")
-        expected = getattr(self, "_actor_agent", None)
-        if expected is None:
-            raise forms.ValidationError("You must be linked to an agent profile to create intentions.")
-        if agent != expected:
-            raise forms.ValidationError("You can only create intentions for yourself as agent.")
+        if agent is None:
+            raise forms.ValidationError("You must select an agent.")
+        if not self.fields["agent"].queryset.filter(pk=agent.pk).exists():
+            raise forms.ValidationError("Selected agent is not available.")
         return agent
 
 
@@ -147,9 +145,9 @@ class SeekerIntentionForm(HTML5WidgetMixin, forms.ModelForm):
             "notes": forms.Textarea(attrs={'rows': 3}),
         }
 
-    def __init__(self, *args, actor=None, choices=None, **kwargs):
+    def __init__(self, *args, actor=None, **kwargs):
         super().__init__(*args, **kwargs)
-        data = choices or S.intentions.PrepareSeekerIntentionChoicesService(actor=actor)
+        data = S.intentions.PrepareSeekerIntentionChoicesService(actor=actor)
         self.fields["operation_type"].queryset = data["operation_type_qs"]
         self.fields["contact"].queryset = data["contact_qs"]
         agent_qs = data["agent_qs"]
@@ -157,15 +155,13 @@ class SeekerIntentionForm(HTML5WidgetMixin, forms.ModelForm):
         actor_agent = data.get("actor_agent")
         if actor_agent:
             self.fields["agent"].initial = actor_agent
-        self._actor_agent = actor_agent
 
     def clean_agent(self):
         agent = self.cleaned_data.get("agent")
-        expected = getattr(self, "_actor_agent", None)
-        if expected is None:
-            raise forms.ValidationError("You must be linked to an agent profile to create intentions.")
-        if agent != expected:
-            raise forms.ValidationError("You can only create intentions for yourself as agent.")
+        if agent is None:
+            raise forms.ValidationError("You must select an agent.")
+        if not self.fields["agent"].queryset.filter(pk=agent.pk).exists():
+            raise forms.ValidationError("Selected agent is not available.")
         return agent
 
 

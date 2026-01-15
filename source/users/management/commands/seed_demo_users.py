@@ -9,4 +9,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         call_command("seed_permissions")
         S.users.SeedDemoUsersService()
-        self.stdout.write(self.style.SUCCESS("Demo users created/updated. Passwords: admin123 / manager123 / agent123 / viewer123"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Demo users created/updated. Passwords: admin123 / manager123 / agent123 / agent2123 / viewer123"
+            )
+        )

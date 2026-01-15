@@ -75,12 +75,22 @@ class Command(BaseCommand):
             self.agent_user = user_model.objects.get(username="agent_demo")  # service-guard: allow
         except user_model.DoesNotExist as exc:
             raise CommandError("Expected demo agent user 'agent_demo'. Run seed_demo_users first.") from exc
+        try:
+            self.agent_two_user = user_model.objects.get(username="agent_demo_2")  # service-guard: allow
+        except user_model.DoesNotExist as exc:
+            raise CommandError("Expected demo agent user 'agent_demo_2'. Run seed_demo_users first.") from exc
         agent_membership = RoleMembership.objects.filter(user=self.agent_user).select_related("profile_content_type").first()  # service-guard: allow
         self.agent_profile = getattr(agent_membership, "profile", None) if agent_membership else None
         if not isinstance(self.agent_profile, Agent):
             self.agent_profile = Agent.objects.filter(email="agent@example.com").first()  # service-guard: allow
         if not self.agent_profile:
             raise CommandError("Demo agent profile not found (agent@example.com).")
+        agent_two_membership = RoleMembership.objects.filter(user=self.agent_two_user).select_related("profile_content_type").first()  # service-guard: allow
+        self.agent_two_profile = getattr(agent_two_membership, "profile", None) if agent_two_membership else None
+        if not isinstance(self.agent_two_profile, Agent):
+            self.agent_two_profile = Agent.objects.filter(email="agent2@example.com").first()  # service-guard: allow
+        if not self.agent_two_profile:
+            raise CommandError("Demo agent profile not found (agent2@example.com).")
 
     # --- data factories -------------------------------------------------
     def _seed_reference_data(self):
@@ -102,6 +112,7 @@ class Command(BaseCommand):
     def _seed_people(self):
         agents = {
             "agent": self.agent_profile,
+            "agent2": self.agent_two_profile,
             "manager": self._upsert_agent(
                 email="manager@example.com",
                 first_name="Mariana",
@@ -138,11 +149,18 @@ class Command(BaseCommand):
                 last_name="Lopez",
                 tax_condition=Contact.TaxCondition.EXENTO,
             ),
+            "sofia": self._upsert_contact(
+                email="sofia.mendez@example.com",
+                first_name="Sofia",
+                last_name="Mendez",
+                tax_condition=Contact.TaxCondition.RESPONSABLE_INSCRIPTO,
+            ),
         }
         seekers = {
             "monica": self._upsert_contact(email="monica.buyer@example.com", first_name="Monica", last_name="Buyer"),
             "karen": self._upsert_contact(email="karen.renter@example.com", first_name="Karen", last_name="Renter"),
             "lucas": self._upsert_contact(email="lucas.investor@example.com", first_name="Lucas", last_name="Investor"),
+            "diego": self._upsert_contact(email="diego.partner@example.com", first_name="Diego", last_name="Partner"),
         }
         return owners, seekers
 
@@ -153,12 +171,14 @@ class Command(BaseCommand):
             "belgrano": self._upsert_property("Belgrano Office", "Av. Libertador 6100, Belgrano, CABA"),
             "nunez": self._upsert_property("Nuñez Studio", "Vedia 1800, Nuñez, CABA"),
             "caballito": self._upsert_property("Caballito Loft", "Av. Pedro Goyena 1200, Caballito, CABA"),
+            "san_telmo": self._upsert_property("San Telmo Duplex", "Balcarce 1200, San Telmo, CABA"),
         }
         tokko = {
             "palermo": self._upsert_tokko(1001, "PAL-1001", properties["palermo"]),
             "recoleta": self._upsert_tokko(1002, "REC-1002", properties["recoleta"]),
             "belgrano": self._upsert_tokko(1003, "BEL-1003", properties["belgrano"]),
             "caballito": self._upsert_tokko(1004, "CAB-1004", properties["caballito"]),
+            "san_telmo": self._upsert_tokko(1005, "TEL-1005", properties["san_telmo"]),
         }
         return properties, tokko
 
@@ -252,6 +272,25 @@ class Command(BaseCommand):
                 close_value=Decimal("315000.00"),
             )
 
+        intentions["agent2_promotable"] = self._ensure_provider_intention(
+            slug="agent2_promotable",
+            owner=owners["sofia"],
+            agent=agents["agent2"],
+            property=properties["san_telmo"],
+            operation_type=op_sale,
+            notes="Agent 2 listing to create cross-agent agreements.",
+        )
+        if intentions["agent2_promotable"].state == ProviderIntention.State.ASSESSING:
+            DeliverValuationService.call(
+                actor=self.admin_user,
+                intention=intentions["agent2_promotable"],
+                amount=Decimal("610000.00"),
+                currency=usd,
+                notes="Historic duplex with terrace.",
+                test_value=Decimal("625000.00"),
+                close_value=Decimal("595000.00"),
+            )
+
         # Promote the promotable intention into an opportunity if missing.
         if not hasattr(intentions["promotable"], "provider_opportunity"):
             PromoteProviderIntentionService.call(
@@ -263,6 +302,18 @@ class Command(BaseCommand):
                 listing_kind=ProviderOpportunity.ListingKind.EXCLUSIVE,
                 contract_effective_on=date.today() - timedelta(days=10),
                 contract_expires_on=date.today() + timedelta(days=90),
+            )
+
+        if not hasattr(intentions["agent2_promotable"], "provider_opportunity"):
+            PromoteProviderIntentionService.call(
+                actor=self.admin_user,
+                intention=intentions["agent2_promotable"],
+                marketing_package_data={"headline": "San Telmo duplex with private terrace"},
+                gross_commission_pct=Decimal("0.045"),
+                tokkobroker_property=tokko["san_telmo"],
+                listing_kind=ProviderOpportunity.ListingKind.EXCLUSIVE,
+                contract_effective_on=date.today() - timedelta(days=5),
+                contract_expires_on=date.today() + timedelta(days=120),
             )
 
         return intentions
@@ -318,12 +369,27 @@ class Command(BaseCommand):
                 desired_features={"use": "office", "yield_target": "5%+"},
             )
 
+        intentions["collab_buyer"] = SeekerIntention.objects.filter(contact=seekers["diego"]).first()  # service-guard: allow
+        if not intentions["collab_buyer"]:
+            intentions["collab_buyer"] = CreateSeekerIntentionService.call(
+                actor=self.admin_user,
+                contact=seekers["diego"],
+                agent=agents["agent"],
+                operation_type=sale,
+                budget_min=Decimal("580000.00"),
+                budget_max=Decimal("650000.00"),
+                currency=usd,
+                desired_features={"neighborhoods": ["San Telmo", "Barracas"], "terrace": True},
+                notes="Buyer represented by agent_demo for cross-agent workflow.",
+            )
+
         return intentions
 
     def _wire_relationships(self, agents, owners, seekers):
         # Link owners and seekers to the demo agent for quick lookups.
         for contact in [*owners.values(), *seekers.values()]:
             LinkContactAgentService.call(actor=self.admin_user, contact=contact, agent=agents["agent"])
+        LinkContactAgentService.call(actor=self.admin_user, contact=owners["sofia"], agent=agents["agent2"])
 
     def _seed_opportunities_and_operations(self, provider_intentions, seeker_intentions, agents, tokko):
         # Work with the promoted intention/opportunity
@@ -385,6 +451,42 @@ class Command(BaseCommand):
                 declared_deed_value=Decimal("880000.00"),
             )
         # Leave reinforced (do not close) so the opportunity remains in MARKETING for demo lists.
+
+        # Cross-agent agreement: provider opportunity from agent2 + seeker opportunity from agent_demo.
+        agent2_intention = provider_intentions["agent2_promotable"]
+        agent2_opportunity = agent2_intention.provider_opportunity
+        agent2_validation = Validation.objects.get(opportunity=agent2_opportunity)  # service-guard: allow
+        self._ensure_validation_documents(agent2_validation)
+        self._ensure_validation_approval(agent2_validation)
+        if agent2_opportunity.state == ProviderOpportunity.State.VALIDATING:
+            OpportunityPublishService.call(actor=self.admin_user, opportunity=agent2_opportunity)
+        self._activate_marketing(agent2_opportunity)
+
+        collab_intention = seeker_intentions["collab_buyer"]
+        try:
+            collab_seeker_opportunity = collab_intention.seeker_opportunity
+        except SeekerIntention.seeker_opportunity.RelatedObjectDoesNotExist:
+            collab_seeker_opportunity = CreateSeekerOpportunityService.call(
+                actor=self.admin_user,
+                intention=collab_intention,
+                gross_commission_pct=Decimal("0.028"),
+            )
+
+        collab_agreement = OperationAgreement.objects.filter(  # service-guard: allow
+            provider_opportunity=agent2_opportunity,
+            seeker_opportunity=collab_seeker_opportunity,
+        ).first()
+        if not collab_agreement:
+            collab_agreement = CreateOperationAgreementService.call(
+                actor=self.agent_two_user,
+                provider_opportunity=agent2_opportunity,
+                seeker_opportunity=collab_seeker_opportunity,
+                initial_offered_amount=Decimal("620000.00"),
+                notes="Cross-agent agreement: agent_demo_2 + agent_demo.",
+            )
+
+        if collab_agreement.state == OperationAgreement.State.PENDING:
+            AgreeOperationAgreementService.call(actor=self.admin_user, agreement=collab_agreement)
 
         self._seed_marketing_revision_demo(provider_intentions, tokko)
 

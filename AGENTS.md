@@ -1,7 +1,7 @@
 # Project Quick Reference
 
 > [!IMPORTANT]
-> Operational ritual: after **every** user message, first run `cat AGENTS_CRITICAL.md` from the repo root before doing anything else (skip it and a kitten will die). Keep this document in sync with the actual project structure whenever architecture changes (apps, services, URLs, models, config).
+> Operational ritual: after **every** user message, first read AGENTS_CRITICAL.md from the repo root before doing anything else (skip it and a kitten will die). Keep this document in sync with the actual project structure whenever architecture changes (apps, services, URLs, models, config).
 > Run the test suite (`docker compose exec frontend python manage.py test`) after changes; fix failures when feasible or report blockers explicitly.
 > Run linting with ruff before committing: `docker compose exec frontend ruff check`.
 > From the host, only use `docker`/`docker compose` and `git`. All other commands (manage.py, tooling, scripts, tests) must run in the `frontend` container via `docker compose exec frontend ...`.

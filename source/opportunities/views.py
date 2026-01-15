@@ -475,7 +475,7 @@ class OperationAgreementMixin:
         return context
 
 
-class OperationAgreementCreateView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class OperationAgreementCreateView(WorkflowFormView):
     form_class = OperationAgreementCreateForm
     success_message = 'Operation agreement created.'
     form_title = 'Create Operation Agreement'
@@ -492,15 +492,8 @@ class OperationAgreementCreateView(PermissionedViewMixin, LoginRequiredMixin, Su
     def perform_action(self, form):
         S.opportunities.CreateOperationAgreementService(**form.cleaned_data, actor=self.request.user)
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
 
-
-class AgreeOperationAgreementView(OperationAgreementMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class AgreeOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
     form_class = ConfirmationForm
     success_message = 'Agreement confirmed.'
     form_title = 'Confirm Agreement'
@@ -511,15 +504,8 @@ class AgreeOperationAgreementView(OperationAgreementMixin, PermissionedViewMixin
     def perform_action(self, form):
         S.opportunities.AgreeOperationAgreementService(agreement=self.get_agreement())
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
 
-
-class RevokeOperationAgreementView(OperationAgreementMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class RevokeOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
     form_class = ConfirmationForm
     success_message = 'Agreement revoked.'
     form_title = 'Revoke Agreement'
@@ -530,15 +516,8 @@ class RevokeOperationAgreementView(OperationAgreementMixin, PermissionedViewMixi
     def perform_action(self, form):
         S.opportunities.RevokeOperationAgreementService(agreement=self.get_agreement())
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
 
-
-class CancelOperationAgreementView(OperationAgreementMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class CancelOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
     form_class = CancelOperationAgreementForm
     success_message = 'Agreement cancelled.'
     form_title = 'Cancel Agreement'
@@ -552,15 +531,8 @@ class CancelOperationAgreementView(OperationAgreementMixin, PermissionedViewMixi
             reason=form.cleaned_data['reason']
         )
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
 
-
-class SignOperationAgreementView(OperationAgreementMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class SignOperationAgreementView(OperationAgreementMixin, WorkflowFormView):
     form_class = SignOperationAgreementForm
     success_message = 'Agreement signed and Operation created.'
     form_title = 'Sign Agreement'
@@ -573,13 +545,6 @@ class SignOperationAgreementView(OperationAgreementMixin, PermissionedViewMixin,
             agreement=self.get_agreement(),
             **form.cleaned_data
         )
-
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
 
 
 __all__ = [

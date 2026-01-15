@@ -145,6 +145,16 @@ class SeedDemoUsersService(BaseService):
             defaults={"profile_content_type": agent_ct, "profile_id": agent_profile.id},
         )
 
+        agent_two_profile, _ = Agent.objects.get_or_create(first_name="Bruno", last_name="Agent", email="agent2@example.com")
+        agent_two_user, _ = user_model.objects.get_or_create(username="agent_demo_2", defaults={"email": "agent2@example.com"})
+        agent_two_user.set_password("agent2123")
+        agent_two_user.save()
+        RoleMembership.objects.get_or_create(
+            user=agent_two_user,
+            role=roles.get("agent"),
+            defaults={"profile_content_type": agent_ct, "profile_id": agent_two_profile.id},
+        )
+
         viewer_user, _ = user_model.objects.get_or_create(username="viewer_demo", defaults={"email": "viewer@example.com"})
         viewer_user.set_password("viewer123")
         viewer_user.save()

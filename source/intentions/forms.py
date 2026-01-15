@@ -56,7 +56,6 @@ class ProviderIntentionForm(HTML5WidgetMixin, forms.ModelForm):
 
 
 class DeliverValuationForm(HTML5WidgetMixin, forms.Form):
-    amount = forms.DecimalField(max_digits=12, decimal_places=2)
     currency = forms.ModelChoiceField(queryset=None)
     notes = forms.CharField(required=False, widget=forms.Textarea)
     valuation_date = forms.DateField(required=False, initial=date.today)

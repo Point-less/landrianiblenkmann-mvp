@@ -12,6 +12,6 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY source/ /app/
 
-RUN python manage.py collectstatic --noinput
+RUN python manage.py collectstatic --noinput --link
 
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]

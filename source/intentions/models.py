@@ -86,19 +86,17 @@ class ProviderIntention(TimeStampedMixin, FSMTrackingMixin):
     def deliver_valuation(
         self,
         *,
-        amount,
         currency: Currency,
         test_value,
         close_value,
         valuation_date=None,
         notes: str | None = None,
     ) -> None:
-        if amount is None or currency is None:
-            raise ValidationError("Amount and currency are required for a valuation.")
+        if currency is None:
+            raise ValidationError("Currency is required for a valuation.")
         valuation = Valuation.objects.create(
             provider_intention=self,
             agent=self.agent,
-            amount=amount,
             currency=currency,
             delivered_at=timezone.now(),
             valuation_date=valuation_date or timezone.now().date(),
@@ -231,7 +229,6 @@ class Valuation(TimeStampedMixin):
         on_delete=models.PROTECT,
         related_name="valuations",
     )
-    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     test_value = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     close_value = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     currency = models.ForeignKey(
@@ -249,7 +246,7 @@ class Valuation(TimeStampedMixin):
         verbose_name_plural = "valuations"
 
     def __str__(self) -> str:
-        return f"Valuation {self.amount} {self.currency} for {self.provider_intention}"
+        return f"Valuation {self.test_value}/{self.close_value} {self.currency} for {self.provider_intention}"
 
 
 __all__ = [

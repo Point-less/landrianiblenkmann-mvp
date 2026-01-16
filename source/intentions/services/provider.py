@@ -62,7 +62,6 @@ class DeliverValuationService(BaseService):
         self,
         *,
         intention: ProviderIntention,
-        amount,
         currency: Currency,
         notes: str | None = None,
         valuation_date=None,
@@ -70,7 +69,6 @@ class DeliverValuationService(BaseService):
         close_value,
     ) -> Valuation:
         intention.deliver_valuation(
-            amount=amount,
             currency=currency,
             notes=notes,
             valuation_date=valuation_date,

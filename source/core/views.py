@@ -400,13 +400,16 @@ class WorkflowFormView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessage
         context.setdefault('active_section', None)
         context.setdefault('current_url', self.request.get_full_path())
         context.setdefault('page_new_url', None)
-        context.setdefault('next_url', self.request.GET.get('next') or self.request.POST.get('next'))
+        context.setdefault('next_url', self.get_next_url())
         default_title = getattr(self, 'form_title', None) or self.__class__.__name__.replace('View', ' ').strip().replace('_', ' ')
         context.setdefault('form_title', default_title)
         context.setdefault('form_description', getattr(self, 'form_description', None))
         context.setdefault('submit_label', getattr(self, 'submit_label', 'Submit'))
         context.setdefault('idempotency_token', self._issue_idempotency_token())
         return context
+
+    def get_next_url(self):
+        return self.request.POST.get('next') or self.request.GET.get('next')
 
     def form_valid(self, form):
         try:
@@ -427,7 +430,7 @@ class WorkflowFormView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessage
         return super().form_valid(form)
 
     def get_success_url(self):
-        next_url = self.request.POST.get('next') or self.request.GET.get('next')
+        next_url = self.get_next_url()
         if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={self.request.get_host()}):
             return next_url
         return super().get_success_url()

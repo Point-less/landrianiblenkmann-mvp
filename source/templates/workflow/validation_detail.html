@@ -70,7 +70,7 @@
                         {% endif %}
                     {% endif %}
                     {% if validation.state == 'preparing' or validation.state == 'presented' %}
-                        <a class="icon-button" data-icon="📤" href="{% url 'validation-document-upload' validation.id %}?document_type={{ requirement.code }}&next={{ current_url|urlencode }}" title="{% if requirement.document %}Replace document{% else %}Upload document{% endif %}">
+                        <a class="icon-button" data-icon="📤" href="{% url 'validation-document-upload' validation.id %}?document_type={{ requirement.code }}{% if next_url %}&next={{ next_url|urlencode }}{% endif %}" title="{% if requirement.document %}Replace document{% else %}Upload document{% endif %}">
                             <span class="sr-only">{% if requirement.document %}Replace{% else %}Upload{% endif %}</span>
                         </a>
                     {% endif %}
@@ -84,7 +84,7 @@
     <div class="table-header">
         <h3 style="margin:0;">Custom documents</h3>
         {% if validation.state == 'preparing' or validation.state == 'presented' %}
-            <a class="btn" href="{% url 'validation-additional-document-upload' validation.id %}?next={{ current_url|urlencode }}">Upload custom file</a>
+            <a class="btn" href="{% url 'validation-additional-document-upload' validation.id %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">Upload custom file</a>
         {% endif %}
     </div>
     <table>

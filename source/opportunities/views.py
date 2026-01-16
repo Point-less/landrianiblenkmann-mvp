@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import ValidationError
@@ -132,10 +134,11 @@ class ValidationDetailView(ValidationMixin, LoginRequiredMixin, PermissionedView
         context['current_url'] = self.request.get_full_path()
         next_url = self.request.GET.get('next')
 
-        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={self.request.get_host()}):
-            context['back_url'] = next_url
-        else:
-            context['back_url'] = reverse('workflow-dashboard-section', kwargs={'section': 'provider-validations'})
+        context['next_url'] = next_url
+        context['back_url'] = next_url or reverse(
+            'workflow-dashboard-section',
+            kwargs={'section': 'provider-validations'},
+        )
         return context
 
 
@@ -240,7 +243,11 @@ class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
         )
 
     def get_success_url(self):
-        return reverse('validation-detail', kwargs={'validation_id': self.get_validation().id})
+        next_url = self.get_next_url()
+        url = reverse('validation-detail', kwargs={'validation_id': self.get_validation().id})
+        if next_url:
+            return f"{url}?{urlencode({'next': next_url})}"
+        return url
 
 
 class ValidationAdditionalDocumentUploadView(ValidationMixin, WorkflowFormView):
@@ -260,7 +267,11 @@ class ValidationAdditionalDocumentUploadView(ValidationMixin, WorkflowFormView):
         )
 
     def get_success_url(self):
-        return reverse('validation-detail', kwargs={'validation_id': self.get_validation().id})
+        next_url = self.get_next_url()
+        url = reverse('validation-detail', kwargs={'validation_id': self.get_validation().id})
+        if next_url:
+            return f"{url}?{urlencode({'next': next_url})}"
+        return url
 
 
 class ValidationDocumentReviewView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):

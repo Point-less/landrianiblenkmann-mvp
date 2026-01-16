@@ -36,7 +36,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'sesame',
     'django_dramatiq',
-    'django_fsm_log',
     'users.apps.UsersConfig',
     'utils.apps.UtilsConfig',
     'integrations.apps.IntegrationsConfig',

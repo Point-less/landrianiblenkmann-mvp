@@ -5,7 +5,7 @@ from django.db import transaction
 from django_fsm import TransitionNotAllowed
 
 from core.models import Currency
-from opportunities.models import MarketingPackage, MarketingPublication, Operation, ProviderOpportunity, SeekerOpportunity, Validation
+from opportunities.models import MarketingPublication, Operation, ProviderOpportunity, SeekerOpportunity, Validation
 
 from utils.services import BaseService
 from utils.authorization import (

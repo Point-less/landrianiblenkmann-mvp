@@ -31,22 +31,14 @@ coverage[toml]==7.11.0
 django==4.2.24
     # via
     #   -r /app/requirements.in
-    #   django-appconf
     #   django-dramatiq
     #   django-fsm-2
-    #   django-fsm-log
     #   django-redis
     #   django-sesame
     #   strawberry-graphql-django
-django-appconf==1.1.0
-    # via django-fsm-log
 django-dramatiq==0.14.0
     # via -r /app/requirements.in
-django-fsm==3.0.1
-    # via django-fsm-log
 django-fsm-2==4.0.0
-    # via -r /app/requirements.in
-django-fsm-log==3.1.0
     # via -r /app/requirements.in
 django-redis==6.0.0
     # via -r /app/requirements.in

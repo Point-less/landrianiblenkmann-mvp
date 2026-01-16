@@ -4,12 +4,7 @@ from django.core.exceptions import ValidationError
 from django_fsm import TransitionNotAllowed
 
 from integrations.models import TokkobrokerProperty
-from opportunities.models import (
-    MarketingPackage,
-    ProviderOpportunity,
-    SeekerOpportunity,
-    Validation,
-)
+from opportunities.models import ProviderOpportunity, SeekerOpportunity, Validation
 from intentions.models import ProviderIntention, SeekerIntention
 
 from utils.services import BaseService
@@ -61,7 +56,7 @@ class CreateOpportunityService(BaseService):
 
         marketing_payload.setdefault("headline", f"Listing for {intention.property}")
 
-        package = self.s.opportunities.MarketingPackageCreateService(opportunity=opportunity, **marketing_payload)
+        self.s.opportunities.MarketingPackageCreateService(opportunity=opportunity, **marketing_payload)
 
         Validation.objects.create(opportunity=opportunity)
 

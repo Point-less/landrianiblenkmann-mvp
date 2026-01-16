@@ -96,7 +96,7 @@
 4. Validations: verify provider opportunity documentation.
 5. Operations: close deals and record transactions.
 
-State transitions use **django-fsm** with **django-fsm-log** for audit trails.
+State transitions use **django-fsm** with the internal transition log for audit trails.
 
 ## GraphQL API
 

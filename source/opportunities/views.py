@@ -26,7 +26,6 @@ from opportunities.forms import (
 )
 from opportunities.models import (
     MarketingPackage,
-    MarketingPublication,
     Operation,
     OperationAgreement,
     ProviderOpportunity,

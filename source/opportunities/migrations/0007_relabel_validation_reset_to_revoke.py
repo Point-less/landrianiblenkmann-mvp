@@ -4,7 +4,6 @@ from django.db import migrations
 def relabel_reset_to_revoke(apps, schema_editor):
     ContentType = apps.get_model("contenttypes", "ContentType")
     FSMStateTransition = apps.get_model("utils", "FSMStateTransition")
-    StateLog = apps.get_model("django_fsm_log", "StateLog")
 
     try:
         validation_ct = ContentType.objects.get(app_label="opportunities", model="validation")
@@ -16,17 +15,10 @@ def relabel_reset_to_revoke(apps, schema_editor):
         transition="reset",
     ).update(transition="revoke")
 
-    StateLog.objects.filter(
-        content_type=validation_ct,
-        transition="reset",
-    ).update(transition="revoke")
-
-
 class Migration(migrations.Migration):
     dependencies = [
         ("opportunities", "0006_provideropportunity_tokkobroker_property"),
         ("utils", "0001_initial"),
-        ("django_fsm_log", "0001_initial"),
     ]
 
     operations = [

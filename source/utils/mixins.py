@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from django.contrib.contenttypes.fields import GenericRelation
 from django.db import models
 from django_fsm import can_proceed
@@ -22,14 +20,7 @@ class FSMTransitionMixin:
 
 
 class FSMAuditMixin(models.Model):
-    """Attach django-fsm-log entries to a model instance."""
-
-    state_logs = GenericRelation(
-        "django_fsm_log.StateLog",
-        content_type_field="content_type",
-        object_id_field="object_id",
-        related_query_name="%(app_label)s_%(class)s_state_logs",
-    )
+    """Attach transition history entries to a model instance."""
     state_transitions = GenericRelation(
         "utils.FSMStateTransition",
         content_type_field="content_type",
@@ -39,13 +30,6 @@ class FSMAuditMixin(models.Model):
 
     class Meta:
         abstract = True
-
-    def latest_state_log(self):
-        return self.state_logs.order_by("-timestamp").first()
-
-    def state_history(self):
-        return self.state_logs.order_by("-timestamp")
-
 
 class FSMTrackingMixin(FSMTransitionMixin, FSMAuditMixin):
     """Convenience mixin combining transition helpers with logging."""

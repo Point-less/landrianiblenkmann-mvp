@@ -29,7 +29,6 @@ from intentions.services import (
     AbandonSeekerIntentionService,
 )
 from opportunities.models import (
-    MarketingPackage,
     MarketingPublication,
     Operation,
     OperationAgreement,

@@ -69,7 +69,17 @@ class IntentionFlowServiceTests(TestCase):
 
         self.currency = Currency.objects.create(code="USD", name="US Dollar", symbol="$")
         from opportunities.models import ValidationDocumentType
-        ValidationDocumentType.objects.update(accepted_formats=[".pdf"])
+        for code, label, required in (
+            ("owner_id", "DNI PROPIETARIO", True),
+            ("deed", "ESCRITURA", True),
+            ("sale_authorization", "AUTORIZACION DE VENTA", True),
+            ("domain_report", "INFORME DE DOMINIO", True),
+            ("other", "OTRO DOCUMENTO", False),
+        ):
+            ValidationDocumentType.objects.update_or_create(
+                code=code,
+                defaults={"label": label, "required": required, "accepted_formats": [".pdf"]},
+            )
         self.reviewer = get_user_model().objects.create_user(username="reviewer", email="reviewer@example.com")
         self.agent = CreateAgentService.call(first_name="Alice", last_name="Agent", email="alice@example.com")
         agent_ct = ContentType.objects.get_for_model(self.agent.__class__)
@@ -79,7 +89,7 @@ class IntentionFlowServiceTests(TestCase):
             first_name="Stella", last_name="Seeker", email="stella@example.com"
         )
         RoleMembership.objects.create(user=self.reviewer, role=agent_role, profile=self.agent)
-        self.operation_type = OperationType.objects.get(code="sale")
+        self.operation_type, _ = OperationType.objects.get_or_create(code="sale", defaults={"label": "Sale"})
         self.property = CreatePropertyService.call(name="Ocean View Loft")
         LinkContactAgentService.call(contact=self.owner, agent=self.agent)
         LinkContactAgentService.call(contact=self.seeker_contact, agent=self.agent)

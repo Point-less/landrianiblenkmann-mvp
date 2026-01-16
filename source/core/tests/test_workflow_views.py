@@ -52,7 +52,17 @@ class WorkflowViewSmokeTests(TestCase):
 
         self.currency = Currency.objects.create(code='USD', name='US Dollar', symbol='$')
         from opportunities.models import ValidationDocumentType
-        ValidationDocumentType.objects.update(accepted_formats=[".pdf"])
+        for code, label, required in (
+            ("owner_id", "DNI PROPIETARIO", True),
+            ("deed", "ESCRITURA", True),
+            ("sale_authorization", "AUTORIZACION DE VENTA", True),
+            ("domain_report", "INFORME DE DOMINIO", True),
+            ("other", "OTRO DOCUMENTO", False),
+        ):
+            ValidationDocumentType.objects.update_or_create(
+                code=code,
+                defaults={"label": label, "required": required, "accepted_formats": [".pdf"]},
+            )
         self.agent = Agent.objects.create(first_name='Alice', last_name='Agent')
         agent_ct = ContentType.objects.get_for_model(Agent)
         agent_role, _ = Role.objects.get_or_create(slug="agent", defaults={"name": "Agent", "profile_content_type": agent_ct})
@@ -60,7 +70,7 @@ class WorkflowViewSmokeTests(TestCase):
         self.seeker_contact = Contact.objects.create(first_name='Buyer', last_name='Beta')
         self.property = Property.objects.create(name='Ocean View Loft')
         from opportunities.models import OperationType
-        self.operation_type = OperationType.objects.get(code="sale")
+        self.operation_type, _ = OperationType.objects.get_or_create(code="sale", defaults={"label": "Sale"})
         RoleMembership.objects.create(user=self.admin, role=agent_role, profile=self.agent)
         self.file = SimpleUploadedFile('doc.pdf', b'content')
 

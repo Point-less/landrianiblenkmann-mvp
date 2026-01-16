@@ -79,13 +79,10 @@ from opportunities.forms import (
     OperationAgreementCreateForm,
     SignOperationAgreementForm,
     CancelOperationAgreementForm,
-    ValidationDocumentReviewForm,
-    ValidationDocumentUploadForm,
     ValidationPresentForm,
     ValidationRejectForm,
-    ValidationAdditionalDocumentUploadForm,
 )
-from opportunities.models import MarketingPackage, Operation, OperationAgreement, ProviderOpportunity, Validation, ValidationDocument
+from opportunities.models import MarketingPackage, Operation, OperationAgreement, ProviderOpportunity, Validation
 from opportunities.services import (  # noqa: F401  # retained for registry discovery
     MarketingPackageActivateService,
     MarketingPackageCreateService,
@@ -110,12 +107,10 @@ from opportunities.services import (  # noqa: F401  # retained for registry disc
     DashboardProviderValidationsQuery,
     DashboardMarketingPackagesQuery,
     DashboardMarketingOpportunitiesWithoutPackagesQuery,
-    ReviewValidationDocumentService,
     ValidationAcceptService,
     ValidationPresentService,
     ValidationRejectService,
     CreateValidationDocumentService,
-    CreateAdditionalValidationDocumentService,
 )
 from integrations.tasks import sync_tokkobroker_properties_task, sync_tokkobroker_registry
 from .tasks import log_message
@@ -766,18 +761,6 @@ class ValidationDetailView(ValidationMixin, TemplateView):
         return context
 
 
-class ValidationDocumentMixin:
-    pk_url_kwarg = 'document_id'
-
-    def get_document(self):
-        return get_object_or_404(ValidationDocument, pk=self.kwargs[self.pk_url_kwarg])
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['document'] = self.get_document()
-        return context
-
-
 class ValidationPresentView(ValidationMixin, WorkflowFormView):
     form_class = ValidationPresentForm
     success_message = 'Validation presented.'
@@ -810,71 +793,6 @@ class ValidationAcceptView(ValidationMixin, WorkflowFormView):
 
     def perform_action(self, form):
         S.opportunities.ValidationAcceptService(validation=self.get_validation())
-
-
-class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
-    form_class = ValidationDocumentUploadForm
-    success_message = 'Validation document uploaded.'
-    form_title = 'Upload document'
-    submit_label = 'Upload'
-    required_action = PROVIDER_OPPORTUNITY_PUBLISH
-
-    def get_initial(self):
-        initial = super().get_initial()
-        requested_type = self.request.GET.get('document_type')
-        if requested_type:
-            doc_type = S.opportunities.ValidationDocumentTypesQuery().filter(code=requested_type).first()
-            if doc_type:
-                initial['document_type'] = doc_type
-        return initial
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        doc_type = self.request.GET.get('document_type') or self.request.POST.get('document_type')
-        kwargs['forced_document_type'] = doc_type
-        kwargs['validation'] = self.get_validation()
-        return kwargs
-
-    def perform_action(self, form):
-        S.opportunities.CreateValidationDocumentService(
-            validation=self.get_validation(),
-            document_type=form.cleaned_data['document_type'],
-            observations=form.cleaned_data.get('observations') or None,
-            document=form.cleaned_data['document'],
-            uploaded_by=self.request.user if self.request.user.is_authenticated else None,
-        )
-
-
-class ValidationAdditionalDocumentUploadView(ValidationMixin, WorkflowFormView):
-    form_class = ValidationAdditionalDocumentUploadForm
-    success_message = 'Custom document uploaded.'
-    form_title = 'Upload custom document'
-    submit_label = 'Upload'
-    required_action = PROVIDER_OPPORTUNITY_PUBLISH
-
-    def perform_action(self, form):
-        S.opportunities.CreateAdditionalValidationDocumentService(
-            validation=self.get_validation(),
-            observations=form.cleaned_data.get('observations') or None,
-            document=form.cleaned_data['document'],
-            uploaded_by=self.request.user if self.request.user.is_authenticated else None,
-        )
-
-
-class ValidationDocumentReviewView(ValidationDocumentMixin, WorkflowFormView):
-    form_class = ValidationDocumentReviewForm
-    success_message = 'Validation document reviewed.'
-    form_title = 'Review document'
-    submit_label = 'Submit review'
-    required_action = PROVIDER_OPPORTUNITY_PUBLISH
-
-    def perform_action(self, form):
-        S.opportunities.ReviewValidationDocumentService(
-            document=self.get_document(),
-            action=form.cleaned_data['action'],
-            reviewer=self.request.user,
-            comment=form.cleaned_data.get('comment'),
-        )
 
 
 class MarketingPublicationCreateView(MarketingOpportunityMixin, WorkflowFormView):

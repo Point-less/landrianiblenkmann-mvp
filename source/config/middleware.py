@@ -2,11 +2,29 @@
 
 from __future__ import annotations
 
+import logging
+
 from django.conf import settings
 from django.contrib.auth.views import redirect_to_login
 from django.http import HttpRequest, HttpResponse, JsonResponse
 
 from utils.actors import actor_context
+
+logger = logging.getLogger("django.request")
+
+
+class ExceptionLoggingMiddleware:
+    """Log unhandled exceptions with tracebacks to the console."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        try:
+            return self.get_response(request)
+        except Exception:
+            logger.exception("Unhandled exception while processing request.")
+            raise
 
 
 class ActorContextMiddleware:

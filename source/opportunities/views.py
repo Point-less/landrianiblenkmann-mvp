@@ -129,6 +129,12 @@ class ValidationDetailView(ValidationMixin, LoginRequiredMixin, PermissionedView
         context['required_documents'] = validation.required_documents_status()
         context['custom_documents'] = validation.custom_documents()
         context['summary'] = validation.document_status_summary()
+        context['current_url'] = self.request.get_full_path()
+        next_url = self.request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={self.request.get_host()}):
+            context['back_url'] = next_url
+        else:
+            context['back_url'] = reverse('workflow-dashboard-section', kwargs={'section': 'provider-validations'})
         return context
 
 
@@ -211,7 +217,9 @@ class ValidationDocumentUploadView(ValidationMixin, PermissionedViewMixin, Login
         initial = super().get_initial()
         requested_type = self.request.GET.get('document_type')
         if requested_type:
-            doc_type = S.opportunities.ValidationDocumentTypesQuery().filter(code=requested_type).first()
+            doc_type = S.opportunities.AllowedValidationDocumentTypesQuery(
+                validation=self.get_validation(),
+            ).filter(code=requested_type).first()
             if doc_type:
                 initial['document_type'] = doc_type
         return initial

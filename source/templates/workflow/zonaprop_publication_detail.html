@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Zonaprop Publication | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Zonaprop Publication</h2>
+    <a class="btn" href="{% url 'workflow-dashboard-section' 'integration-zonaprop' %}">Back</a>
+</div>
+<div class="card">
+    <h4>Publication</h4>
+    <table>
+        <tr><th>Posting ID</th><td>{{ publication.posting_id }}</td></tr>
+        <tr><th>Internal Code</th><td>{{ publication.internal_code }}</td></tr>
+        <tr><th>Publisher ID</th><td>{{ publication.publisher_id|default:"-" }}</td></tr>
+        <tr><th>Status</th><td>{{ publication.status }}</td></tr>
+        <tr><th>Begin Date</th><td>{{ publication.begin_date|date:"Y-m-d" }}</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h4>Daily Statistics</h4>
+    <table>
+        <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Impressions</th>
+            <th scope="col">Views</th>
+            <th scope="col">Leads</th>
+        </tr>
+        {% for stat in daily_stats %}
+            <tr>
+                <td>{{ stat.date|date:"Y-m-d" }}</td>
+                <td>{{ stat.impressions }}</td>
+                <td>{{ stat.views }}</td>
+                <td>{{ stat.leads }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4">No statistics yet.</td></tr>
+        {% endfor %}
+        {% if daily_stats %}
+            <tr>
+                <th scope="row">Total</th>
+                <td>{{ daily_totals.impressions|default:0 }}</td>
+                <td>{{ daily_totals.views|default:0 }}</td>
+                <td>{{ daily_totals.leads|default:0 }}</td>
+            </tr>
+        {% endif %}
+    </table>
+</div>
+{% endblock %}
+

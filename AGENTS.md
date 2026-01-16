@@ -16,7 +16,6 @@
 - **Task Queue**: Dramatiq workers with RabbitMQ 3 broker
 - **Databases**: PostgreSQL 16, Redis 7.4 (caching + Dramatiq results)
 - **Deployment**: Docker Compose (`docker compose up -d`)
-- **Optional**: Cloudflared tunnel (`docker compose --profile tunnel up`)
 
 ## Services & Runtime
 
@@ -27,7 +26,6 @@
 | `postgres` | 5432 (internal) | PostgreSQL database |
 | `rabbitmq` | 5672 (broker), 15672 (UI) | Message broker + management UI |
 | `redis` | 6379 | Cache and Dramatiq result backend |
-| `cloudflared` | - | Optional Cloudflare tunnel (profile: `tunnel`) |
 
 - `./source` is bind-mounted into the app containers; edits on host reflect immediately.
 - Prefer hot reload: `frontend`/`dramatiq` use `watchmedo` autoreload. Rebuild images only when Dockerfiles or deps change.
@@ -131,7 +129,6 @@ State transitions use **django-fsm** with **django-fsm-log** for audit trails.
 - Management commands: `docker compose exec frontend python manage.py <command>`.
 - Migrations: never handcraft; run `docker compose exec frontend python manage.py makemigrations`.
 - Dramatiq worker: `docker compose up dramatiq`; trigger via `/trigger-log/`.
-- Cloudflared tunnel: `docker compose --profile tunnel up`.
 
 ## Configuration
 

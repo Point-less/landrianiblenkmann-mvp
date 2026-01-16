@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load authorization_tags %}
+{% block title %}{{ integration_name }} | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ integration_name }}</h2>
+</div>
+<div class="card">
+    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+    {% can "integration.manage" as can_manage %}
+    {% if can_manage %}
+        <form method="post" action="{% url 'integration-zonaprop-sync-now' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ current_url }}">
+            <button type="submit">Sync publications</button>
+        </form>
+        <form method="post" action="{% url 'integration-zonaprop-sync-enqueue' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ current_url }}">
+            <button type="submit">Enqueue sync</button>
+        </form>
+    {% endif %}
+    </div>
+
+    <h4 style="margin-top:1.5rem;">Publications</h4>
+    <table>
+        <tr>
+            <th>Posting ID</th>
+            <th>Internal Code</th>
+            <th>Publisher ID</th>
+            <th>Begin Date</th>
+            <th>Status</th>
+            <th>Latest Stat</th>
+            <th class="actions-column">Actions</th>
+        </tr>
+        {% for publication in zonaprop_publications %}
+            <tr>
+                <td>{{ publication.posting_id }}</td>
+                <td>{{ publication.internal_code }}</td>
+                <td>{{ publication.publisher_id|default:"-" }}</td>
+                <td>{{ publication.begin_date|date:"Y-m-d" }}</td>
+                <td>{{ publication.status }}</td>
+                <td>{{ publication.latest_stat_date|date:"Y-m-d"|default:"-" }}</td>
+                <td class="actions-column">
+                    <a class="btn" href="{% url 'integration-zonaprop-publication-detail' publication.id %}">Details</a>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="6">No publications synced yet.</td></tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}
+

@@ -4,13 +4,18 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
-from django.views.generic import ListView
+from django.views.generic import ListView, TemplateView
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 from core.mixins import PermissionedViewMixin
-from integrations.tasks import sync_tokkobroker_properties_task, sync_tokkobroker_registry
-from utils.authorization import INTEGRATION_MANAGE
+from integrations.tasks import (
+    sync_tokkobroker_properties_task,
+    sync_tokkobroker_registry,
+    sync_zonaprop_publications_task,
+    sync_zonaprop_registry,
+)
+from utils.authorization import INTEGRATION_MANAGE, INTEGRATION_VIEW
 from utils.services import S
 
 
@@ -111,8 +116,76 @@ class TokkoClearView(PermissionedViewMixin, LoginRequiredMixin, View):
         return redirect('workflow-dashboard-section', section='integrations')
 
 
+class ZonapropSyncRunView(PermissionedViewMixin, LoginRequiredMixin, View):
+    login_url = '/admin/login/'
+    required_action = INTEGRATION_MANAGE
+
+    def post(self, request):
+        processed = sync_zonaprop_registry()
+        messages.success(request, f"Zonaprop publications synced ({processed}).")
+        return self._redirect_back(request)
+
+    def get(self, request):  # pragma: no cover - redirect to avoid GET usage
+        return self._redirect_back(request)
+
+    def _redirect_back(self, request):
+        next_url = request.POST.get('next') or request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            return redirect(next_url)
+        return redirect('workflow-dashboard-section', section='integration-zonaprop')
+
+
+class ZonapropSyncEnqueueView(PermissionedViewMixin, LoginRequiredMixin, View):
+    login_url = '/admin/login/'
+    required_action = INTEGRATION_MANAGE
+
+    def post(self, request):
+        message = sync_zonaprop_publications_task.send()
+        messages.info(
+            request,
+            f"Zonaprop sync enqueued (message ID: {message.message_id}).",
+        )
+        return self._redirect_back(request)
+
+    def get(self, request):  # pragma: no cover - redirect to avoid GET usage
+        return self._redirect_back(request)
+
+    def _redirect_back(self, request):
+        next_url = request.POST.get('next') or request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            return redirect(next_url)
+        return redirect('workflow-dashboard-section', section='integration-zonaprop')
+
+
+class ZonapropPublicationDetailView(PermissionedViewMixin, LoginRequiredMixin, TemplateView):
+    login_url = '/admin/login/'
+    template_name = "workflow/zonaprop_publication_detail.html"
+    required_action = INTEGRATION_VIEW
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        publication = S.integrations.ZonapropPublicationDetailQuery(
+            actor=self.request.user,
+            publication_id=self.kwargs["publication_id"],
+        )
+        context["publication"] = publication
+        daily_stats = publication.daily_stats.order_by("date")
+        totals = daily_stats.aggregate(
+            impressions=Sum("impressions"),
+            views=Sum("views"),
+            leads=Sum("leads"),
+        )
+        context["daily_stats"] = daily_stats
+        context["daily_totals"] = totals
+        context["current_url"] = self.request.get_full_path()
+        return context
+
+
 __all__ = [
     "TokkoSyncRunView",
     "TokkoSyncEnqueueView",
     "TokkoClearView",
+    "ZonapropSyncRunView",
+    "ZonapropSyncEnqueueView",
+    "ZonapropPublicationDetailView",
 ]

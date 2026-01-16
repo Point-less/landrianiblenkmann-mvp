@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Mapping, MutableMapping
 from decimal import Decimal
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 import dramatiq
 from django.conf import settings
@@ -16,6 +16,7 @@ from integrations.tokkobroker import (
     TokkoIntegrationError,
     fetch_tokkobroker_properties,
 )
+from integrations.zonaprop_client import ZonapropClient
 from opportunities.models import MarketingPackage, MarketingPublication
 from utils.services import S
 
@@ -92,6 +93,65 @@ def sync_tokkobroker_properties_task() -> None:
     logger.info("Tokkobroker properties task enqueued processing started")
     processed = sync_tokkobroker_registry()
     logger.info("Tokkobroker properties task finished; synced=%s", processed)
+
+
+def _build_zonaprop_client() -> ZonapropClient:
+    email = getattr(settings, "ZONAPROP_EMAIL", None)
+    password = getattr(settings, "ZONAPROP_PASSWORD", None)
+    if not email or not password:
+        raise RuntimeError("ZONAPROP_EMAIL and ZONAPROP_PASSWORD must be configured.")
+    return ZonapropClient(email=email, password=password)
+
+
+def sync_zonaprop_registry() -> int:
+    """Synchronize Zonaprop publications and incremental stats."""
+
+    client = _build_zonaprop_client()
+    client.login()
+
+    processed = 0
+    page = 1
+    max_page = 1
+    while page <= max_page:
+        response = client.fetch_postings(page=page)
+        max_page = response["maxPage"]
+        for item in response["postings"]:
+            S.integrations.UpsertZonapropPublicationService(item=item)
+            processed += 1
+        page += 1
+
+    end_date = date.today() - timedelta(days=1)
+    if end_date < date(1900, 1, 1):
+        return processed
+
+    publications = S.integrations.ZonapropPublicationsQuery()
+    for publication in publications:
+        if publication.status != "ONLINE":
+            continue
+        start_date = S.integrations.NextZonapropStatsStartDateQuery(
+            publication=publication,
+            end_date=end_date,
+        )
+        if not start_date:
+            continue
+        daily_payload = client.fetch_posting_daily_stats(
+            publication.posting_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        S.integrations.StoreZonapropDailyStatsService(
+            publication=publication,
+            payload=daily_payload,
+        )
+
+    return processed
+
+
+@dramatiq.actor
+def sync_zonaprop_publications_task() -> None:
+    logger.info("Zonaprop publications task enqueued processing started")
+    processed = sync_zonaprop_registry()
+    logger.info("Zonaprop publications task finished; synced=%s", processed)
 
 
 def _format_tokko_price(price: Decimal) -> str:

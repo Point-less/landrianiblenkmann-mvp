@@ -224,7 +224,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
         'operation-agreements': 'workflow/sections/operation_agreements.html',
         'reports-operations': 'workflow/sections/reports_operations.html',
         'integration-tokkobroker': 'workflow/sections/integrations.html',
-        'integration-zonaprop': 'workflow/sections/integration_placeholder.html',
+        'integration-zonaprop': 'workflow/sections/integration_zonaprop.html',
         'integration-meta': 'workflow/sections/integration_placeholder.html',
     }
 
@@ -377,7 +377,7 @@ class DashboardSectionView(PermissionedViewMixin, LoginRequiredMixin, TemplateVi
     def _context_integration_zonaprop(self):
         return {
             'integration_name': 'Zonaprop',
-            'status_message': 'This integration is in progress. You will be able to sync Zonaprop properties from here soon.',
+            'zonaprop_publications': S.integrations.ZonapropPublicationsQuery(actor=self.request.user),
         }
 
     def _context_integration_meta(self):

@@ -120,4 +120,3 @@ class Command(BaseCommand):
         ]
 
         S.users.SeedPermissionsService(actions=all_actions)
-        self.stdout.write(self.style.SUCCESS("Roles and permissions seeded."))

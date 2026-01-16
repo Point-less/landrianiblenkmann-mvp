@@ -18,6 +18,9 @@ TOKKO_OTP_TOKEN = os.environ.get('TOKKO_OTP_TOKEN', '123456')
 TOKKO_TIMEOUT = int(os.environ.get('TOKKO_TIMEOUT', '30'))
 TOKKO_SYNC_ENABLED = os.environ.get('TOKKO_SYNC_ENABLED', 'true').lower() == 'true'
 
+ZONAPROP_EMAIL = os.environ.get('ZONAPROP_EMAIL')
+ZONAPROP_PASSWORD = os.environ.get('ZONAPROP_PASSWORD')
+
 # Default gross commission (fraction). Override with env DEFAULT_GROSS_COMMISSION_PCT (e.g., 0.04 for 4%).
 DEFAULT_GROSS_COMMISSION_PCT = Decimal(os.environ.get('DEFAULT_GROSS_COMMISSION_PCT', '0.04'))
 

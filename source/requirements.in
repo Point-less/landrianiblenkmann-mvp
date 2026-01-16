@@ -4,6 +4,7 @@ django-dramatiq>=0.11
 django-redis>=5.4
 psycopg[binary]>=3.2
 requests>=2.32
+pydantic>=2.0
 gunicorn>=21.2
 watchdog>=4.0
 uvicorn[standard]>=0.32

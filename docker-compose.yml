@@ -20,6 +20,8 @@ services:
       TOKKO_BASE_URL: ${TOKKO_BASE_URL}
       TOKKO_USERNAME: ${TOKKO_USERNAME}
       TOKKO_PASSWORD: ${TOKKO_PASSWORD}
+      ZONAPROP_EMAIL: ${ZONAPROP_EMAIL}
+      ZONAPROP_PASSWORD: ${ZONAPROP_PASSWORD}
 
     depends_on:
       - postgres
@@ -46,6 +48,8 @@ services:
       TOKKO_USERNAME: ${TOKKO_USERNAME}
       TOKKO_PASSWORD: ${TOKKO_PASSWORD}
       TOKKO_SYNC_ENABLED: ${TOKKO_SYNC_ENABLED}
+      ZONAPROP_EMAIL: ${ZONAPROP_EMAIL}
+      ZONAPROP_PASSWORD: ${ZONAPROP_PASSWORD}
     depends_on:
       - postgres
       - rabbitmq
@@ -70,15 +74,6 @@ services:
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    profiles:
-      - tunnel
-    depends_on:
-      - frontend
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
 
 volumes:
   postgres_data:

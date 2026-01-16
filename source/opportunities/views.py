@@ -131,6 +131,7 @@ class ValidationDetailView(ValidationMixin, LoginRequiredMixin, PermissionedView
         context['summary'] = validation.document_status_summary()
         context['current_url'] = self.request.get_full_path()
         next_url = self.request.GET.get('next')
+
         if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={self.request.get_host()}):
             context['back_url'] = next_url
         else:
@@ -205,7 +206,7 @@ class ValidationAcceptView(ValidationMixin, PermissionedViewMixin, LoginRequired
         return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-validations'})
 
 
-class ValidationDocumentUploadView(ValidationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class ValidationDocumentUploadView(ValidationMixin, WorkflowFormView):
     template_name = 'workflow/form.html'
     form_class = ValidationDocumentUploadForm
     success_message = 'Validation document uploaded.'
@@ -238,18 +239,11 @@ class ValidationDocumentUploadView(ValidationMixin, PermissionedViewMixin, Login
             uploaded_by=self.request.user if self.request.user.is_authenticated else None,
         )
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
-
     def get_success_url(self):
-        return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-validations'})
+        return reverse('validation-detail', kwargs={'validation_id': self.get_validation().id})
 
 
-class ValidationAdditionalDocumentUploadView(ValidationMixin, PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):
+class ValidationAdditionalDocumentUploadView(ValidationMixin, WorkflowFormView):
     template_name = 'workflow/form.html'
     form_class = ValidationAdditionalDocumentUploadForm
     success_message = 'Custom document uploaded.'
@@ -265,15 +259,8 @@ class ValidationAdditionalDocumentUploadView(ValidationMixin, PermissionedViewMi
             uploaded_by=self.request.user if self.request.user.is_authenticated else None,
         )
 
-    def form_valid(self, form):
-        try:
-            self.perform_action(form)
-        except ValidationError:
-            return self.form_invalid(form)
-        return super().form_valid(form)
-
     def get_success_url(self):
-        return reverse_lazy('workflow-dashboard-section', kwargs={'section': 'provider-validations'})
+        return reverse('validation-detail', kwargs={'validation_id': self.get_validation().id})
 
 
 class ValidationDocumentReviewView(PermissionedViewMixin, LoginRequiredMixin, SuccessMessageMixin, FormView):

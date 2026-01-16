@@ -54,6 +54,17 @@ class MarketingServiceTests(TestCase):
         self.package.refresh_from_db()
         self.assertEqual(self.package.publication, publication)
 
+    def test_activate_requires_marketing_stage(self):
+        self.opportunity.state = ProviderOpportunity.State.VALIDATING
+        self.opportunity.save(update_fields=["state", "updated_at"])
+
+        svc = MarketingPackageActivateService(actor=None)
+        with self.assertRaises(ValidationError):
+            svc(package=self.package, use_atomic=False)
+
+        self.publication.refresh_from_db()
+        self.assertEqual(self.publication.state, MarketingPublication.State.PREPARING)
+
     def test_pause_requires_validation_approved(self):
         self.publication.state = MarketingPublication.State.PUBLISHED
         self.publication.save(update_fields=["state", "updated_at"])

@@ -15,6 +15,8 @@ class MarketingPackageActivateService(BaseService):
     def run(self, *, package: MarketingPackage) -> MarketingPublication:
         if not package.is_active:
             raise ValidationError("Cannot transition an inactive marketing package revision.")
+        if package.opportunity.state != ProviderOpportunity.State.MARKETING:
+            raise ValidationError("Opportunity must be in marketing stage to publish a package.")
         publication, _ = MarketingPublication.objects.get_or_create(
             opportunity=package.opportunity,
             defaults={"package": package},
@@ -35,8 +37,8 @@ class MarketingPackageReleaseService(BaseService):
     required_action = PROVIDER_OPPORTUNITY_PUBLISH
 
     def run(self, *, package: MarketingPackage) -> MarketingPublication:
-        if package.opportunity.state == ProviderOpportunity.State.CLOSED:
-            raise ValidationError("Cannot resume a marketing package for a closed opportunity.")
+        if package.opportunity.state != ProviderOpportunity.State.MARKETING:
+            raise ValidationError("Opportunity must be in marketing stage to publish a package.")
         if not package.is_active:
             raise ValidationError("Cannot transition an inactive marketing package revision.")
         publication = MarketingPublication.objects.filter(opportunity=package.opportunity).first()

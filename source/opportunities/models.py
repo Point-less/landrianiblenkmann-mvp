@@ -726,7 +726,12 @@ class MarketingPublication(TimeStampedMixin, FSMTrackingMixin):
         if self.package.opportunity_id != self.opportunity_id:
             raise ValidationError("Publication package must belong to the same opportunity.")
 
-    @transition(field="state", source=State.PREPARING, target=State.PUBLISHED)
+    @transition(
+        field="state",
+        source=State.PREPARING,
+        target=State.PUBLISHED,
+        conditions=[opportunity_in_marketing],
+    )
     def activate(self) -> "MarketingPublication":
         self._ensure_same_opportunity()
         self.state = MarketingPublication.State.PUBLISHED

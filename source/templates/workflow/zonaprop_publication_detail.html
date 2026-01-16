@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Zonaprop Publication | {{ block.super }}{% endblock %}
 {% block content %}
 <div class="page-header">
@@ -7,6 +8,9 @@
 </div>
 <div class="card">
     <h4>Publication</h4>
+    <div style="margin-bottom:1rem;">
+        <a class="btn" href="{{ publication.posting_url }}" target="_blank" rel="noopener">Open</a>
+    </div>
     <table>
         <tr><th>Posting ID</th><td>{{ publication.posting_id }}</td></tr>
         <tr><th>Internal Code</th><td>{{ publication.internal_code }}</td></tr>
@@ -18,6 +22,7 @@
 
 <div class="card">
     <h4>Daily Statistics</h4>
+    <canvas id="zonaprop-stats-chart" style="max-height: 320px;"></canvas>
     <table>
         <tr>
             <th scope="col">Date</th>
@@ -45,5 +50,56 @@
         {% endif %}
     </table>
 </div>
+{{ chart_labels|json_script:"zonaprop-chart-labels" }}
+{{ chart_impressions|json_script:"zonaprop-chart-impressions" }}
+{{ chart_views|json_script:"zonaprop-chart-views" }}
+{{ chart_leads|json_script:"zonaprop-chart-leads" }}
+<script src="{% static 'integrations/vendor/chart.umd.min.js' %}"></script>
+<script>
+  const labels = JSON.parse(document.getElementById("zonaprop-chart-labels").textContent);
+  const impressions = JSON.parse(document.getElementById("zonaprop-chart-impressions").textContent);
+  const views = JSON.parse(document.getElementById("zonaprop-chart-views").textContent);
+  const leads = JSON.parse(document.getElementById("zonaprop-chart-leads").textContent);
+
+  const ctx = document.getElementById("zonaprop-stats-chart");
+  if (ctx && labels.length) {
+    new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Impressions",
+            data: impressions,
+            borderColor: "#4e79a7",
+            backgroundColor: "rgba(78, 121, 167, 0.15)",
+            tension: 0.2,
+          },
+          {
+            label: "Views",
+            data: views,
+            borderColor: "#f28e2b",
+            backgroundColor: "rgba(242, 142, 43, 0.15)",
+            tension: 0.2,
+          },
+          {
+            label: "Leads",
+            data: leads,
+            borderColor: "#59a14f",
+            backgroundColor: "rgba(89, 161, 79, 0.15)",
+            tension: 0.2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true },
+        },
+      },
+    });
+  }
+</script>
 {% endblock %}
 

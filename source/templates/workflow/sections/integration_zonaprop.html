@@ -19,6 +19,11 @@
             <input type="hidden" name="next" value="{{ current_url }}">
             <button type="submit">Enqueue sync</button>
         </form>
+        <form method="post" action="{% url 'integration-zonaprop-clear' %}" onsubmit="return confirm('Clear all Zonaprop publications?');">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ current_url }}">
+            <button type="submit" class="btn-danger">Clear publications</button>
+        </form>
     {% endif %}
     </div>
 
@@ -43,10 +48,11 @@
                 <td>{{ publication.latest_stat_date|date:"Y-m-d"|default:"-" }}</td>
                 <td class="actions-column">
                     <a class="btn" href="{% url 'integration-zonaprop-publication-detail' publication.id %}">Details</a>
+                    <a class="btn" href="{{ publication.posting_url }}" target="_blank" rel="noopener">Open</a>
                 </td>
             </tr>
         {% empty %}
-            <tr><td colspan="6">No publications synced yet.</td></tr>
+            <tr><td colspan="7">No publications synced yet.</td></tr>
         {% endfor %}
     </table>
 </div>

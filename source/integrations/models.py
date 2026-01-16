@@ -27,6 +27,7 @@ class ZonapropPublication(TimeStampedMixin):
 
     posting_id = models.PositiveBigIntegerField(unique=True)
     publisher_id = models.PositiveBigIntegerField()
+    posting_url = models.URLField()
     internal_code = models.CharField(max_length=64)
     begin_date = models.DateField()
     status = models.CharField(max_length=32)

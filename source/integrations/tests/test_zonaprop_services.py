@@ -5,6 +5,7 @@ from django.test import TestCase, override_settings
 
 from integrations.models import ZonapropPublication, ZonapropPublicationDailyStat
 from integrations.services.zonaprop import (
+    ClearZonapropPublicationsService,
     NextZonapropStatsStartDateQuery,
     StoreZonapropDailyStatsService,
     UpsertZonapropPublicationService,
@@ -21,12 +22,14 @@ class ZonapropServiceTests(TestCase):
                 {
                     "postingId": 1,
                     "publisherId": 555,
+                    "urlPosting": "casa-en-cinco-saltos-57712278.html",
                     "internalCode": "A-1",
                     "stateAndDates": [{"status": "ONLINE", "beginDate": "01/01/2026"}],
                 },
                 {
                     "postingId": 2,
                     "internalCode": "B-2",
+                    "urlPosting": "casa-offline-57712279.html",
                     "stateAndDates": [{"status": "OFFLINE", "beginDate": "02/01/2026"}],
                 },
             ],
@@ -52,6 +55,10 @@ class ZonapropServiceTests(TestCase):
         self.assertEqual(active.status, "ONLINE")
         self.assertEqual(inactive.status, "OFFLINE")
         self.assertEqual(active.publisher_id, 555)
+        self.assertEqual(
+            active.posting_url,
+            "https://www.zonaprop.com.ar/propiedades/clasificado/casa-en-cinco-saltos-57712278.html",
+        )
 
         start_date = NextZonapropStatsStartDateQuery(
             publication=active,
@@ -71,6 +78,7 @@ class ZonapropServiceTests(TestCase):
             posting_id=10,
             publisher_id=999,
             internal_code="CODE-10",
+            posting_url="https://www.zonaprop.com/casa-10.html",
             begin_date=date(2026, 1, 1),
             status="ONLINE",
             listing_payload={"postingId": 10},
@@ -91,10 +99,25 @@ class ZonapropServiceTests(TestCase):
             posting_id=11,
             publisher_id=1001,
             internal_code="CODE-11",
+            posting_url="https://www.zonaprop.com/casa-11.html",
             begin_date=date(2026, 1, 1),
             status="ONLINE",
             listing_payload={"postingId": 11},
         )
         result = ZonapropPublicationDetailQuery(publication_id=publication.id)
         self.assertEqual(result.posting_id, 11)
+
+    def test_clear_publications_service(self):
+        ZonapropPublication.objects.create(
+            posting_id=20,
+            publisher_id=2000,
+            internal_code="CODE-20",
+            posting_url="https://www.zonaprop.com/casa-20.html",
+            begin_date=date(2026, 1, 1),
+            status="ONLINE",
+            listing_payload={"postingId": 20},
+        )
+        deleted = ClearZonapropPublicationsService()
+        self.assertGreaterEqual(deleted, 1)
+        self.assertEqual(ZonapropPublication.objects.count(), 0)
 

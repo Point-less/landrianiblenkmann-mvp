@@ -157,6 +157,25 @@ class ZonapropSyncEnqueueView(PermissionedViewMixin, LoginRequiredMixin, View):
         return redirect('workflow-dashboard-section', section='integration-zonaprop')
 
 
+class ZonapropClearView(PermissionedViewMixin, LoginRequiredMixin, View):
+    login_url = '/admin/login/'
+    required_action = INTEGRATION_MANAGE
+
+    def post(self, request):
+        deleted = S.integrations.ClearZonapropPublicationsService()
+        messages.warning(request, f"Cleared {deleted} Zonaprop publications.")
+        return self._redirect_back(request)
+
+    def get(self, request):  # pragma: no cover
+        return self._redirect_back(request)
+
+    def _redirect_back(self, request):
+        next_url = request.POST.get('next') or request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            return redirect(next_url)
+        return redirect('workflow-dashboard-section', section='integration-zonaprop')
+
+
 class ZonapropPublicationDetailView(PermissionedViewMixin, LoginRequiredMixin, TemplateView):
     login_url = '/admin/login/'
     template_name = "workflow/zonaprop_publication_detail.html"
@@ -170,6 +189,13 @@ class ZonapropPublicationDetailView(PermissionedViewMixin, LoginRequiredMixin, T
         )
         context["publication"] = publication
         daily_stats = publication.daily_stats.order_by("date")
+        chart_rows = list(
+            daily_stats.values_list("date", "impressions", "views", "leads")
+        )
+        context["chart_labels"] = [row[0].isoformat() for row in chart_rows]
+        context["chart_impressions"] = [row[1] for row in chart_rows]
+        context["chart_views"] = [row[2] for row in chart_rows]
+        context["chart_leads"] = [row[3] for row in chart_rows]
         totals = daily_stats.aggregate(
             impressions=Sum("impressions"),
             views=Sum("views"),
@@ -187,5 +213,6 @@ __all__ = [
     "TokkoClearView",
     "ZonapropSyncRunView",
     "ZonapropSyncEnqueueView",
+    "ZonapropClearView",
     "ZonapropPublicationDetailView",
 ]

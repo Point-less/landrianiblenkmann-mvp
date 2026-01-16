@@ -4,6 +4,7 @@ from .registry import (
     UpsertTokkobrokerPropertyService,
 )
 from .zonaprop import (
+    ClearZonapropPublicationsService,
     NextZonapropStatsStartDateQuery,
     StoreZonapropDailyStatsService,
     UpsertZonapropPublicationService,
@@ -18,6 +19,7 @@ __all__ = [
     "ZonapropPublicationDetailQuery",
     "ZonapropPublicationsQuery",
     "UpsertZonapropPublicationService",
+    "ClearZonapropPublicationsService",
     "NextZonapropStatsStartDateQuery",
     "StoreZonapropDailyStatsService",
 ]

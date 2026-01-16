@@ -33,10 +33,20 @@ class UpsertZonapropPublicationService(BaseService):
         internal_code = item.get("internalCode")
         posting_id = item.get("postingId")
         publisher_id = item.get("publisherId")
+        url_posting = item.get("urlPosting")
         if not internal_code or not posting_id:
             raise RuntimeError("Missing internalCode or postingId in listing payload.")
         if not isinstance(publisher_id, int):
             raise RuntimeError("Missing publisherId in listing payload.")
+        if not isinstance(url_posting, str) or not url_posting:
+            raise RuntimeError("Missing urlPosting in listing payload.")
+        if url_posting.startswith("http"):
+            posting_url = url_posting
+        else:
+            posting_url = (
+                "https://www.zonaprop.com.ar/propiedades/clasificado/"
+                f"{url_posting.lstrip('/')}"
+            )
 
         state_and_dates = item.get("stateAndDates")
         if not state_and_dates:
@@ -55,10 +65,21 @@ class UpsertZonapropPublicationService(BaseService):
                 "begin_date": begin_date,
                 "status": status,
                 "publisher_id": publisher_id,
+                "posting_url": posting_url,
                 "listing_payload": item,
             },
         )
         return publication
+
+
+class ClearZonapropPublicationsService(BaseService):
+    """Remove all Zonaprop publications and stats."""
+
+    atomic = True
+
+    def run(self, *, actor=None) -> int:
+        deleted, _ = ZonapropPublication.objects.all().delete()
+        return deleted
 
 
 class NextZonapropStatsStartDateQuery(BaseService):
@@ -122,6 +143,7 @@ __all__ = [
     "ZonapropPublicationsQuery",
     "ZonapropPublicationDetailQuery",
     "UpsertZonapropPublicationService",
+    "ClearZonapropPublicationsService",
     "NextZonapropStatsStartDateQuery",
     "StoreZonapropDailyStatsService",
 ]
